@@ -1,6 +1,7 @@
 import {
   integer, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 // Synced table (ADR-0003): client-generated UUID id, updatedAt and soft delete.
@@ -23,19 +24,12 @@ export const planTable = sqliteTable("plan", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const planSchema = z.object({
+export const planSchema = createInsertSchema(planTable, {
   id: z.uuid().optional(),
-  name: z.string().trim()
-    .min(1, "Name is required")
+  name: s => s.trim().min(1, "Name is required")
     .max(100),
-  position: z.number().int()
-    .min(0),
-  isActive: z.boolean(),
+  position: s => s.min(0),
   nextWorkoutId: z.uuid().nullable()
-    .optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
     .optional()
 });
 

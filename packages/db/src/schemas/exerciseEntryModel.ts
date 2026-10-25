@@ -1,6 +1,7 @@
 import {
   integer, real, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 import { blockTable } from "./blockModel";
@@ -52,29 +53,24 @@ export const exerciseEntryTable = sqliteTable("exerciseEntry", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const exerciseEntrySchema = z.object({
+export const exerciseEntrySchema = createInsertSchema(exerciseEntryTable, {
   id: z.uuid().optional(),
-  blockId: z.uuid(),
-  exerciseId: z.uuid("Pick an exercise"),
-  position: z.number().int()
-    .min(0),
-  targetSets: z.number("Sets must be a number").int("Sets must be a whole number")
+  blockId: () => z.uuid(),
+  exerciseId: () => z.uuid("Pick an exercise"),
+  position: s => s.min(0),
+  targetSets: () => z.number("Sets must be a number").int("Sets must be a whole number")
     .min(1, "At least 1 set")
     .max(50),
-  targetReps: z.number("Reps must be a number").int("Reps must be a whole number")
+  targetReps: () => z.number("Reps must be a number").int("Reps must be a whole number")
     .min(1, "At least 1 rep")
     .max(1000),
-  targetWeight: z.number("Weight must be a number").min(0, "Weight can't be negative")
+  targetWeight: () => z.number("Weight must be a number").min(0, "Weight can't be negative")
     .max(MAX_TARGET_WEIGHT),
-  restSeconds: z.number("Rest must be a number").int("Rest must be whole seconds")
+  restSeconds: () => z.number("Rest must be a number").int("Rest must be whole seconds")
     .min(0, "Rest can't be negative")
     .max(3600),
-  weightStep: z.number("Weight Step must be a number").positive("Weight Step must be above 0")
-    .max(MAX_WEIGHT_STEP),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
-    .optional()
+  weightStep: () => z.number("Weight Step must be a number").positive("Weight Step must be above 0")
+    .max(MAX_WEIGHT_STEP)
 });
 
 // What the lifter picks when adding an Exercise Entry; the targets fall back to

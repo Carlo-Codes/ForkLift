@@ -19,7 +19,7 @@ npm scope: `@forklift`. Display name (debug namespaces): `ForkLift`.
 | Language | TypeScript, strict, ESM everywhere (`"type": "module"`) | `typescript@^6` |
 | DB / ORM | SQLite + Drizzle ORM **v1 RC** (`defineRelations` API), pinned exactly — newest RC; switch to 1.0 stable once it ships | `drizzle-orm@1.0.0-rc.5`, `drizzle-kit@1.0.0-rc.5` |
 | Server SQLite driver | `better-sqlite3` | `^12` |
-| Validation | Zod v4 (hand-written schemas, not drizzle-zod generators) | `zod@^4.3.6` |
+| Validation | Zod v4; entity schemas generated from tables with Drizzle's built-in `drizzle-orm/zod` (not the separate `drizzle-zod` package), ADR-0005 | `zod@^4.3.6` |
 | API | Express 4 + `cors`, run with `tsx` (no build step) | `express@^4.21`, `tsx@^4` |
 | Logging / errors | `debug` package wrapped in an internal package; shared `ApiError` | `debug@^4` |
 | Tests | Jest 30 + `ts-jest` (ESM), `supertest` for HTTP | `jest@~30.5`, `ts-jest@^29.4` |
@@ -321,6 +321,7 @@ import { sql } from "drizzle-orm";
 import {
   integer, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 import { parentTable } from "./parentModel";
@@ -328,6 +329,7 @@ import { parentTable } from "./parentModel";
 export const widgetTable = sqliteTable("widget", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   clientId: text("clientId").notNull().unique(),          // only if client-generated ids are needed
+  name: text("name").notNull(),
   parentId: integer("parentId").references(() => parentTable.id, {
     onDelete: "restrict",
     onUpdate: "cascade"
@@ -337,11 +339,9 @@ export const widgetTable = sqliteTable("widget", {
     .default(sql`(unixepoch())`)
 });
 
-export const widgetSchema = z.object({
-  id: z.number().int().optional(),
-  clientId: z.uuid(),
-  parentId: z.number().int().nullable().optional(),
-  createdAt: z.date().optional()
+export const widgetSchema = createInsertSchema(widgetTable, {
+  clientId: () => z.uuid(),
+  name: s => s.trim().min(1, "Name is required").max(100)
 });
 
 type WidgetDbSelect = typeof widgetTable.$inferSelect;
@@ -363,8 +363,15 @@ Rules:
 - Integer autoincrement PKs. Client-generated reconciliation ids are an extra `text` uuid column
   (`clientId`), not the PK.
 - FKs inline via `.references(() => x.id, { onDelete, onUpdate })` — always state both explicitly.
-- Hand-write the `<entity>Schema` zod object mirroring the insert shape (`id` optional). Extra
-  request-payload schemas (`<entity>CreatePayloadSchema`) live in the same file.
+- Generate `<entity>Schema` with `createInsertSchema(<entity>Table, { … })` from
+  `drizzle-orm/zod`. Each column's type, nullability and optionality come from the table; refine
+  only what the table can't express (uuids, ranges, trims, user-facing messages). A function
+  refinement keeps the generated nullability and optionality. Use `s => s.min(…)` to extend the
+  base schema, or `() => z.number("msg")…` to set a custom type message.
+- On a column that has a default or is nullable, refine with a full schema that states it
+  (`id: z.uuid().optional()`), not a function. In rc.5 a function refinement on such a column is
+  typed as required, even though at runtime it's optional. Extra request-payload schemas
+  (`<entity>CreatePayloadSchema`) live in the same file, `.pick`ed from `<entity>Schema`.
 - End every model with a single `export type { … }` block of `<Entity>DbSelect`,
   `<Entity>DbInsert`, `<Entity>CreateAttributes`, `<Entity>Attributes`.
 - Enum-like columns: export a `const <x>Values = [ … ] as const` and use

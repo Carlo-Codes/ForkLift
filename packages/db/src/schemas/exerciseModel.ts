@@ -1,6 +1,7 @@
 import {
   integer, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 // Closed lists rather than tables: muscles and gym kit barely change, and fixed
@@ -59,21 +60,13 @@ export const exerciseTable = sqliteTable("exercise", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const exerciseSchema = z.object({
+export const exerciseSchema = createInsertSchema(exerciseTable, {
   id: z.uuid().optional(),
-  name: z.string().trim()
-    .min(1, "Name is required")
+  name: s => s.trim().min(1, "Name is required")
     .max(100),
-  muscleGroups: z.array(z.enum(muscleGroupValues)).max(muscleGroupValues.length),
-  equipment: z.enum(equipmentValues).nullable()
-    .optional(),
+  muscleGroups: () => z.array(z.enum(muscleGroupValues)).max(muscleGroupValues.length),
   notes: z.string().max(2000)
     .nullable()
-    .optional(),
-  isBuiltIn: z.boolean(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
     .optional()
 });
 

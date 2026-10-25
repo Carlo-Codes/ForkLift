@@ -19,6 +19,8 @@ Always true:
   API. Every table goes in `relations.ts`'s `tables` **and** its `defineRelations` callback.
 - Internal packages export raw `.ts`, consumed via `workspace:*`; no build step.
 - Validate all API input with zod `safeParse` → 400 `ValidationError`. Log with `createDebugger`.
+- Entity schemas are generated with `createInsertSchema` from `drizzle-orm/zod` (ADR-0005), not
+  the `drizzle-zod` package; refine a defaulted or nullable column with a full schema, not a function.
 - Tests hit a real temp SQLite DB via `setupTestDb()`, seeded through `core` services.
 - Package directory names are lowercase; migrations live in root `.drizzle/migrations/`.
 - `core` imports only `@forklift/db/client` (RN-safe) and reads the db via `getDb()`, a registry

@@ -1,6 +1,7 @@
 import {
   integer, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 export const unitValues = [ "kg", "lb" ] as const;
@@ -20,14 +21,7 @@ export const settingTable = sqliteTable("setting", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const settingSchema = z.object({
-  id: z.uuid().optional(),
-  unit: z.enum(unitValues),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
-    .optional()
-});
+export const settingSchema = createInsertSchema(settingTable, { id: z.uuid().optional() });
 
 type Unit = (typeof unitValues)[number];
 type SettingDbSelect = typeof settingTable.$inferSelect;

@@ -1,6 +1,7 @@
 import {
   integer, real, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 import { exerciseEntryTable, MAX_TARGET_WEIGHT } from "./exerciseEntryModel";
@@ -41,23 +42,17 @@ export const loggedSetTable = sqliteTable("loggedSet", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const loggedSetSchema = z.object({
+export const loggedSetSchema = createInsertSchema(loggedSetTable, {
   id: z.uuid().optional(),
-  sessionId: z.uuid(),
-  exerciseEntryId: z.uuid(),
-  exerciseId: z.uuid(),
-  round: z.number().int()
-    .min(1),
-  reps: z.number("Reps must be a number").int("Reps must be a whole number")
+  sessionId: () => z.uuid(),
+  exerciseEntryId: () => z.uuid(),
+  exerciseId: () => z.uuid(),
+  round: s => s.min(1),
+  reps: () => z.number("Reps must be a number").int("Reps must be a whole number")
     .min(0, "Reps can't be negative")
     .max(1000),
-  weight: z.number("Weight must be a number").min(0, "Weight can't be negative")
-    .max(MAX_TARGET_WEIGHT),
-  completedAt: z.date(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
-    .optional()
+  weight: () => z.number("Weight must be a number").min(0, "Weight can't be negative")
+    .max(MAX_TARGET_WEIGHT)
 });
 
 // What the lifter actually did, when it differs from the target.

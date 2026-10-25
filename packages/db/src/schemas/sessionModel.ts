@@ -1,6 +1,7 @@
 import {
   integer, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 import { MAX_TARGET_WEIGHT } from "./exerciseEntryModel";
@@ -49,18 +50,10 @@ export const sessionTable = sqliteTable("session", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const sessionSchema = z.object({
+export const sessionSchema = createInsertSchema(sessionTable, {
   id: z.uuid().optional(),
-  workoutId: z.uuid(),
-  status: z.enum(sessionStatusValues),
-  blocks: z.array(z.array(sessionEntrySnapshotSchema)),
-  startedAt: z.date(),
-  finishedAt: z.date().nullable()
-    .optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
-    .optional()
+  workoutId: () => z.uuid(),
+  blocks: () => z.array(z.array(sessionEntrySnapshotSchema))
 });
 
 type SessionStatus = (typeof sessionStatusValues)[number];
