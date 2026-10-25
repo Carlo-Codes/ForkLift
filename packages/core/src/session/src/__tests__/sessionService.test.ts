@@ -4,7 +4,7 @@ import type { ExerciseEntryCreatePayload } from "@forklift/db/client";
 import type { ApiError } from "@forklift/debug";
 
 import {
-  completeSet, finishSession, getCurrentStep, getSession, startSession
+  completeSet, finishSession, getCurrentStep, getSession, resumeSession, skipExercise, skipSet, startSession
 } from "..";
 import { createExercise } from "../../../exercise/src";
 import {
@@ -37,13 +37,14 @@ const notFoundError = expect.objectContaining({
 
 describe("sessions", () => {
   let teardown: () => void;
+  let reopen: () => void;
   let planId: string;
   let pushId: string;
   let benchId: string;
   let flyId: string;
 
   beforeEach(() => {
-    ({ teardown } = setupTestDb());
+    ({ reopen, teardown } = setupTestDb());
     ({ id: planId } = createPlan({ name: "PPL" }));
     ({ id: pushId } = createWorkout(planId, { name: "Push" }));
     ({ id: benchId } = createExercise({
@@ -224,6 +225,8 @@ describe("sessions", () => {
     expect(listLoggedSets(id)[ 0 ]?.weight).toBe(80);
 
     // The edits apply from the next Session.
+    finishSession(id);
+
     expect(getCurrentStep(startSession(pushId).id).current).toEqual(expect.objectContaining({
       totalSets: 5,
       targetWeight: 100
@@ -318,6 +321,51 @@ describe("sessions", () => {
         "Bench Press A2 1/2",
         "Row B2 2/2"
       ]);
+    });
+
+    it("carries on with the other entries, resting after each of their rounds, when one is skipped", () => {
+      createSuperset({
+        exerciseId: benchId,
+        targetSets: 3,
+        restSeconds: 60
+      }, {
+        exerciseId: rowId,
+        targetSets: 3,
+        restSeconds: 60
+      });
+
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+      completeSet(id);
+      completeSet(id);
+
+      expect(skipExercise(id).current).toEqual(expect.objectContaining({
+        exerciseName: "Bench Press",
+        setNumber: 3
+      }));
+      expect(listLoggedSets(id).filter(s => s.skipped)
+        .map(s => [ s.exerciseId, s.round ])).toEqual([ [ rowId, 2 ], [ rowId, 3 ] ]);
+      expect(runAll(id)).toEqual([ "rest 60", "Bench Press A3 1/1" ]);
+    });
+
+    it("rests after a round whose last entry's set is skipped", () => {
+      createSuperset({
+        exerciseId: benchId,
+        targetSets: 2,
+        restSeconds: 60
+      }, {
+        exerciseId: rowId,
+        targetSets: 2,
+        restSeconds: 30
+      });
+
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+      skipSet(id);
+
+      expect(runAll(id)).toEqual([ "rest 60", "Bench Press A2 1/2", "Row B2 2/2" ]);
     });
 
     it("drops an entry with fewer sets out of the later rounds", () => {
@@ -438,6 +486,134 @@ describe("sessions", () => {
         seconds: 60,
         endsAt: new Date(last.completedAt.getTime() + 60_000)
       });
+    });
+  });
+
+  describe("skipping, finishing early and resuming", () => {
+    it("records a skipped set as skipped and moves to the next set, the rest still counting from the last set done", () => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 3,
+        targetReps: 5,
+        targetWeight: 80,
+        restSeconds: 90
+      });
+
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+
+      const step = skipSet(id);
+      const [ done, skipped ] = listLoggedSets(id);
+
+      expect(skipped).toEqual(expect.objectContaining({
+        round: 2,
+        skipped: true,
+        reps: 0,
+        weight: 0
+      }));
+      expect(done?.skipped).toBe(false);
+      expect(step.current).toEqual(expect.objectContaining({ setNumber: 3 }));
+      expect(step.rest?.endsAt).toEqual(new Date(done!.completedAt.getTime() + 90_000));
+    });
+
+    it("finishes early, keeping what was done and recording the sets left as skipped", () => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 2,
+        targetReps: 5,
+        targetWeight: 80
+      });
+      createBlock(pushId, {
+        exerciseId: flyId,
+        targetSets: 1
+      });
+
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+
+      expect(finishSession(id).status).toBe("finished");
+      const logged = listLoggedSets(id).map(s => [ s.exerciseId, s.round, s.skipped, s.reps ]);
+
+      expect(logged).toHaveLength(3);
+      expect(logged).toEqual(expect.arrayContaining([
+        [ benchId, 1, false, 5 ],
+        [ benchId, 2, true, 0 ],
+        [ flyId, 1, true, 0 ]
+      ]));
+      expect(getCurrentStep(id).current).toBeUndefined();
+    });
+
+    it("allows only one Session in progress at a time", () => {
+      createBlock(pushId, { exerciseId: benchId });
+
+      const { id } = startSession(pushId);
+
+      expect(() => startSession(pushId)).toThrow(conflictError);
+
+      finishSession(id);
+
+      expect(startSession(pushId).status).toBe("inProgress");
+    });
+
+    it("resumes the Session in progress at the exact set after the app is reopened", () => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 3
+      });
+      createBlock(pushId, {
+        exerciseId: flyId,
+        targetSets: 2
+      });
+
+      expect(resumeSession()).toBeUndefined();
+
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+      skipSet(id);
+      completeSet(id);
+      reopen();
+
+      const step = resumeSession();
+
+      expect(step?.session.id).toBe(id);
+      expect(step?.current).toEqual(expect.objectContaining({
+        exerciseName: "Cable Fly",
+        setNumber: 1
+      }));
+
+      finishSession(id);
+
+      expect(resumeSession()).toBeUndefined();
+    });
+
+    it("skips the rest of an exercise's sets and moves on to the next Block", () => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 3
+      });
+      createBlock(pushId, {
+        exerciseId: flyId,
+        targetSets: 2
+      });
+
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+
+      const step = skipExercise(id);
+
+      expect(listLoggedSets(id).map(s => [ s.exerciseId, s.round, s.skipped ])).toEqual([
+        [ benchId, 1, false ],
+        [ benchId, 2, true ],
+        [ benchId, 3, true ]
+      ]);
+      expect(step.current).toEqual(expect.objectContaining({
+        exerciseName: "Cable Fly",
+        setNumber: 1
+      }));
     });
   });
 

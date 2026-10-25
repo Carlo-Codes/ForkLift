@@ -1,0 +1,1 @@
+ALTER TABLE `loggedSet` ADD `skipped` integer DEFAULT false NOT NULL;

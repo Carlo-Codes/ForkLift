@@ -2,10 +2,12 @@ import { router, useLocalSearchParams } from "expo-router";
 import {
   useEffect, useRef, useState
 } from "react";
-import { Vibration, View } from "react-native";
+import {
+  Alert, Vibration, View
+} from "react-native";
 
 import {
-  completeSet, finishSession, getCurrentStep, getSettings
+  completeSet, finishSession, getCurrentStep, getSettings, skipExercise, skipSet
 } from "@forklift/core";
 import type { SessionSet, SessionStep } from "@forklift/core";
 import type { Unit } from "@forklift/db/client";
@@ -38,6 +40,51 @@ function NextUp({ set, unit }: { set?: SessionSet; unit: Unit }) {
     <AppText className="text-center text-lg text-brand-mediumGray">
       {set ? `Next: ${set.exerciseName} ${formatSet(set.targetReps, set.targetWeight, unit)}` : "Last set"}
     </AppText>
+  );
+}
+
+// The ⋯ menu: skip this set, skip the rest of this exercise, or finish early.
+function WorkoutMenu({
+  onSkipSet, onSkipExercise, onFinish
+}: { onSkipSet: () => void; onSkipExercise: () => void; onFinish: () => void }) {
+  const [ open, setOpen ] = useState(false);
+
+  const choose = (action: () => void) => () => {
+    setOpen(false);
+    action();
+  };
+
+  return (
+    <View className="items-end gap-2">
+      <AppButton className="px-3 py-1"
+        accessibilityRole="button"
+        accessibilityLabel="Workout options"
+        onPress={() => setOpen(o => !o)}>
+        <AppText weight="semibold"
+          className="text-2xl text-brand-darkGray">
+          ⋯
+        </AppText>
+      </AppButton>
+      {open && (
+        <View className="gap-2">
+          <AppButton variant="outline"
+            className="py-2"
+            onPress={choose(onSkipSet)}>
+            Skip set
+          </AppButton>
+          <AppButton variant="outline"
+            className="py-2"
+            onPress={choose(onSkipExercise)}>
+            Skip exercise
+          </AppButton>
+          <AppButton variant="outline"
+            className="py-2"
+            onPress={choose(onFinish)}>
+            Finish workout
+          </AppButton>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -96,14 +143,10 @@ export default function WorkoutModeScreen() {
 
   const { current, next } = step;
 
-  const done = () => {
+  // Done, Skip set and Skip exercise all save at once and move to the next step.
+  const advance = (move: () => SessionStep) => () => {
     try {
-      const nextStep = completeSet(id, actual && {
-        reps: toNumber(actual.reps),
-        weight: toNumber(actual.weight)
-      });
-
-      setStep(nextStep);
+      setStep(move());
       setNow(Date.now());
       setActual(undefined);
       setError(undefined);
@@ -111,6 +154,11 @@ export default function WorkoutModeScreen() {
       setError(e instanceof Error ? e.message : String(e));
     }
   };
+
+  const done = advance(() => completeSet(id, actual && {
+    reps: toNumber(actual.reps),
+    weight: toNumber(actual.weight)
+  }));
 
   const finish = () => {
     try {
@@ -127,6 +175,27 @@ export default function WorkoutModeScreen() {
       router.replace("/");
     }
   };
+
+  const finishEarly = () => Alert.alert(
+    "Finish workout?",
+    "The sets you've done are saved, and the rest are recorded as skipped.",
+    [
+      {
+        text: "Keep going",
+        style: "cancel"
+      },
+      {
+        text: "Finish",
+        onPress: finish
+      }
+    ]
+  );
+
+  const menu = (
+    <WorkoutMenu onSkipSet={advance(() => skipSet(id))}
+      onSkipExercise={advance(() => skipExercise(id))}
+      onFinish={finishEarly} />
+  );
 
   if (!current) {
     return (
@@ -148,6 +217,7 @@ export default function WorkoutModeScreen() {
   if (resting) {
     return (
       <View className="flex-1 justify-center gap-6 bg-brand-white p-6">
+        {menu}
         <AppText className="text-center text-lg text-brand-mediumGray">Rest</AppText>
         <AppText weight="semibold"
           className="text-center text-7xl text-brand-darkGray"
@@ -176,6 +246,7 @@ export default function WorkoutModeScreen() {
   return (
     <View className="flex-1 justify-between gap-6 bg-brand-white p-6">
       <View className="gap-2">
+        {menu}
         {current.superset && (
           <AppText weight="semibold"
             className="text-center text-lg text-brand-primary">
