@@ -102,6 +102,14 @@ describe("settings", () => {
       });
     });
 
+    it("caps a converted weight at the most an entry can hold", () => {
+      const sled = addEntry({ targetWeight: 5000 });
+
+      setUnit("lb");
+
+      expect(targetsOf(sled).targetWeight).toBe(10000);
+    });
+
     it("leaves weights alone when the unit doesn't change", () => {
       const bench = addEntry({ targetWeight: 100 });
 

@@ -12,6 +12,11 @@ export const DEFAULT_TARGET_REPS = 10;
 export const DEFAULT_TARGET_WEIGHT = 0;
 export const DEFAULT_REST_SECONDS = 90;
 
+// Unit-agnostic caps; switching unit clamps converted weights to them so a
+// converted entry still validates.
+export const MAX_TARGET_WEIGHT = 10000;
+export const MAX_WEIGHT_STEP = 1000;
+
 export const DEFAULT_WEIGHT_STEP: Record<Unit, number> = {
   kg: 2.5,
   lb: 5
@@ -60,12 +65,12 @@ export const exerciseEntrySchema = z.object({
     .min(1, "At least 1 rep")
     .max(1000),
   targetWeight: z.number("Weight must be a number").min(0, "Weight can't be negative")
-    .max(10000),
+    .max(MAX_TARGET_WEIGHT),
   restSeconds: z.number("Rest must be a number").int("Rest must be whole seconds")
     .min(0, "Rest can't be negative")
     .max(3600),
   weightStep: z.number("Weight Step must be a number").positive("Weight Step must be above 0")
-    .max(1000),
+    .max(MAX_WEIGHT_STEP),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
   deletedAt: z.date().nullable()

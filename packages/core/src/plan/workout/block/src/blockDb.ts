@@ -18,6 +18,14 @@ export type BlockWithEntries = BlockAttributes & {
   exerciseEntries: (ExerciseEntryAttributes & { exercise: ExerciseAttributes })[];
 };
 
+const withLiveEntries = {
+  exerciseEntries: {
+    where: { deletedAt: { isNull: true } },
+    orderBy: { position: "asc" },
+    with: { exercise: true }
+  }
+} as const;
+
 // Blocks read in their order within the Workout unless asked otherwise.
 export function getAllBlockByQuery(
   filters: QueryFilters<"blockTable">,
@@ -28,13 +36,7 @@ export function getAllBlockByQuery(
   return db.query.blockTable.findMany({
     columns: filters.columns,
     where: filters.where,
-    with: {
-      exerciseEntries: {
-        where: { deletedAt: { isNull: true } },
-        orderBy: { position: "asc" },
-        with: { exercise: true }
-      }
-    },
+    with: withLiveEntries,
     orderBy: filters.pagination?.orderBy ?? { position: "asc" },
     offset: filters.pagination?.offset,
     limit: filters.pagination?.limit
@@ -50,13 +52,7 @@ export function getBlockByQuery(
   return db.query.blockTable.findFirst({
     columns: filters.columns,
     where: filters.where,
-    with: {
-      exerciseEntries: {
-        where: { deletedAt: { isNull: true } },
-        orderBy: { position: "asc" },
-        with: { exercise: true }
-      }
-    }
+    with: withLiveEntries
   }).sync();
 }
 

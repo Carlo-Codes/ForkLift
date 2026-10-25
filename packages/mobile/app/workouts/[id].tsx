@@ -15,7 +15,7 @@ import {
   updateWorkout
 } from "@forklift/core";
 import type { BlockWithEntries } from "@forklift/core";
-import type { WorkoutAttributes } from "@forklift/db/client";
+import type { Unit, WorkoutAttributes } from "@forklift/db/client";
 
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
@@ -26,13 +26,16 @@ import { formatTargets } from "@/format";
 interface WorkoutState {
   workout: WorkoutAttributes;
   blocks: BlockWithEntries[];
+  unit: Unit;
 }
 
 function loadWorkout(id: string): WorkoutState | undefined {
   try {
     return {
       workout: getWorkout(id),
-      blocks: listBlocks(id)
+      blocks: listBlocks(id),
+      // Re-read with the blocks: a unit switch converts their weights.
+      unit: getSettings().unit
     };
   } catch {
     return undefined;
@@ -42,7 +45,6 @@ function loadWorkout(id: string): WorkoutState | undefined {
 export default function WorkoutEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ state, setState ] = useState(() => loadWorkout(id));
-  const [ unit ] = useState(() => getSettings().unit);
   const refresh = useCallback(() => setState(loadWorkout(id)), [ id ]);
 
   useFocusEffect(refresh);
@@ -55,7 +57,9 @@ export default function WorkoutEditorScreen() {
     );
   }
 
-  const { workout, blocks } = state;
+  const {
+    workout, blocks, unit
+  } = state;
 
   const move = (index: number, delta: -1 | 1) => {
     reorderBlocks(workout.id, moveId(blocks.map(b => b.id), index, delta));
