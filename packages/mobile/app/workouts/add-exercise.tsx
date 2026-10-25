@@ -2,23 +2,28 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
 
-import { createBlock, searchExercises } from "@forklift/core";
+import {
+  createBlock, createExerciseEntry, searchExercises
+} from "@forklift/core";
 
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
 
 // Picks an Exercise from the library and adds it to the Workout as a new Block
-// with default targets, then opens those targets for editing.
+// with default targets, or to the Superset blockId names, then opens those
+// targets for editing.
 export default function AddExerciseToWorkoutScreen() {
-  const { workoutId } = useLocalSearchParams<{ workoutId: string }>();
+  const { workoutId, blockId } = useLocalSearchParams<{ workoutId: string; blockId?: string }>();
   const [ query, setQuery ] = useState("");
   const [ error, setError ] = useState<string>();
   const exercises = useMemo(() => searchExercises(query), [ query ]);
 
   const pick = (exerciseId: string) => {
     try {
-      const entry = createBlock(workoutId, { exerciseId }).exerciseEntries[ 0 ]!;
+      const entry = blockId ?
+        createExerciseEntry(blockId, { exerciseId }) :
+        createBlock(workoutId, { exerciseId }).exerciseEntries[ 0 ]!;
 
       router.replace({
         pathname: "/entries/[id]",
