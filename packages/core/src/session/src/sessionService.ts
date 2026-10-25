@@ -1,4 +1,6 @@
-import { completeSetPayloadSchema } from "@forklift/db/client";
+import {
+  completeSetPayloadSchema, MAX_TARGET_WEIGHT, sessionIncreaseSchema
+} from "@forklift/db/client";
 import type {
   CompleteSetPayload,
   SessionAttributes,
@@ -11,14 +13,24 @@ import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 
 import { advanceRotation } from "../../plan/src/planService";
+import { getExerciseEntryByQuery, updateExerciseEntryDb } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryDb";
 import { listBlocks } from "../../plan/workout/block/src/blockService";
 import { createLoggedSetDb } from "../loggedSet/src/loggedSetDb";
 import { listLoggedSets } from "../loggedSet/src/loggedSetService";
+import {
+  createSessionIncreaseDb, getSessionIncreaseByQuery, updateSessionIncreaseDb
+} from "../sessionIncrease/src/sessionIncreaseDb";
+import { listIncreases } from "../sessionIncrease/src/sessionIncreaseService";
 import {
   createSessionDb, getAllSessionByQuery, getSessionByQuery, updateSessionDb
 } from "./sessionDb";
 
 const debug = createDebugger("sessionService");
+
+const setIncreasePayloadSchema = sessionIncreaseSchema.pick({
+  exerciseEntryId: true,
+  on: true
+});
 
 // One set of the Session, in the order Workout Mode runs them.
 export interface SessionSet {
@@ -42,10 +54,11 @@ export interface SupersetPosition {
 }
 
 // Where Workout Mode stands: the set to do now (none once every set is logged),
-// the one after it, and the rest due before the current set, counted from when
-// the last set was logged.
+// the one after it, the rest due before the current set, counted from when the
+// last set was logged, and the Exercise Entries with Increase Next Time on.
 export interface SessionStep {
   session: SessionAttributes;
+  increases: string[];
   current?: SessionSet;
   next?: SessionSet;
   rest?: { seconds: number; endsAt: Date };
@@ -208,6 +221,7 @@ export function getCurrentStep(sessionId: string, tx?: TransactionType): Session
 
   return {
     session,
+    increases: listIncreases(sessionId, tx),
     current: toSessionSet(sets[ index ]),
     next: index === -1 ? undefined : toSessionSet(sets[ index + 1 ]),
     rest: index !== -1 && last && restAfterLast ? {
@@ -313,8 +327,74 @@ export function skipExercise(sessionId: string, tx?: TransactionType): SessionSt
   });
 }
 
-// Saves the Session as finished and moves its Plan's rotation on, together. A
-// Session finished early records the sets left as skipped.
+// Flips Increase Next Time for an Exercise Entry of the Session, at any point
+// while it's in progress, and returns the step with the toggles as they now are.
+export function setIncrease(
+  sessionId: string,
+  exerciseEntryId: string,
+  on: boolean,
+  tx?: TransactionType
+): SessionStep {
+  const data = parseOrThrow(setIncreasePayloadSchema, {
+    exerciseEntryId,
+    on
+  });
+
+  return inTransaction(tx, t => {
+    const session = getSession(sessionId, t);
+
+    assertInProgress(session);
+
+    if (!session.blocks.flat().some(entry => entry.exerciseEntryId === data.exerciseEntryId)) {
+      throw new ApiError(404, `Exercise entry ${data.exerciseEntryId} is not in this Session`, "NotFoundError");
+    }
+
+    debug.info("turning Increase Next Time %s for entry %s in session %s", data.on ? "on" : "off", data.exerciseEntryId, sessionId);
+
+    const existing = getSessionIncreaseByQuery({
+      where: {
+        sessionId,
+        exerciseEntryId: data.exerciseEntryId
+      }
+    }, t);
+
+    if (existing) {
+      updateSessionIncreaseDb(existing.id, {
+        on: data.on,
+        deletedAt: null
+      }, t);
+    } else {
+      createSessionIncreaseDb({
+        sessionId,
+        ...data
+      }, t);
+    }
+
+    return getCurrentStep(sessionId, t);
+  });
+}
+
+// Raises the target weight of each entry with Increase Next Time on by its
+// Weight Step. An entry deleted from the Workout since Start is left alone.
+function applyIncreases(sessionId: string, tx: TransactionType): void {
+  for (const exerciseEntryId of listIncreases(sessionId, tx)) {
+    const entry = getExerciseEntryByQuery({
+      where: {
+        id: exerciseEntryId,
+        deletedAt: { isNull: true }
+      }
+    }, tx);
+
+    if (entry) {
+      updateExerciseEntryDb(entry.id, { targetWeight: Math.min(MAX_TARGET_WEIGHT, entry.targetWeight + entry.weightStep) }, tx);
+    }
+  }
+}
+
+// Saves the Session as finished, applies its Increase Next Time toggles and
+// moves its Plan's rotation on, together; only an in-progress Session finishes,
+// so the increases apply once. A Session finished early records the sets left
+// as skipped.
 export function finishSession(sessionId: string, tx?: TransactionType): SessionAttributes {
   return inTransaction(tx, t => {
     const session = getSession(sessionId, t);
@@ -327,6 +407,7 @@ export function finishSession(sessionId: string, tx?: TransactionType): SessionA
       logSet(sessionId, current, "skipped", finishedAt, t);
     }
 
+    applyIncreases(sessionId, t);
     advanceRotation(session.workoutId, t);
 
     return updateSessionDb(sessionId, {

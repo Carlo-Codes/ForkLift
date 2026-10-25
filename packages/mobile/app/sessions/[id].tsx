@@ -3,11 +3,11 @@ import {
   useEffect, useRef, useState
 } from "react";
 import {
-  Alert, Vibration, View
+  Alert, Switch, Vibration, View
 } from "react-native";
 
 import {
-  completeSet, finishSession, getCurrentStep, getSettings, skipExercise, skipSet
+  completeSet, finishSession, getCurrentStep, getSettings, setIncrease, skipExercise, skipSet
 } from "@forklift/core";
 import type { SessionSet, SessionStep } from "@forklift/core";
 import type { Unit } from "@forklift/db/client";
@@ -40,6 +40,21 @@ function NextUp({ set, unit }: { set?: SessionSet; unit: Unit }) {
     <AppText className="text-center text-lg text-brand-mediumGray">
       {set ? `Next: ${set.exerciseName} ${formatSet(set.targetReps, set.targetWeight, unit)}` : "Last set"}
     </AppText>
+  );
+}
+
+// Increase Next Time for one Exercise Entry: raises its target weight by its
+// Weight Step when the Session ends.
+function IncreaseToggle({
+  label, on, onChange
+}: { label: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <View className="flex-row items-center justify-center gap-3">
+      <AppText className="text-lg text-brand-mediumGray">{label}</AppText>
+      <Switch value={on}
+        accessibilityLabel={label}
+        onValueChange={onChange} />
+    </View>
   );
 }
 
@@ -142,6 +157,17 @@ export default function WorkoutModeScreen() {
   }
 
   const { current, next } = step;
+  const increaseOn = (exerciseEntryId: string) => step.increases.includes(exerciseEntryId);
+
+  // Flipping a toggle saves at once; the step keeps its set and rest.
+  const toggleIncrease = (exerciseEntryId: string) => (on: boolean) => {
+    try {
+      setStep(setIncrease(id, exerciseEntryId, on));
+      setError(undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   // Done, Skip set and Skip exercise all save at once and move to the next step.
   const advance = (move: () => SessionStep) => () => {
@@ -204,6 +230,14 @@ export default function WorkoutModeScreen() {
           className="text-center text-2xl text-brand-darkGray">
           All sets done
         </AppText>
+        <View className="gap-2">
+          {step.session.blocks.flat().map(entry => (
+            <IncreaseToggle key={entry.exerciseEntryId}
+              label={`Increase ${entry.exerciseName} next time`}
+              on={increaseOn(entry.exerciseEntryId)}
+              onChange={toggleIncrease(entry.exerciseEntryId)} />
+          ))}
+        </View>
         {error && <AppText className="text-center text-brand-error">{error}</AppText>}
         <AppButton variant="primary"
           className="py-6"
@@ -260,6 +294,9 @@ export default function WorkoutModeScreen() {
         <AppText className="text-center text-lg text-brand-mediumGray">
           Set {current.setNumber} of {current.totalSets}
         </AppText>
+        <IncreaseToggle label="Increase next time"
+          on={increaseOn(current.exerciseEntryId)}
+          onChange={toggleIncrease(current.exerciseEntryId)} />
       </View>
       {actual ?
         (

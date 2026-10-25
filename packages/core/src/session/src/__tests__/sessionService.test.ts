@@ -4,13 +4,13 @@ import type { ExerciseEntryCreatePayload } from "@forklift/db/client";
 import type { ApiError } from "@forklift/debug";
 
 import {
-  completeSet, finishSession, getCurrentStep, getSession, resumeSession, skipExercise, skipSet, startSession
+  completeSet, finishSession, getCurrentStep, getSession, resumeSession, setIncrease, skipExercise, skipSet, startSession
 } from "..";
 import { createExercise } from "../../../exercise/src";
 import {
   createPlan, getNextWorkout, setActivePlan
 } from "../../../plan/src";
-import { updateExerciseEntry } from "../../../plan/workout/block/exerciseEntry/src";
+import { getExerciseEntry, updateExerciseEntry } from "../../../plan/workout/block/exerciseEntry/src";
 import {
   createBlock, deleteBlock, groupBlocks
 } from "../../../plan/workout/block/src";
@@ -701,6 +701,151 @@ describe("sessions", () => {
       deleteWorkout(pullId);
 
       expect(getNextWorkout()?.id).toBe(legsId);
+    });
+  });
+
+  describe("Increase Next Time", () => {
+    let benchBlockId: string;
+    let benchEntryId: string;
+
+    beforeEach(() => {
+      const block = createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 2,
+        targetReps: 5,
+        targetWeight: 80,
+        weightStep: 2.5
+      });
+
+      benchBlockId = block.id;
+      benchEntryId = block.exerciseEntries[ 0 ]!.id;
+    });
+
+    it("raises the entry's target weight by its Weight Step when the Session finishes, changing nothing else", () => {
+      const before = getExerciseEntry(benchEntryId);
+      const { id } = startSession(pushId);
+
+      setIncrease(id, benchEntryId, true);
+      completeSet(id);
+      completeSet(id);
+      finishSession(id);
+
+      expect(getExerciseEntry(benchEntryId)).toEqual({
+        ...before,
+        targetWeight: 82.5,
+        updatedAt: expect.any(Date) as unknown
+      });
+    });
+
+    it("shows the toggle's current state, applying only what's on at the finish after on, off, on", () => {
+      const { id } = startSession(pushId);
+
+      expect(getCurrentStep(id).increases).toEqual([]);
+      expect(setIncrease(id, benchEntryId, true).increases).toEqual([ benchEntryId ]);
+      expect(setIncrease(id, benchEntryId, false).increases).toEqual([]);
+
+      completeSet(id);
+
+      expect(setIncrease(id, benchEntryId, true).increases).toEqual([ benchEntryId ]);
+      expect(resumeSession()?.increases).toEqual([ benchEntryId ]);
+
+      completeSet(id);
+      finishSession(id);
+
+      expect(getExerciseEntry(benchEntryId).targetWeight).toBe(82.5);
+    });
+
+    it("leaves the target weight alone when the toggle ends off", () => {
+      const { id } = startSession(pushId);
+
+      setIncrease(id, benchEntryId, true);
+      setIncrease(id, benchEntryId, false);
+      finishSession(id);
+
+      expect(getExerciseEntry(benchEntryId).targetWeight).toBe(80);
+    });
+
+    it("applies on an early finish", () => {
+      const { id } = startSession(pushId);
+
+      setIncrease(id, benchEntryId, true);
+      finishSession(id);
+
+      expect(getExerciseEntry(benchEntryId).targetWeight).toBe(82.5);
+    });
+
+    it("applies once, and won't toggle a finished Session", () => {
+      const { id } = startSession(pushId);
+
+      setIncrease(id, benchEntryId, true);
+      finishSession(id);
+
+      expect(() => finishSession(id)).toThrow(conflictError);
+      expect(() => setIncrease(id, benchEntryId, false)).toThrow(conflictError);
+      expect(getExerciseEntry(benchEntryId).targetWeight).toBe(82.5);
+
+      const next = startSession(pushId);
+
+      finishSession(next.id);
+
+      expect(getExerciseEntry(benchEntryId).targetWeight).toBe(82.5);
+    });
+
+    it("toggles each exercise of a Superset on its own, each by its own Weight Step", () => {
+      const { id: curlId } = createExercise({
+        name: "Curl",
+        muscleGroups: [ "biceps" ]
+      });
+      const flyBlock = createBlock(pushId, {
+        exerciseId: flyId,
+        targetWeight: 20,
+        weightStep: 1
+      });
+      const curlBlock = createBlock(pushId, {
+        exerciseId: curlId,
+        targetWeight: 10,
+        weightStep: 1
+      });
+      const [ flyEntryId, curlEntryId ] = [ flyBlock, curlBlock ].map(b => b.exerciseEntries[ 0 ]!.id);
+
+      groupBlocks(pushId, [ flyBlock.id, curlBlock.id ]);
+
+      const { id } = startSession(pushId);
+
+      setIncrease(id, flyEntryId!, true);
+      setIncrease(id, curlEntryId!, true);
+      setIncrease(id, curlEntryId!, false);
+      setIncrease(id, benchEntryId, true);
+      finishSession(id);
+
+      expect(getExerciseEntry(benchEntryId).targetWeight).toBe(82.5);
+      expect(getExerciseEntry(flyEntryId!).targetWeight).toBe(21);
+      expect(getExerciseEntry(curlEntryId!).targetWeight).toBe(10);
+    });
+
+    it("rejects an Exercise Entry that isn't in the Session", () => {
+      const { id } = startSession(pushId);
+      const laterEntryId = createBlock(pushId, { exerciseId: flyId }).exerciseEntries[ 0 ]!.id;
+
+      expect(() => setIncrease(id, laterEntryId, true)).toThrow(notFoundError);
+      expect(() => setIncrease(id, "not-a-uuid", true)).toThrow(validationError);
+      expect(getCurrentStep(id).increases).toEqual([]);
+    });
+
+    it("still finishes, raising the rest, when a toggled entry is deleted from the Workout mid-Session", () => {
+      const flyEntryId = createBlock(pushId, {
+        exerciseId: flyId,
+        targetWeight: 20,
+        weightStep: 1
+      }).exerciseEntries[ 0 ]!.id;
+      const { id } = startSession(pushId);
+
+      setIncrease(id, benchEntryId, true);
+      setIncrease(id, flyEntryId, true);
+      deleteBlock(benchBlockId);
+
+      expect(finishSession(id).status).toBe("finished");
+      expect(getExerciseEntry(flyEntryId).targetWeight).toBe(21);
     });
   });
 });
