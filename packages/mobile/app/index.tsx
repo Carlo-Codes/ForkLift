@@ -5,7 +5,11 @@ import { AppButton } from "@/components/AppButton";
 
 export default function HomeScreen() {
   return (
-    <View className="flex-1 justify-end bg-brand-white p-6">
+    <View className="flex-1 justify-end gap-3 bg-brand-white p-6">
+      <Link href="/exercises"
+        asChild>
+        <AppButton variant="outline">Exercise Library</AppButton>
+      </Link>
       <Link href="/settings"
         asChild>
         <AppButton variant="outline">Settings</AppButton>

@@ -9,6 +9,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 
+import { loadBuiltInExercises } from "@forklift/core";
+
 import { AppText } from "@/components/AppText";
 import { openDb } from "@/db/client";
 
@@ -27,6 +29,7 @@ export default function RootLayout() {
   useEffect(() => {
     try {
       openDb();
+      loadBuiltInExercises();
       setDbReady(true);
     } catch (error) {
       setDbError(error instanceof Error ? error : new Error(String(error)));
@@ -73,6 +76,12 @@ export default function RootLayout() {
         options={{ title: "ForkLift" }} />
       <Stack.Screen name="settings"
         options={{ title: "Settings" }} />
+      <Stack.Screen name="exercises/index"
+        options={{ title: "Exercise Library" }} />
+      <Stack.Screen name="exercises/new"
+        options={{ title: "Add Exercise" }} />
+      <Stack.Screen name="exercises/[id]"
+        options={{ title: "Exercise" }} />
     </Stack>
   );
 }
