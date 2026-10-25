@@ -226,7 +226,7 @@ export function getCurrentStep(sessionId: string, tx?: TransactionType): Session
     session,
     increases: listIncreases(sessionId, tx),
     current: toSessionSet(sets[ index ]),
-    lastTime: sets[ index ] && getLastTime(sets[ index ].exerciseEntryId, tx),
+    lastTime: sets[ index ] && getLastTime(sets[ index ], tx),
     next: index === -1 ? undefined : toSessionSet(sets[ index + 1 ]),
     rest: index !== -1 && last && restAfterLast ? {
       seconds: restAfterLast,

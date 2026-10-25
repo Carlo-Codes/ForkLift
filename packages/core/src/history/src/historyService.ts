@@ -126,6 +126,32 @@ function bestOf<T extends HistorySet>(sets: T[]): T | undefined {
     (set.weight === best.weight && set.reps > best.reps) ? set : best), undefined);
 }
 
+// The finished Sessions, newest first, with the sets done in each that match
+// the filter, in the order they were done; Sessions with none are left out.
+function doneSetsByFinishedSession(
+  where: { exerciseId: string; exerciseEntryId?: string },
+  tx?: TransactionType
+): { session: SessionAttributes; sets: HistorySet[] }[] {
+  const loggedSets = getAllLoggedSetByQuery({
+    where: {
+      ...where,
+      skipped: false,
+      deletedAt: { isNull: true }
+    }
+  }, tx);
+
+  return getAllSessionByQuery({
+    where: {
+      id: { in: [ ...new Set(loggedSets.map(s => s.sessionId)) ] },
+      status: "finished",
+      deletedAt: { isNull: true }
+    }
+  }, tx).map(session => ({
+    session,
+    sets: loggedSets.filter(s => s.sessionId === session.id).map(toHistorySet)
+  }));
+}
+
 // Each finished Session that did the Exercise, newest first, with the sets done
 // and the best of them, and the best set overall.
 export function getExerciseHistory(exerciseId: string, tx?: TransactionType): ExerciseHistory {
@@ -135,29 +161,11 @@ export function getExerciseHistory(exerciseId: string, tx?: TransactionType): Ex
     throw new ApiError(404, `Exercise ${exerciseId} not found`, "NotFoundError");
   }
 
-  const loggedSets = getAllLoggedSetByQuery({
-    where: {
-      exerciseId,
-      skipped: false,
-      deletedAt: { isNull: true }
-    }
-  }, tx);
-
-  const sessions = getAllSessionByQuery({
-    where: {
-      id: { in: [ ...new Set(loggedSets.map(s => s.sessionId)) ] },
-      status: "finished",
-      deletedAt: { isNull: true }
-    }
-  }, tx).map(session => {
-    const sets = loggedSets.filter(s => s.sessionId === session.id).map(toHistorySet);
-
-    return {
-      ...toSummary(session, tx),
-      sets,
-      bestSet: bestOf(sets)!
-    };
-  });
+  const sessions = doneSetsByFinishedSession({ exerciseId }, tx).map(({ session, sets }) => ({
+    ...toSummary(session, tx),
+    sets,
+    bestSet: bestOf(sets)!
+  }));
 
   return {
     exercise,
@@ -167,34 +175,21 @@ export function getExerciseHistory(exerciseId: string, tx?: TransactionType): Ex
 }
 
 // "Last time" for Workout Mode: the sets done for the Exercise Entry in its most
-// recent finished Session, passing over Sessions where it was all skipped.
-export function getLastTime(exerciseEntryId: string, tx?: TransactionType): LastTime | undefined {
-  const loggedSets = getAllLoggedSetByQuery({
-    where: {
-      exerciseEntryId,
-      skipped: false,
-      deletedAt: { isNull: true }
-    }
+// recent finished Session, passing over Sessions where it was all skipped. Only
+// sets of the entry's current Exercise count, so switching the Exercise starts
+// afresh.
+export function getLastTime(
+  entry: { exerciseEntryId: string; exerciseId: string },
+  tx?: TransactionType
+): LastTime | undefined {
+  const [ last ] = doneSetsByFinishedSession({
+    exerciseEntryId: entry.exerciseEntryId,
+    exerciseId: entry.exerciseId
   }, tx);
 
-  const [ session ] = getAllSessionByQuery({
-    where: {
-      id: { in: [ ...new Set(loggedSets.map(s => s.sessionId)) ] },
-      status: "finished",
-      deletedAt: { isNull: true }
-    },
-    pagination: {
-      orderBy: { startedAt: "desc" },
-      offset: 0,
-      limit: 1
-    }
-  }, tx);
-
-  return session && {
-    sessionId: session.id,
-    startedAt: session.startedAt,
-    sets: loggedSets.filter(s => s.sessionId === session.id)
-      .sort((a, b) => a.round - b.round)
-      .map(toHistorySet)
+  return last && {
+    sessionId: last.session.id,
+    startedAt: last.session.startedAt,
+    sets: last.sets
   };
 }

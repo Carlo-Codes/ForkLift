@@ -10,6 +10,7 @@ import {
   createExercise, deleteExercise, updateExercise
 } from "../../../exercise/src";
 import { createPlan, deletePlan } from "../../../plan/src";
+import { updateExerciseEntry } from "../../../plan/workout/block/exerciseEntry/src";
 import {
   createBlock, groupBlocks, listBlocks
 } from "../../../plan/workout/block/src";
@@ -282,6 +283,14 @@ describe("history", () => {
 
       expect(exercise.name).toBe("Bench Press");
       expect(sessions.map(s => [ s.workoutName, s.sets.length ])).toEqual([ [ "Push", 3 ] ]);
+    });
+
+    it("starts last time afresh when the entry is switched to another Exercise", () => {
+      runSession(pushId, [ 8, 8, 7 ]);
+      updateExerciseEntry(listBlocks(pushId)[ 0 ]!.exerciseEntries[ 0 ]!.id, { exerciseId: rowId });
+      onNextDay();
+
+      expect(getCurrentStep(startSession(pushId).id).lastTime).toBeUndefined();
     });
 
     it("keeps last time once the Exercise is deleted from the Library", () => {
