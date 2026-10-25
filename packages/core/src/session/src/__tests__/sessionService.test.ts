@@ -1,5 +1,6 @@
 import { jest } from "@jest/globals";
 import { setupTestDb } from "@forklift/db/server";
+import type { ExerciseEntryCreatePayload } from "@forklift/db/client";
 import type { ApiError } from "@forklift/debug";
 
 import {
@@ -271,7 +272,7 @@ describe("sessions", () => {
         }
 
         seen.push(superset ?
-          `${exerciseName} ${superset.letter}${superset.round} ${superset.position}/${superset.roundSize}` :
+          `${exerciseName} ${superset.letter}${setNumber} ${superset.position}/${superset.roundSize}` :
           `${exerciseName} ${setNumber}`);
       }
 
@@ -279,7 +280,7 @@ describe("sessions", () => {
     };
 
     // Adds one single-entry Block per entry and groups them into a Superset.
-    const createSuperset = (...entries: Parameters<typeof createBlock>[1][]) => groupBlocks(
+    const createSuperset = (...entries: ExerciseEntryCreatePayload[]) => groupBlocks(
       pushId,
       entries.map(entry => createBlock(pushId, entry).id)
     );

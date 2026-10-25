@@ -179,7 +179,7 @@ export default function WorkoutModeScreen() {
         {current.superset && (
           <AppText weight="semibold"
             className="text-center text-lg text-brand-primary">
-            {formatSupersetPosition(current.superset)}
+            {formatSupersetPosition(current.setNumber, current.superset)}
           </AppText>
         )}
         <AppText weight="semibold"
