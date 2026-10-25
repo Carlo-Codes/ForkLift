@@ -4,9 +4,11 @@ import type {
 } from "@forklift/db/client";
 import { createDebugger } from "@forklift/debug";
 
+import { inTransaction } from "#utils/transaction";
+import { parseOrThrow } from "#utils/validation";
+
 import { convertExerciseEntryWeights } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryUnits";
-import { inTransaction } from "../../utils/transaction";
-import { parseOrThrow } from "../../utils/validation";
+import { convertSessionWeights } from "../../session/src/sessionUnits";
 import {
   createSettingDb, getSettingByQuery, updateSettingDb
 } from "./settingDb";
@@ -31,9 +33,11 @@ export function setUnit(unit: Unit, tx?: TransactionType): Pick<SettingAttribute
   // transaction as the switch.
   return inTransaction(tx, t => {
     const setting = getSettingRow(t);
+    const from = getSettings(t).unit;
 
     debug.info("setting unit to %s", data.unit);
-    convertExerciseEntryWeights(getSettings(t).unit, data.unit, t);
+    convertExerciseEntryWeights(from, data.unit, t);
+    convertSessionWeights(from, data.unit, t);
 
     return setting ?
       updateSettingDb(setting.id, data, t) :

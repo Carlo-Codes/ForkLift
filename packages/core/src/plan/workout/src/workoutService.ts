@@ -7,9 +7,10 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
-import { nextPosition, orderOrThrow } from "../../../utils/position";
-import { inTransaction } from "../../../utils/transaction";
-import { parseOrThrow } from "../../../utils/validation";
+import { nextPosition, orderOrThrow } from "#utils/position";
+import { inTransaction } from "#utils/transaction";
+import { parseOrThrow } from "#utils/validation";
+
 import { getPlan } from "../../src/planService";
 import {
   createWorkoutDb,

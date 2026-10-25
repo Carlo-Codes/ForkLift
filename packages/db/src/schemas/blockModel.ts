@@ -1,6 +1,7 @@
 import {
   integer, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 import { workoutTable } from "./workoutModel";
@@ -25,15 +26,10 @@ export const blockTable = sqliteTable("block", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const blockSchema = z.object({
+export const blockSchema = createInsertSchema(blockTable, {
   id: z.uuid().optional(),
-  workoutId: z.uuid(),
-  position: z.number().int()
-    .min(0),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
-    .optional()
+  workoutId: () => z.uuid(),
+  position: s => s.min(0)
 });
 
 type BlockDbSelect = typeof blockTable.$inferSelect;

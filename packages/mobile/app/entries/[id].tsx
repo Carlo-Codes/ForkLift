@@ -12,6 +12,7 @@ import type { ExerciseAttributes, ExerciseEntryAttributes } from "@forklift/db/c
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
+import { toNumber } from "@/format";
 
 const INPUT_CLASS = "rounded-lg border border-brand-lightGray px-3 py-2 text-brand-darkGray";
 
@@ -28,12 +29,6 @@ function loadEntry(id: string): (ExerciseEntryAttributes & { exercise: ExerciseA
   } catch {
     return undefined;
   }
-}
-
-// Text fields hold what the lifter types; an empty or non-numeric field becomes
-// NaN, which @forklift/core rejects with a ValidationError.
-function toNumber(text: string): number {
-  return text.trim() === "" ? Number.NaN : Number(text.replace(",", "."));
 }
 
 function TargetField({

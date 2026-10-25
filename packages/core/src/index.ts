@@ -4,3 +4,5 @@ export * from "./plan/workout/block/exerciseEntry/src";
 export * from "./plan/workout/block/src";
 export * from "./plan/workout/src";
 export * from "./setting/src";
+export * from "./session/loggedSet/src";
+export * from "./session/src";

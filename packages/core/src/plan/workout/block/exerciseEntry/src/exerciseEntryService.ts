@@ -15,11 +15,12 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
-import { getExercise } from "../../../../../exercise/src/exerciseService";
+import { nextPosition, orderOrThrow } from "#utils/position";
+import { inTransaction } from "#utils/transaction";
+import { parseOrThrow } from "#utils/validation";
+
 import { getSettings } from "../../../../../setting/src/settingService";
-import { nextPosition, orderOrThrow } from "../../../../../utils/position";
-import { inTransaction } from "../../../../../utils/transaction";
-import { parseOrThrow } from "../../../../../utils/validation";
+import { getExercise } from "../../../../../exercise/src/exerciseService";
 import { deleteBlockDb, getBlockByQuery } from "../../src/blockDb";
 import {
   createExerciseEntryDb,

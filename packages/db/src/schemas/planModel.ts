@@ -1,17 +1,21 @@
 import {
   integer, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 // Synced table (ADR-0003): client-generated UUID id, updatedAt and soft delete.
 // position orders the Plans list; isActive marks the Active Plan, which the Plan
-// service keeps to at most one live row.
+// service keeps to at most one live row. nextWorkoutId is the rotation pointer:
+// the Workout the home screen offers next, falling back to the first live one
+// when it's unset or gone. It has no FK because workout already references plan.
 export const planTable = sqliteTable("plan", {
   id: text("id").primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   position: integer("position").notNull(),
   isActive: integer("isActive", { mode: "boolean" }).notNull(),
+  nextWorkoutId: text("nextWorkoutId"),
   createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull()
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull()
@@ -20,17 +24,12 @@ export const planTable = sqliteTable("plan", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const planSchema = z.object({
+export const planSchema = createInsertSchema(planTable, {
   id: z.uuid().optional(),
-  name: z.string().trim()
-    .min(1, "Name is required")
+  name: s => s.trim().min(1, "Name is required")
     .max(100),
-  position: z.number().int()
-    .min(0),
-  isActive: z.boolean(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
+  position: s => s.min(0),
+  nextWorkoutId: z.uuid().nullable()
     .optional()
 });
 

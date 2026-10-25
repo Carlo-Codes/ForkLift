@@ -1,6 +1,7 @@
 import {
   integer, sqliteTable, text
 } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-orm/zod";
 import { z } from "zod";
 
 import { planTable } from "./planModel";
@@ -24,18 +25,12 @@ export const workoutTable = sqliteTable("workout", {
   deletedAt: integer("deletedAt", { mode: "timestamp_ms" })
 });
 
-export const workoutSchema = z.object({
+export const workoutSchema = createInsertSchema(workoutTable, {
   id: z.uuid().optional(),
-  planId: z.uuid(),
-  name: z.string().trim()
-    .min(1, "Name is required")
+  planId: () => z.uuid(),
+  name: s => s.trim().min(1, "Name is required")
     .max(100),
-  position: z.number().int()
-    .min(0),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-  deletedAt: z.date().nullable()
-    .optional()
+  position: s => s.min(0)
 });
 
 // What the lifter fills in when adding or renaming a Workout.

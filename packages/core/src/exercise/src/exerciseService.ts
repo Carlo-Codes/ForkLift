@@ -9,7 +9,8 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
-import { parseOrThrow } from "../../utils/validation";
+import { parseOrThrow } from "#utils/validation";
+
 import { builtInExercises } from "./builtInExercises";
 import {
   createExerciseDb,
