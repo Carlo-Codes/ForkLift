@@ -1,0 +1,36 @@
+{
+  "name": "@forklift/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "exports": {
+    ".": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "format": "eslint --fix .",
+    "typecheck": "tsc --noEmit",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --silent=false --detectOpenHandles"
+  },
+  "dependencies": {
+    "@forklift/db": "workspace:*",
+    "@forklift/debug": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@forklift/eslint-config": "workspace:*",
+    "@forklift/jest-config": "workspace:*",
+    "@forklift/prettier-config": "workspace:*",
+    "@forklift/tsconfig": "workspace:*",
+    "@types/jest": "^29",
+    "@types/node": "^22.20.0",
+    "eslint": "^9",
+    "jest": "^29",
+    "ts-jest": "^29",
+    "typescript": "^6"
+  },
+  "prettier": "@forklift/prettier-config"
+}

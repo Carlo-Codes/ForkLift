@@ -1,0 +1,23 @@
+# dependencies
+node_modules
+
+# turbo / build
+.turbo
+dist
+
+# env
+.env
+.env*
+
+# sqlite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# expo
+.expo
+
+# misc
+.DS_Store
+*.tsbuildinfo

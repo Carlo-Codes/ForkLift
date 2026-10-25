@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "ForkLift",
+    "slug": "forklift",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "forklift",
+    "ios": {
+      "bundleIdentifier": "app.forklift"
+    },
+    "android": {
+      "package": "app.forklift",
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#E8590C"
+        }
+      ]
+    ]
+  }
+}

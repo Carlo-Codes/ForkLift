@@ -1,0 +1,30 @@
+{
+  "name": "@forklift",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db": "drizzle-kit --config=drizzle.config.ts"
+  },
+  "devDependencies": {
+    "@forklift/eslint-config": "workspace:*",
+    "@forklift/prettier-config": "workspace:*",
+    "@forklift/tsconfig": "workspace:*",
+    "drizzle-kit": "1.0.0-rc.5",
+    "eslint": "^9",
+    "prettier": "^3",
+    "turbo": "2.10.0",
+    "typescript": "^6"
+  },
+  "prettier": "@forklift/prettier-config"
+}

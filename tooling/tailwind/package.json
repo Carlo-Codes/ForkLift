@@ -1,0 +1,35 @@
+{
+  "name": "@forklift/tailwind-config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.ts",
+  "license": "AGPL-3.0-only",
+  "files": [
+    "index.ts",
+    "postcss.js"
+  ],
+  "scripts": {
+    "clean:self": "rm -rf .turbo node_modules",
+    "lint": "eslint .",
+    "format": "eslint --fix .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'not yet installed'"
+  },
+  "dependencies": {
+    "autoprefixer": "^10.4.16",
+    "postcss": "8.4.30",
+    "tailwindcss": "3.3.2"
+  },
+  "devDependencies": {
+    "@forklift/eslint-config": "workspace:*",
+    "@forklift/prettier-config": "workspace:*",
+    "@forklift/tsconfig": "workspace:*",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.3",
+    "typescript": "^6.0.0"
+  },
+  "installConfig": {
+    "hoistingLimits": "none"
+  },
+  "prettier": "@forklift/prettier-config"
+}

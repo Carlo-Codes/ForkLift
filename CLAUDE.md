@@ -21,6 +21,15 @@ Always true:
 - Validate all API input with zod `safeParse` → 400 `ValidationError`. Log with `createDebugger`.
 - Tests hit a real temp SQLite DB via `setupTestDb()`, seeded through `core` services.
 - Package directory names are lowercase; migrations live in root `.drizzle/migrations/`.
+- `core` imports only `@forklift/db/client` (RN-safe) and reads the db via `getDb()`, a registry
+  filled by `setDb()`: mobile's `openDb()` registers expo-sqlite, `setupTestDb()` a temp
+  better-sqlite3 file. `core` is consumed as `@forklift/core` (not `/server`).
+- Both drivers are synchronous, so `core` Db/Service functions are **sync** (`.sync()` on
+  relational queries, `.get()`/`.all()`/`.run()` on builders). Sync transactions reject async
+  callbacks: compose with `getDb().transaction(tx => …)` and plain calls.
+- Ids/timestamps are generated in JS (`crypto.randomUUID()`, polyfilled on device with
+  `expo-crypto`), so tables need no SQL defaults that the on-device bootstrap SQL must mirror.
+- Stay on Expo SDK 57; check alignment with `npx expo install --check` in `packages/mobile`.
 
 ## Agent skills
 

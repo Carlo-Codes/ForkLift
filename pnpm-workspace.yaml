@@ -1,0 +1,10 @@
+packages:
+  - "tooling/*"
+  - "packages/*"
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
+  unrs-resolver: true
+publicHoistPattern:
+  - "@ianvs/prettier-plugin-sort-imports"
+  - "prettier-plugin-tailwindcss"

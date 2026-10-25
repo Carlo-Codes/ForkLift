@@ -1,0 +1,43 @@
+{
+  "name": "@forklift/eslint-config",
+  "version": "0.2.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    "./base": "./base.js",
+    "./react": "./react.js"
+  },
+  "files": [
+    "./base.js",
+    "./react.js"
+  ],
+  "scripts": {
+    "clean:self": "rm -rf .turbo node_modules",
+    "clean-cache:self": "rm -rf node_modules/.cache",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'not yet installed'"
+  },
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@typescript-eslint/utils": "^8.56.0",
+    "eslint-plugin-import-x": "^4.0.0",
+    "eslint-plugin-jsx-a11y": "^6.10.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-turbo": "^2.3.0",
+    "globals": "^16.0.0"
+  },
+  "devDependencies": {
+    "@forklift/prettier-config": "workspace:*",
+    "@forklift/tsconfig": "workspace:*",
+    "eslint": "^9.0.0",
+    "typescript": "^6.0.0"
+  },
+  "installConfig": {
+    "hoistingLimits": "none"
+  },
+  "prettier": "@forklift/prettier-config"
+}
