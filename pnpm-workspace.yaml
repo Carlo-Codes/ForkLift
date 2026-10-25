@@ -5,6 +5,8 @@ allowBuilds:
   better-sqlite3: true
   esbuild: true
   unrs-resolver: true
+  # ships prebuilt binaries; its install script only builds from source as a fallback
+  "@parcel/watcher": false
 publicHoistPattern:
   - "@ianvs/prettier-plugin-sort-imports"
   - "prettier-plugin-tailwindcss"

@@ -22,7 +22,7 @@ npm scope: `@forklift`. Display name (debug namespaces): `ForkLift`.
 | Validation | Zod v4 (hand-written schemas, not drizzle-zod generators) | `zod@^4.3.6` |
 | API | Express 4 + `cors`, run with `tsx` (no build step) | `express@^4.21`, `tsx@^4` |
 | Logging / errors | `debug` package wrapped in an internal package; shared `ApiError` | `debug@^4` |
-| Tests | Jest 29 + `ts-jest` (ESM), `supertest` for HTTP | `jest@^29`, `ts-jest@^29` |
+| Tests | Jest 30 + `ts-jest` (ESM), `supertest` for HTTP | `jest@~30.5`, `ts-jest@^29.4` |
 | Lint | ESLint 9 flat config, `typescript-eslint` type-checked, `eslint-plugin-import-x`, `eslint-plugin-turbo` | `eslint@^9` |
 | Format | Prettier 3 + `@ianvs/prettier-plugin-sort-imports` + `prettier-plugin-tailwindcss` | `prettier@^3` |
 | Mobile (optional) | Expo SDK 58 + Expo Router, `expo-sqlite` + Drizzle, NativeWind 4 (Tailwind 3.3) | `expo@~58`, `react-native@0.88`, `react@19.3` |

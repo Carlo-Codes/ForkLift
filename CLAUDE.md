@@ -30,7 +30,7 @@ Always true:
 - Ids/timestamps are generated in JS (`crypto.randomUUID()`, polyfilled on device with
   `expo-crypto`), so tables need no SQL defaults that the on-device bootstrap SQL must mirror.
 - Expo SDK 58 (RN 0.88, React 19.3): check alignment with `npx expo install --check` in
-  `packages/mobile` (jest is excluded there; the repo stays on Jest 29 + ts-jest). Components take
+  `packages/mobile` (it also governs the repo-wide Jest version, now 30). Components take
   `ref` as a prop, not `forwardRef`.
 
 ## Agent skills
