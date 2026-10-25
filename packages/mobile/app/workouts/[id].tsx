@@ -10,8 +10,11 @@ import {
   deleteWorkout,
   getSettings,
   getWorkout,
+  groupBlocks,
   listBlocks,
   reorderBlocks,
+  reorderExerciseEntries,
+  ungroupBlock,
   updateWorkout
 } from "@forklift/core";
 import type { BlockWithEntries } from "@forklift/core";
@@ -21,6 +24,7 @@ import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { NameInput } from "@/components/NameInput";
 import { moveId, OrderedRow } from "@/components/OrderedRow";
+import { SupersetGroup } from "@/components/SupersetGroup";
 import { formatTargets } from "@/format";
 
 interface WorkoutState {
@@ -65,6 +69,16 @@ export default function WorkoutEditorScreen() {
     reorderBlocks(workout.id, moveId(blocks.map(b => b.id), index, delta));
     refresh();
   };
+
+  const moveEntry = (block: BlockWithEntries, index: number, delta: -1 | 1) => {
+    reorderExerciseEntries(block.id, moveId(block.exerciseEntries.map(e => e.id), index, delta));
+    refresh();
+  };
+
+  const openEntry = (entryId: string) => router.push({
+    pathname: "/entries/[id]",
+    params: { id: entryId }
+  });
 
   const confirmDelete = () => {
     Alert.alert(
@@ -123,24 +137,59 @@ export default function WorkoutEditorScreen() {
         </AppText>
       )}
       renderItem={({ item, index }) => {
-        // Blocks hold a single Exercise Entry until Supersets arrive.
-        const entry = item.exerciseEntries[ 0 ];
+        const [ entry, ...others ] = item.exerciseEntries;
+        const next = blocks[ index + 1 ];
+        const onMoveUp = index > 0 ? () => move(index, -1) : undefined;
+        const onMoveDown = next ? () => move(index, 1) : undefined;
 
         if (!entry) {
           return null;
         }
 
         return (
-          <OrderedRow
-            title={entry.exercise.name}
-            subtitle={formatTargets(entry, unit)}
-            onPress={() => router.push({
-              pathname: "/entries/[id]",
-              params: { id: entry.id }
-            })}
-            onMoveUp={index > 0 ? () => move(index, -1) : undefined}
-            onMoveDown={index < blocks.length - 1 ? () => move(index, 1) : undefined}
-          />
+          <View>
+            {others.length > 0 ?
+              (
+                <SupersetGroup
+                  block={item}
+                  unit={unit}
+                  onPressEntry={e => openEntry(e.id)}
+                  onMoveEntry={(entryIndex, delta) => moveEntry(item, entryIndex, delta)}
+                  onAddEntry={() => router.push({
+                    pathname: "/workouts/add-exercise",
+                    params: {
+                      workoutId: workout.id,
+                      blockId: item.id
+                    }
+                  })}
+                  onUngroup={() => {
+                    ungroupBlock(item.id);
+                    refresh();
+                  }}
+                  onMoveUp={onMoveUp}
+                  onMoveDown={onMoveDown}
+                />
+              ) :
+              (
+                <OrderedRow
+                  title={entry.exercise.name}
+                  subtitle={formatTargets(entry, unit)}
+                  onPress={() => openEntry(entry.id)}
+                  onMoveUp={onMoveUp}
+                  onMoveDown={onMoveDown}
+                />
+              )}
+            {next && (
+              <AppButton className="items-center py-1"
+                accessibilityLabel="Superset with the next exercise"
+                onPress={() => {
+                  groupBlocks(workout.id, [ item.id, next.id ]);
+                  refresh();
+                }}>
+                <AppText className="text-sm text-brand-primary">⇣ Superset with next</AppText>
+              </AppButton>
+            )}
+          </View>
         );
       }}
       ListFooterComponent={(
