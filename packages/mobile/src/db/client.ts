@@ -16,6 +16,17 @@ const BOOTSTRAP_SQL = `
     updatedAt INTEGER NOT NULL,
     deletedAt INTEGER
   );
+  CREATE TABLE IF NOT EXISTS exercise (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    muscleGroups TEXT NOT NULL,
+    equipment TEXT,
+    notes TEXT,
+    isBuiltIn INTEGER NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    deletedAt INTEGER
+  );
 `;
 
 // Opens the phone's database (the source of truth, ADR-0001) and registers it as

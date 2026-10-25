@@ -1,9 +1,15 @@
 import { defineRelations } from "drizzle-orm";
 
-import { settingTable } from "./schemas";
+import { exerciseTable, settingTable } from "./schemas";
 
-export const tables = { settingTable };
+export const tables = {
+  exerciseTable,
+  settingTable
+};
 
 export const relations = () => {
-  return defineRelations(tables, () => ({ settingTable: {} }));
+  return defineRelations(tables, () => ({
+    exerciseTable: {},
+    settingTable: {}
+  }));
 };
