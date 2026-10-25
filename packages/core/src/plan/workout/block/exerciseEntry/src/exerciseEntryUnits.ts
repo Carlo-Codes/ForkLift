@@ -3,15 +3,8 @@ import {
 } from "@forklift/db/client";
 import type { TransactionType, Unit } from "@forklift/db/client";
 
+import { convertWeight as convert } from "../../../../../utils/units";
 import { getAllExerciseEntryByQuery, updateExerciseEntryDb } from "./exerciseEntryDb";
-
-const KG_PER_LB = 0.45359237;
-
-function convert(weight: number, from: Unit, to: Unit): number {
-  const converted = from === to ? weight : from === "kg" ? weight / KG_PER_LB : weight * KG_PER_LB;
-
-  return Math.round(converted * 10) / 10;
-}
 
 // Rewrites every stored target weight and Weight Step from one unit to the other,
 // to the nearest 0.1. A Weight Step left at the default becomes the other unit's

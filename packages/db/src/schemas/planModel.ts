@@ -5,13 +5,16 @@ import { z } from "zod";
 
 // Synced table (ADR-0003): client-generated UUID id, updatedAt and soft delete.
 // position orders the Plans list; isActive marks the Active Plan, which the Plan
-// service keeps to at most one live row.
+// service keeps to at most one live row. nextWorkoutId is the rotation pointer:
+// the Workout the home screen offers next, falling back to the first live one
+// when it's unset or gone. It has no FK because workout already references plan.
 export const planTable = sqliteTable("plan", {
   id: text("id").primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   position: integer("position").notNull(),
   isActive: integer("isActive", { mode: "boolean" }).notNull(),
+  nextWorkoutId: text("nextWorkoutId"),
   createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull()
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull()
@@ -28,6 +31,8 @@ export const planSchema = z.object({
   position: z.number().int()
     .min(0),
   isActive: z.boolean(),
+  nextWorkoutId: z.uuid().nullable()
+    .optional(),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
   deletedAt: z.date().nullable()

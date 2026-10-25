@@ -5,6 +5,7 @@ import type {
 import { createDebugger } from "@forklift/debug";
 
 import { convertExerciseEntryWeights } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryUnits";
+import { convertSessionWeights } from "../../session/src/sessionUnits";
 import { inTransaction } from "../../utils/transaction";
 import { parseOrThrow } from "../../utils/validation";
 import {
@@ -34,6 +35,7 @@ export function setUnit(unit: Unit, tx?: TransactionType): Pick<SettingAttribute
 
     debug.info("setting unit to %s", data.unit);
     convertExerciseEntryWeights(getSettings(t).unit, data.unit, t);
+    convertSessionWeights(getSettings(t).unit, data.unit, t);
 
     return setting ?
       updateSettingDb(setting.id, data, t) :

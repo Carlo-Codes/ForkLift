@@ -4,7 +4,9 @@ import {
   blockTable,
   exerciseEntryTable,
   exerciseTable,
+  loggedSetTable,
   planTable,
+  sessionTable,
   settingTable,
   workoutTable
 } from "./schemas";
@@ -13,7 +15,9 @@ export const tables = {
   blockTable,
   exerciseEntryTable,
   exerciseTable,
+  loggedSetTable,
   planTable,
+  sessionTable,
   settingTable,
   workoutTable
 };
@@ -38,10 +42,39 @@ export const relations = () => {
         from: r.exerciseEntryTable.exerciseId,
         to: r.exerciseTable.id,
         optional: false
+      }),
+      loggedSets: r.many.loggedSetTable()
+    },
+    exerciseTable: {
+      exerciseEntries: r.many.exerciseEntryTable(),
+      loggedSets: r.many.loggedSetTable()
+    },
+    loggedSetTable: {
+      session: r.one.sessionTable({
+        from: r.loggedSetTable.sessionId,
+        to: r.sessionTable.id,
+        optional: false
+      }),
+      exerciseEntry: r.one.exerciseEntryTable({
+        from: r.loggedSetTable.exerciseEntryId,
+        to: r.exerciseEntryTable.id,
+        optional: false
+      }),
+      exercise: r.one.exerciseTable({
+        from: r.loggedSetTable.exerciseId,
+        to: r.exerciseTable.id,
+        optional: false
       })
     },
-    exerciseTable: { exerciseEntries: r.many.exerciseEntryTable() },
     planTable: { workouts: r.many.workoutTable() },
+    sessionTable: {
+      workout: r.one.workoutTable({
+        from: r.sessionTable.workoutId,
+        to: r.workoutTable.id,
+        optional: false
+      }),
+      loggedSets: r.many.loggedSetTable()
+    },
     settingTable: {},
     workoutTable: {
       plan: r.one.planTable({
@@ -49,7 +82,8 @@ export const relations = () => {
         to: r.planTable.id,
         optional: false
       }),
-      blocks: r.many.blockTable()
+      blocks: r.many.blockTable(),
+      sessions: r.many.sessionTable()
     }
   }));
 };

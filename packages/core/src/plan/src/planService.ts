@@ -3,13 +3,15 @@ import type {
   PlanAttributes,
   PlanCreatePayload,
   PlanUpdatePayload,
-  TransactionType
+  TransactionType,
+  WorkoutAttributes
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { nextPosition, orderOrThrow } from "../../utils/position";
 import { inTransaction } from "../../utils/transaction";
 import { parseOrThrow } from "../../utils/validation";
+import { getAllWorkoutByQuery, getWorkoutByQuery } from "../workout/src/workoutDb";
 import {
   createPlanDb,
   deletePlanDb,
@@ -108,4 +110,52 @@ export function setActivePlan(id: string | null, tx?: TransactionType): void {
       updatePlanDb(id, { isActive: true }, t);
     }
   });
+}
+
+function listLiveWorkouts(planId: string, tx?: TransactionType): WorkoutAttributes[] {
+  return getAllWorkoutByQuery({
+    where: {
+      planId,
+      deletedAt: { isNull: true }
+    }
+  }, tx);
+}
+
+// The Workout the home screen offers to Start: the Active Plan's rotation
+// pointer, or its first Workout when the pointer is unset or no longer live.
+// None without an Active Plan or with no Workouts in it.
+export function getNextWorkout(tx?: TransactionType): WorkoutAttributes | undefined {
+  const plan = getActivePlan(tx);
+
+  if (!plan) {
+    return undefined;
+  }
+
+  const workouts = listLiveWorkouts(plan.id, tx);
+
+  return workouts.find(w => w.id === plan.nextWorkoutId) ?? workouts[ 0 ];
+}
+
+// Points the rotation of the Workout's Plan at the Workout after it, wrapping
+// round to the first. Called when a Session finishes, so a Workout the lifter
+// chose out of turn moves the rotation on from there. A Workout deleted since
+// leaves the rotation where it was.
+export function advanceRotation(workoutId: string, tx?: TransactionType): void {
+  const workout = getWorkoutByQuery({ where: { id: workoutId } }, tx);
+
+  if (!workout) {
+    return;
+  }
+
+  const workouts = listLiveWorkouts(workout.planId, tx);
+  const index = workouts.findIndex(w => w.id === workoutId);
+
+  if (index === -1) {
+    return;
+  }
+
+  const next = workouts[ (index + 1) % workouts.length ]!;
+
+  debug.info("advancing rotation of plan %s to workout %s", workout.planId, next.id);
+  updatePlanDb(workout.planId, { nextWorkoutId: next.id }, tx);
 }

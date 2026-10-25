@@ -9,3 +9,14 @@ export function formatTargets(
 
   return `${entry.targetSets} × ${entry.targetReps}${weight} · rest ${entry.restSeconds}s`;
 }
+
+// e.g. "50kg × 10"; just "10 reps" for 0 (bodyweight).
+export function formatSet(reps: number, weight: number, unit: Unit): string {
+  return weight > 0 ? `${weight}${unit} × ${reps}` : `${reps} reps`;
+}
+
+// Text fields hold what the lifter types; an empty or non-numeric field becomes
+// NaN, which @forklift/core rejects with a ValidationError.
+export function toNumber(text: string): number {
+  return text.trim() === "" ? Number.NaN : Number(text.replace(",", "."));
+}
