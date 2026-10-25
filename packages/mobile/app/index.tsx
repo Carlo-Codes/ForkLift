@@ -67,6 +67,10 @@ export default function HomeScreen() {
           asChild>
           <AppButton variant="outline">Plans</AppButton>
         </Link>
+        <Link href="/history"
+          asChild>
+          <AppButton variant="outline">History</AppButton>
+        </Link>
         <Link href="/exercises"
           asChild>
           <AppButton variant="outline">Exercise Library</AppButton>
