@@ -29,6 +29,16 @@ export interface SessionSet {
   totalSets: number;
   targetReps: number;
   targetWeight: number;
+  superset?: SupersetPosition;
+}
+
+// Where a Superset set falls: its Exercise Entry's letter (A, B, …) and its place
+// among the Exercise Entries still in the round. With setNumber as the round,
+// Workout Mode shows e.g. "A2 · Superset 1/2".
+export interface SupersetPosition {
+  letter: string;
+  position: number;
+  roundSize: number;
 }
 
 // Where Workout Mode stands: the set to do now (none once every set is logged),
@@ -43,19 +53,37 @@ export interface SessionStep {
 
 type OrderedSet = SessionSet & { restAfter: number };
 
-// Set ordering lives here, not in the UI: Blocks in order, and within a Block
-// each Exercise Entry's sets in turn, resting after each set but the last.
+// Set ordering lives here, not in the UI: Blocks in order, each run in rounds of
+// one set per Exercise Entry still to go, so straight sets are rounds of one and
+// a Superset goes A1 → B1 → rest → A2 → B2, an Exercise Entry dropping out once
+// its sets are done. Rest follows each round, for the longest rest among its entries.
 function orderSets(blocks: SessionEntrySnapshot[][]): OrderedSet[] {
-  const sets = blocks.flatMap(entries => entries.flatMap(entry => Array.from({ length: entry.targetSets }, (_, i) => ({
-    exerciseEntryId: entry.exerciseEntryId,
-    exerciseId: entry.exerciseId,
-    exerciseName: entry.exerciseName,
-    setNumber: i + 1,
-    totalSets: entry.targetSets,
-    targetReps: entry.targetReps,
-    targetWeight: entry.targetWeight,
-    restAfter: entry.restSeconds
-  }))));
+  const sets = blocks.flatMap(entries => {
+    const rounds = Math.max(...entries.map(entry => entry.targetSets));
+
+    return Array.from({ length: rounds }, (_, i) => {
+      const round = entries.filter(entry => entry.targetSets > i);
+      const roundRest = Math.max(...round.map(entry => entry.restSeconds));
+
+      return round.map((entry, position) => ({
+        exerciseEntryId: entry.exerciseEntryId,
+        exerciseId: entry.exerciseId,
+        exerciseName: entry.exerciseName,
+        setNumber: i + 1,
+        totalSets: entry.targetSets,
+        targetReps: entry.targetReps,
+        targetWeight: entry.targetWeight,
+        restAfter: position === round.length - 1 ? roundRest : 0,
+        ...(entries.length > 1 && {
+          superset: {
+            letter: String.fromCharCode("A".charCodeAt(0) + entries.indexOf(entry)),
+            position: position + 1,
+            roundSize: round.length
+          }
+        })
+      }));
+    }).flat();
+  });
 
   return sets.map((set, i) => (i === sets.length - 1 ? {
     ...set,
@@ -134,7 +162,13 @@ export function getCurrentStep(sessionId: string, tx?: TransactionType): Session
   const sets = orderSets(session.blocks);
   const index = sets.findIndex(s => !logged.has(setKey(s.exerciseEntryId, s.setNumber)));
   const last = loggedSets.at(-1);
-  const restAfterLast = last && sets.find(s => setKey(s.exerciseEntryId, s.setNumber) === setKey(last.exerciseEntryId, last.round))?.restAfter;
+
+  // Sets logged in the same millisecond tie on completedAt, so the one the rest
+  // follows is the latest of those in Session order.
+  const loggedLast = new Set(loggedSets.filter(s => s.completedAt.getTime() === last?.completedAt.getTime())
+    .map(s => setKey(s.exerciseEntryId, s.round)));
+
+  const restAfterLast = sets.findLast(s => loggedLast.has(setKey(s.exerciseEntryId, s.setNumber)))?.restAfter;
 
   return {
     session,

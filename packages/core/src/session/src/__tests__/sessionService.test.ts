@@ -1,4 +1,6 @@
+import { jest } from "@jest/globals";
 import { setupTestDb } from "@forklift/db/server";
+import type { ExerciseEntryCreatePayload } from "@forklift/db/client";
 import type { ApiError } from "@forklift/debug";
 
 import {
@@ -9,7 +11,9 @@ import {
   createPlan, getNextWorkout, setActivePlan
 } from "../../../plan/src";
 import { updateExerciseEntry } from "../../../plan/workout/block/exerciseEntry/src";
-import { createBlock, deleteBlock } from "../../../plan/workout/block/src";
+import {
+  createBlock, deleteBlock, groupBlocks
+} from "../../../plan/workout/block/src";
 import {
   createWorkout, deleteWorkout, reorderWorkouts
 } from "../../../plan/workout/src";
@@ -249,6 +253,192 @@ describe("sessions", () => {
 
     expect(listLoggedSets(id)[ 0 ]?.weight).toBe(176.4);
     expect(getCurrentStep(id).current?.targetWeight).toBe(220.5);
+  });
+
+  describe("Supersets", () => {
+    let rowId: string;
+    let curlId: string;
+
+    // Runs the whole Session, noting each set as "<exercise> <set>" with the
+    // Superset position when there is one, and "rest <seconds>" where rest is due.
+    const runAll = (sessionId: string) => {
+      const seen: string[] = [];
+
+      for (let step = getCurrentStep(sessionId); step.current; step = completeSet(sessionId)) {
+        const { exerciseName, setNumber, superset } = step.current;
+
+        if (step.rest) {
+          seen.push(`rest ${step.rest.seconds}`);
+        }
+
+        seen.push(superset ?
+          `${exerciseName} ${superset.letter}${setNumber} ${superset.position}/${superset.roundSize}` :
+          `${exerciseName} ${setNumber}`);
+      }
+
+      return seen;
+    };
+
+    // Adds one single-entry Block per entry and groups them into a Superset.
+    const createSuperset = (...entries: ExerciseEntryCreatePayload[]) => groupBlocks(
+      pushId,
+      entries.map(entry => createBlock(pushId, entry).id)
+    );
+
+    // A frozen clock logs every set in the same millisecond, as a quick lifter
+    // (or a test) can, so ordering never leans on completedAt.
+    beforeEach(() => {
+      jest.useFakeTimers({ now: new Date("2026-10-25T09:00:00Z") });
+      ({ id: rowId } = createExercise({
+        name: "Row",
+        muscleGroups: [ "back" ]
+      }));
+      ({ id: curlId } = createExercise({
+        name: "Curl",
+        muscleGroups: [ "biceps" ]
+      }));
+    });
+
+    afterEach(() => jest.useRealTimers());
+
+    it("alternates the entries in rounds when their set counts are equal", () => {
+      createSuperset({
+        exerciseId: benchId,
+        targetSets: 2,
+        restSeconds: 0
+      }, {
+        exerciseId: rowId,
+        targetSets: 2,
+        restSeconds: 0
+      });
+
+      expect(runAll(startSession(pushId).id)).toEqual([
+        "Bench Press A1 1/2",
+        "Row B1 2/2",
+        "Bench Press A2 1/2",
+        "Row B2 2/2"
+      ]);
+    });
+
+    it("drops an entry with fewer sets out of the later rounds", () => {
+      createSuperset({
+        exerciseId: benchId,
+        targetSets: 3,
+        restSeconds: 0
+      }, {
+        exerciseId: rowId,
+        targetSets: 1,
+        restSeconds: 0
+      }, {
+        exerciseId: curlId,
+        targetSets: 2,
+        restSeconds: 0
+      });
+
+      expect(runAll(startSession(pushId).id)).toEqual([
+        "Bench Press A1 1/3",
+        "Row B1 2/3",
+        "Curl C1 3/3",
+        "Bench Press A2 1/2",
+        "Curl C2 2/2",
+        "Bench Press A3 1/1"
+      ]);
+    });
+
+    it("rests only after each round, for the longest rest among that round's entries", () => {
+      createSuperset({
+        exerciseId: benchId,
+        targetSets: 3,
+        restSeconds: 120
+      }, {
+        exerciseId: rowId,
+        targetSets: 2,
+        restSeconds: 60
+      });
+
+      const { id } = startSession(pushId);
+
+      expect(runAll(id)).toEqual([
+        "Bench Press A1 1/2",
+        "Row B1 2/2",
+        "rest 120",
+        "Bench Press A2 1/2",
+        "Row B2 2/2",
+        "rest 120",
+        "Bench Press A3 1/1"
+      ]);
+    });
+
+    it("runs a Superset between straight-set Blocks, which show no Superset position", () => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 2,
+        restSeconds: 180
+      });
+      createSuperset({
+        exerciseId: rowId,
+        targetSets: 2,
+        restSeconds: 90
+      }, {
+        exerciseId: curlId,
+        targetSets: 2,
+        restSeconds: 60
+      });
+      createBlock(pushId, {
+        exerciseId: flyId,
+        targetSets: 2,
+        restSeconds: 45
+      });
+
+      expect(runAll(startSession(pushId).id)).toEqual([
+        "Bench Press 1",
+        "rest 180",
+        "Bench Press 2",
+        "rest 180",
+        "Row A1 1/2",
+        "Curl B1 2/2",
+        "rest 90",
+        "Row A2 1/2",
+        "Curl B2 2/2",
+        "rest 90",
+        "Cable Fly 1",
+        "rest 45",
+        "Cable Fly 2"
+      ]);
+    });
+
+    it("rests by the round's entries once one drops out, and the rest ends that long after the round", () => {
+      createSuperset({
+        exerciseId: benchId,
+        targetSets: 2,
+        restSeconds: 120
+      }, {
+        exerciseId: rowId,
+        targetSets: 3,
+        restSeconds: 60
+      });
+      createBlock(pushId, {
+        exerciseId: curlId,
+        targetSets: 1
+      });
+
+      const { id } = startSession(pushId);
+
+      // Rounds 1 and 2: A1 → B1 → A2 → B2.
+      for (let i = 0; i < 4; i++) {
+        completeSet(id);
+      }
+
+      // Round 3 is Row alone, so its 60s rest applies before Curl.
+      const afterRound3 = completeSet(id);
+      const last = listLoggedSets(id).at(-1)!;
+
+      expect(afterRound3.current?.exerciseName).toBe("Curl");
+      expect(afterRound3.rest).toEqual({
+        seconds: 60,
+        endsAt: new Date(last.completedAt.getTime() + 60_000)
+      });
+    });
   });
 
   describe("finishing and the rotation", () => {

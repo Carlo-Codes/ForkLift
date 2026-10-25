@@ -57,6 +57,9 @@ importers:
       '@forklift/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@jest/globals':
+        specifier: ~30.5.2
+        version: 30.5.2
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0

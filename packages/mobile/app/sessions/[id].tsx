@@ -13,7 +13,9 @@ import type { Unit } from "@forklift/db/client";
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
-import { formatSet, toNumber } from "@/format";
+import {
+  formatSet, formatSupersetPosition, toNumber
+} from "@/format";
 
 const INPUT_CLASS = "min-w-24 rounded-lg border border-brand-lightGray px-3 py-2 text-center text-3xl text-brand-darkGray";
 
@@ -174,6 +176,12 @@ export default function WorkoutModeScreen() {
   return (
     <View className="flex-1 justify-between gap-6 bg-brand-white p-6">
       <View className="gap-2">
+        {current.superset && (
+          <AppText weight="semibold"
+            className="text-center text-lg text-brand-primary">
+            {formatSupersetPosition(current.setNumber, current.superset)}
+          </AppText>
+        )}
         <AppText weight="semibold"
           className="text-center text-2xl text-brand-darkGray">
           {current.exerciseName}

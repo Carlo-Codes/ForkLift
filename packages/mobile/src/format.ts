@@ -1,3 +1,4 @@
+import type { SupersetPosition } from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
 // e.g. "3 × 10 @ 60kg · rest 90s"; weight is left out for 0 (bodyweight).
@@ -19,4 +20,12 @@ export function formatSet(reps: number, weight: number, unit: Unit): string {
 // NaN, which @forklift/core rejects with a ValidationError.
 export function toNumber(text: string): number {
   return text.trim() === "" ? Number.NaN : Number(text.replace(",", "."));
+}
+
+// e.g. "A2 · Superset 1/2": the Exercise Entry and round, then its place in the
+// round.
+export function formatSupersetPosition(setNumber: number, {
+  letter, position, roundSize
+}: SupersetPosition): string {
+  return `${letter}${setNumber} · Superset ${position}/${roundSize}`;
 }
