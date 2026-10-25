@@ -3,11 +3,11 @@ import {
   useEffect, useRef, useState
 } from "react";
 import {
-  Alert, Vibration, View
+  Alert, Switch, Vibration, View
 } from "react-native";
 
 import {
-  completeSet, finishSession, getCurrentStep, getSettings, skipExercise, skipSet
+  completeSet, finishSession, getCurrentStep, getSettings, setIncrease, skipExercise, skipSet
 } from "@forklift/core";
 import type { SessionSet, SessionStep } from "@forklift/core";
 import type { Unit } from "@forklift/db/client";
@@ -43,10 +43,26 @@ function NextUp({ set, unit }: { set?: SessionSet; unit: Unit }) {
   );
 }
 
-// The ⋯ menu: skip this set, skip the rest of this exercise, or finish early.
+// Increase Next Time for one Exercise Entry: raises its target weight by its
+// Weight Step when the Session ends.
+function IncreaseToggle({
+  label, on, onChange
+}: { label: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <View className="flex-row items-center justify-center gap-3">
+      <AppText className="text-lg text-brand-mediumGray">{label}</AppText>
+      <Switch value={on}
+        accessibilityLabel={label}
+        onValueChange={onChange} />
+    </View>
+  );
+}
+
+// The ⋯ menu: skip this set, skip the rest of this exercise, or finish early,
+// with children (every entry's Increase Next Time toggle) shown above.
 function WorkoutMenu({
-  onSkipSet, onSkipExercise, onFinish
-}: { onSkipSet: () => void; onSkipExercise: () => void; onFinish: () => void }) {
+  onSkipSet, onSkipExercise, onFinish, children
+}: { onSkipSet: () => void; onSkipExercise: () => void; onFinish: () => void; children?: React.ReactNode }) {
   const [ open, setOpen ] = useState(false);
 
   const choose = (action: () => void) => () => {
@@ -67,6 +83,7 @@ function WorkoutMenu({
       </AppButton>
       {open && (
         <View className="gap-2">
+          {children}
           <AppButton variant="outline"
             className="py-2"
             onPress={choose(onSkipSet)}>
@@ -142,6 +159,17 @@ export default function WorkoutModeScreen() {
   }
 
   const { current, next } = step;
+  const increaseOn = (exerciseEntryId: string) => step.increases.includes(exerciseEntryId);
+
+  // Flipping a toggle saves at once; the step keeps its set and rest.
+  const toggleIncrease = (exerciseEntryId: string) => (on: boolean) => {
+    try {
+      setStep(setIncrease(id, exerciseEntryId, on));
+      setError(undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   // Done, Skip set and Skip exercise all save at once and move to the next step.
   const advance = (move: () => SessionStep) => () => {
@@ -191,10 +219,25 @@ export default function WorkoutModeScreen() {
     ]
   );
 
+  // Every entry's toggle, so any of them can be flipped at any time, also
+  // before finishing early.
+  const increaseToggles = (
+    <View className="gap-2">
+      {step.session.blocks.flat().map(entry => (
+        <IncreaseToggle key={entry.exerciseEntryId}
+          label={`Increase ${entry.exerciseName} next time`}
+          on={increaseOn(entry.exerciseEntryId)}
+          onChange={toggleIncrease(entry.exerciseEntryId)} />
+      ))}
+    </View>
+  );
+
   const menu = (
     <WorkoutMenu onSkipSet={advance(() => skipSet(id))}
       onSkipExercise={advance(() => skipExercise(id))}
-      onFinish={finishEarly} />
+      onFinish={finishEarly}>
+      {increaseToggles}
+    </WorkoutMenu>
   );
 
   if (!current) {
@@ -204,6 +247,7 @@ export default function WorkoutModeScreen() {
           className="text-center text-2xl text-brand-darkGray">
           All sets done
         </AppText>
+        {increaseToggles}
         {error && <AppText className="text-center text-brand-error">{error}</AppText>}
         <AppButton variant="primary"
           className="py-6"
@@ -260,6 +304,9 @@ export default function WorkoutModeScreen() {
         <AppText className="text-center text-lg text-brand-mediumGray">
           Set {current.setNumber} of {current.totalSets}
         </AppText>
+        <IncreaseToggle label="Increase next time"
+          on={increaseOn(current.exerciseEntryId)}
+          onChange={toggleIncrease(current.exerciseEntryId)} />
       </View>
       {actual ?
         (

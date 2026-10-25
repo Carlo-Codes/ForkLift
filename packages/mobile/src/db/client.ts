@@ -93,6 +93,16 @@ const BOOTSTRAP_SQL = `
     updatedAt INTEGER NOT NULL,
     deletedAt INTEGER
   );
+  CREATE TABLE IF NOT EXISTS sessionIncrease (
+    id TEXT PRIMARY KEY,
+    sessionId TEXT NOT NULL REFERENCES session(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    exerciseEntryId TEXT NOT NULL REFERENCES exerciseEntry(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    enabled INTEGER NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    deletedAt INTEGER
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS sessionIncrease_session_entry_idx ON sessionIncrease (sessionId, exerciseEntryId);
 `;
 
 // Columns added to a table after it first shipped: CREATE TABLE IF NOT EXISTS

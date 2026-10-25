@@ -5,7 +5,8 @@ import {
   DEFAULT_TARGET_WEIGHT,
   DEFAULT_WEIGHT_STEP,
   exerciseEntryCreatePayloadSchema,
-  exerciseEntryUpdatePayloadSchema
+  exerciseEntryUpdatePayloadSchema,
+  MAX_TARGET_WEIGHT
 } from "@forklift/db/client";
 import type {
   ExerciseEntryAttributes,
@@ -105,6 +106,16 @@ export function updateExerciseEntry(
   debug.info("updating exercise entry %s", id);
 
   return updateExerciseEntryDb(id, data, tx);
+}
+
+// Increase Next Time: raises the target weight by the entry's Weight Step, up
+// to the cap. Nothing else about the entry changes.
+export function raiseTargetWeight(id: string, tx?: TransactionType): ExerciseEntryAttributes {
+  const entry = getExerciseEntry(id, tx);
+
+  debug.info("raising target weight of exercise entry %s by %d", id, entry.weightStep);
+
+  return updateExerciseEntryDb(id, { targetWeight: Math.min(MAX_TARGET_WEIGHT, entry.targetWeight + entry.weightStep) }, tx);
 }
 
 // A Block is made of its entries, so removing the last one removes the Block.

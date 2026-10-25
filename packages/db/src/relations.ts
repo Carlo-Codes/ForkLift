@@ -6,6 +6,7 @@ import {
   exerciseTable,
   loggedSetTable,
   planTable,
+  sessionIncreaseTable,
   sessionTable,
   settingTable,
   workoutTable
@@ -17,6 +18,7 @@ export const tables = {
   exerciseTable,
   loggedSetTable,
   planTable,
+  sessionIncreaseTable,
   sessionTable,
   settingTable,
   workoutTable
@@ -43,7 +45,8 @@ export const relations = () => {
         to: r.exerciseTable.id,
         optional: false
       }),
-      loggedSets: r.many.loggedSetTable()
+      loggedSets: r.many.loggedSetTable(),
+      sessionIncreases: r.many.sessionIncreaseTable()
     },
     exerciseTable: {
       exerciseEntries: r.many.exerciseEntryTable(),
@@ -67,13 +70,26 @@ export const relations = () => {
       })
     },
     planTable: { workouts: r.many.workoutTable() },
+    sessionIncreaseTable: {
+      session: r.one.sessionTable({
+        from: r.sessionIncreaseTable.sessionId,
+        to: r.sessionTable.id,
+        optional: false
+      }),
+      exerciseEntry: r.one.exerciseEntryTable({
+        from: r.sessionIncreaseTable.exerciseEntryId,
+        to: r.exerciseEntryTable.id,
+        optional: false
+      })
+    },
     sessionTable: {
       workout: r.one.workoutTable({
         from: r.sessionTable.workoutId,
         to: r.workoutTable.id,
         optional: false
       }),
-      loggedSets: r.many.loggedSetTable()
+      loggedSets: r.many.loggedSetTable(),
+      sessionIncreases: r.many.sessionIncreaseTable()
     },
     settingTable: {},
     workoutTable: {
