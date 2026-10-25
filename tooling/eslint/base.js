@@ -317,6 +317,12 @@ export default [
               pattern: "assets/**",
               group: "internal",
               position: "after"
+            },
+            {
+              // package-private subpath imports, e.g. core's #utils/*
+              pattern: "#*/**",
+              group: "internal",
+              position: "after"
             }
           ],
           "pathGroupsExcludedImportTypes": [ "builtin" ]

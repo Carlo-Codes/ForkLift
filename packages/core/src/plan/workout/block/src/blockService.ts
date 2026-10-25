@@ -3,9 +3,10 @@ import { z } from "zod";
 import type { ExerciseEntryCreatePayload, TransactionType } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
-import { nextPosition, orderOrThrow } from "../../../../utils/position";
-import { inTransaction } from "../../../../utils/transaction";
-import { parseOrThrow } from "../../../../utils/validation";
+import { nextPosition, orderOrThrow } from "#utils/position";
+import { inTransaction } from "#utils/transaction";
+import { parseOrThrow } from "#utils/validation";
+
 import { getWorkout } from "../../src/workoutService";
 import { updateExerciseEntryDb } from "../exerciseEntry/src/exerciseEntryDb";
 import { createExerciseEntry } from "../exerciseEntry/src/exerciseEntryService";

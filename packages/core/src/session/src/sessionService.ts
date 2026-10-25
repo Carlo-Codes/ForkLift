@@ -7,10 +7,11 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
+import { inTransaction } from "#utils/transaction";
+import { parseOrThrow } from "#utils/validation";
+
 import { advanceRotation } from "../../plan/src/planService";
 import { listBlocks } from "../../plan/workout/block/src/blockService";
-import { inTransaction } from "../../utils/transaction";
-import { parseOrThrow } from "../../utils/validation";
 import { createLoggedSetDb } from "../loggedSet/src/loggedSetDb";
 import { listLoggedSets } from "../loggedSet/src/loggedSetService";
 import {

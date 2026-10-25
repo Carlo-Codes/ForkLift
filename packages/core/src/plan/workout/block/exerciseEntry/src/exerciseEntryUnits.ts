@@ -3,7 +3,8 @@ import {
 } from "@forklift/db/client";
 import type { TransactionType, Unit } from "@forklift/db/client";
 
-import { convertWeight as convert } from "../../../../../utils/units";
+import { convertWeight as convert } from "#utils/units";
+
 import { getAllExerciseEntryByQuery, updateExerciseEntryDb } from "./exerciseEntryDb";
 
 // Rewrites every stored target weight and Weight Step from one unit to the other,

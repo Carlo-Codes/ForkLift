@@ -1,7 +1,8 @@
 import { MAX_TARGET_WEIGHT } from "@forklift/db/client";
 import type { TransactionType, Unit } from "@forklift/db/client";
 
-import { convertWeight } from "../../utils/units";
+import { convertWeight } from "#utils/units";
+
 import { getAllLoggedSetByQuery, updateLoggedSetDb } from "../loggedSet/src/loggedSetDb";
 import { getAllSessionByQuery, updateSessionDb } from "./sessionDb";
 

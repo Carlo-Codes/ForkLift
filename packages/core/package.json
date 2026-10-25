@@ -9,6 +9,9 @@
       "./src/index.ts"
     ]
   },
+  "imports": {
+    "#utils/*": "./src/utils/*.ts"
+  },
   "scripts": {
     "lint": "eslint .",
     "format": "eslint --fix .",
