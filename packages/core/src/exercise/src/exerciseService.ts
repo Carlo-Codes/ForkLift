@@ -1,5 +1,3 @@
-import type { z } from "zod";
-
 import {
   exerciseCreatePayloadSchema, exerciseUpdatePayloadSchema, getDb, sql
 } from "@forklift/db/client";
@@ -11,6 +9,7 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
+import { parseOrThrow } from "../../utils/validation";
 import { builtInExercises } from "./builtInExercises";
 import {
   createExerciseDb,
@@ -21,16 +20,6 @@ import {
 } from "./exerciseDb";
 
 const debug = createDebugger("exerciseService");
-
-function parseOrThrow<T>(schema: z.ZodType<T>, input: unknown): T {
-  const parsed = schema.safeParse(input);
-
-  if (!parsed.success) {
-    throw new ApiError(400, parsed.error.issues.map(i => i.message).join("; "), "ValidationError");
-  }
-
-  return parsed.data;
-}
 
 export function listExercises(tx?: TransactionType): ExerciseAttributes[] {
   return searchExercises("", tx);

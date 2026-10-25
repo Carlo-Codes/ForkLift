@@ -2,8 +2,11 @@ import { settingSchema } from "@forklift/db/client";
 import type {
   SettingAttributes, TransactionType, Unit
 } from "@forklift/db/client";
-import { ApiError, createDebugger } from "@forklift/debug";
+import { createDebugger } from "@forklift/debug";
 
+import { convertExerciseEntryWeights } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryUnits";
+import { inTransaction } from "../../utils/transaction";
+import { parseOrThrow } from "../../utils/validation";
 import {
   createSettingDb, getSettingByQuery, updateSettingDb
 } from "./settingDb";
@@ -22,17 +25,18 @@ export function getSettings(tx?: TransactionType): Pick<SettingAttributes, "unit
 }
 
 export function setUnit(unit: Unit, tx?: TransactionType): Pick<SettingAttributes, "unit"> {
-  const parsed = settingSchema.pick({ unit: true }).safeParse({ unit });
+  const data = parseOrThrow(settingSchema.pick({ unit: true }), { unit });
 
-  if (!parsed.success) {
-    throw new ApiError(400, parsed.error.issues.map(i => i.message).join("; "), "ValidationError");
-  }
+  // Stored weights are in the current unit, so they convert in the same
+  // transaction as the switch.
+  return inTransaction(tx, t => {
+    const setting = getSettingRow(t);
 
-  const setting = getSettingRow(tx);
+    debug.info("setting unit to %s", data.unit);
+    convertExerciseEntryWeights(getSettings(t).unit, data.unit, t);
 
-  debug.info("setting unit to %s", parsed.data.unit);
-
-  return setting ?
-    updateSettingDb(setting.id, parsed.data, tx) :
-    createSettingDb(parsed.data, tx);
+    return setting ?
+      updateSettingDb(setting.id, data, t) :
+      createSettingDb(data, t);
+  });
 }
