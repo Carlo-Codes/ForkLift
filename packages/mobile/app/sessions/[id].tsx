@@ -111,7 +111,13 @@ export default function WorkoutModeScreen() {
   };
 
   const finish = () => {
-    finishSession(id);
+    try {
+      finishSession(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+
+      return;
+    }
 
     if (router.canGoBack()) {
       router.back();
@@ -127,6 +133,7 @@ export default function WorkoutModeScreen() {
           className="text-center text-2xl text-brand-darkGray">
           All sets done
         </AppText>
+        {error && <AppText className="text-center text-brand-error">{error}</AppText>}
         <AppButton variant="primary"
           className="py-6"
           onPress={finish}>

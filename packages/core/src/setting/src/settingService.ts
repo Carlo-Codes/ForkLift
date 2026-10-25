@@ -32,10 +32,11 @@ export function setUnit(unit: Unit, tx?: TransactionType): Pick<SettingAttribute
   // transaction as the switch.
   return inTransaction(tx, t => {
     const setting = getSettingRow(t);
+    const from = getSettings(t).unit;
 
     debug.info("setting unit to %s", data.unit);
-    convertExerciseEntryWeights(getSettings(t).unit, data.unit, t);
-    convertSessionWeights(getSettings(t).unit, data.unit, t);
+    convertExerciseEntryWeights(from, data.unit, t);
+    convertSessionWeights(from, data.unit, t);
 
     return setting ?
       updateSettingDb(setting.id, data, t) :

@@ -8,6 +8,8 @@ import type {
   TransactionType
 } from "@forklift/db/client";
 
+// Sessions are history (ADR-0003, GLOSSARY), so there is no delete here.
+
 // Sessions read newest first unless asked otherwise.
 export function getAllSessionByQuery(
   filters: QueryFilters<"sessionTable">,

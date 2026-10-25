@@ -8,6 +8,8 @@ import type {
   TransactionType
 } from "@forklift/db/client";
 
+// Logged Sets are history (ADR-0003, GLOSSARY), so there is no delete here.
+
 // Logged Sets read in the order they were done unless asked otherwise; round
 // breaks a tie between sets of one entry logged in the same millisecond.
 export function getAllLoggedSetByQuery(

@@ -3,6 +3,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 
+import { MAX_TARGET_WEIGHT } from "./exerciseEntryModel";
 import { workoutTable } from "./workoutModel";
 
 export const sessionStatusValues = [ "inProgress", "finished" ] as const;
@@ -17,7 +18,8 @@ export const sessionEntrySnapshotSchema = z.object({
     .min(1),
   targetReps: z.number().int()
     .min(1),
-  targetWeight: z.number().min(0),
+  targetWeight: z.number().min(0)
+    .max(MAX_TARGET_WEIGHT),
   restSeconds: z.number().int()
     .min(0)
 });
