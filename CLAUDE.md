@@ -29,7 +29,9 @@ Always true:
   callbacks: compose with `getDb().transaction(tx => …)` and plain calls.
 - Ids/timestamps are generated in JS (`crypto.randomUUID()`, polyfilled on device with
   `expo-crypto`), so tables need no SQL defaults that the on-device bootstrap SQL must mirror.
-- Stay on Expo SDK 57; check alignment with `npx expo install --check` in `packages/mobile`.
+- Expo SDK 58 (RN 0.88, React 19.3): check alignment with `npx expo install --check` in
+  `packages/mobile` (jest is excluded there; the repo stays on Jest 29 + ts-jest). Components take
+  `ref` as a prop, not `forwardRef`.
 
 ## Agent skills
 

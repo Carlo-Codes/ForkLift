@@ -1,6 +1,5 @@
-import { forwardRef } from "react";
 import { Pressable } from "react-native";
-import type { PressableProps, View } from "react-native";
+import type { PressableProps } from "react-native";
 
 import { AppText } from "./AppText";
 
@@ -33,12 +32,11 @@ interface AppButtonProps extends Omit<PressableProps, "children"> {
   children?: React.ReactNode;
 }
 
-export const AppButton = forwardRef<View, AppButtonProps>(function AppButton(
-  {
-    variant = "plain", selected, className, children, ...props
-  },
-  ref
-) {
+// React 19 passes `ref` as a regular prop (Link asChild relies on it), so it
+// arrives through PressableProps and is spread onto the Pressable.
+export function AppButton({
+  variant = "plain", selected, className, children, ...props
+}: AppButtonProps) {
   const selectedClass =
     variant === "chip" ?
       selected ? "border-brand-primary bg-brand-primaryLight" : "border-brand-lightGray" :
@@ -46,7 +44,6 @@ export const AppButton = forwardRef<View, AppButtonProps>(function AppButton(
 
   return (
     <Pressable
-      ref={ref}
       className={[
         VARIANT_BASE_CLASS[ variant ],
         selectedClass,
@@ -64,4 +61,4 @@ export const AppButton = forwardRef<View, AppButtonProps>(function AppButton(
         children}
     </Pressable>
   );
-});
+}
