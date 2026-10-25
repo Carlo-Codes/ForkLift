@@ -28,6 +28,7 @@
     "@forklift/jest-config": "workspace:*",
     "@forklift/prettier-config": "workspace:*",
     "@forklift/tsconfig": "workspace:*",
+    "@jest/globals": "~30.5.2",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.20.0",
     "eslint": "^9",
