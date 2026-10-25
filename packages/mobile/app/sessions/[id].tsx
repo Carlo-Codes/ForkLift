@@ -58,10 +58,11 @@ function IncreaseToggle({
   );
 }
 
-// The ⋯ menu: skip this set, skip the rest of this exercise, or finish early.
+// The ⋯ menu: skip this set, skip the rest of this exercise, or finish early,
+// with children (every entry's Increase Next Time toggle) shown above.
 function WorkoutMenu({
-  onSkipSet, onSkipExercise, onFinish
-}: { onSkipSet: () => void; onSkipExercise: () => void; onFinish: () => void }) {
+  onSkipSet, onSkipExercise, onFinish, children
+}: { onSkipSet: () => void; onSkipExercise: () => void; onFinish: () => void; children?: React.ReactNode }) {
   const [ open, setOpen ] = useState(false);
 
   const choose = (action: () => void) => () => {
@@ -82,6 +83,7 @@ function WorkoutMenu({
       </AppButton>
       {open && (
         <View className="gap-2">
+          {children}
           <AppButton variant="outline"
             className="py-2"
             onPress={choose(onSkipSet)}>
@@ -217,10 +219,25 @@ export default function WorkoutModeScreen() {
     ]
   );
 
+  // Every entry's toggle, so any of them can be flipped at any time, also
+  // before finishing early.
+  const increaseToggles = (
+    <View className="gap-2">
+      {step.session.blocks.flat().map(entry => (
+        <IncreaseToggle key={entry.exerciseEntryId}
+          label={`Increase ${entry.exerciseName} next time`}
+          on={increaseOn(entry.exerciseEntryId)}
+          onChange={toggleIncrease(entry.exerciseEntryId)} />
+      ))}
+    </View>
+  );
+
   const menu = (
     <WorkoutMenu onSkipSet={advance(() => skipSet(id))}
       onSkipExercise={advance(() => skipExercise(id))}
-      onFinish={finishEarly} />
+      onFinish={finishEarly}>
+      {increaseToggles}
+    </WorkoutMenu>
   );
 
   if (!current) {
@@ -230,14 +247,7 @@ export default function WorkoutModeScreen() {
           className="text-center text-2xl text-brand-darkGray">
           All sets done
         </AppText>
-        <View className="gap-2">
-          {step.session.blocks.flat().map(entry => (
-            <IncreaseToggle key={entry.exerciseEntryId}
-              label={`Increase ${entry.exerciseName} next time`}
-              on={increaseOn(entry.exerciseEntryId)}
-              onChange={toggleIncrease(entry.exerciseEntryId)} />
-          ))}
-        </View>
+        {increaseToggles}
         {error && <AppText className="text-center text-brand-error">{error}</AppText>}
         <AppButton variant="primary"
           className="py-6"

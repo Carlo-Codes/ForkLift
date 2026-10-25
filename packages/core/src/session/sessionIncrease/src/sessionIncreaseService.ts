@@ -7,7 +7,7 @@ export function listIncreases(sessionId: string, tx?: TransactionType): string[]
   return getAllSessionIncreaseByQuery({
     where: {
       sessionId,
-      on: true,
+      enabled: true,
       deletedAt: { isNull: true }
     }
   }, tx).map(increase => increase.exerciseEntryId);

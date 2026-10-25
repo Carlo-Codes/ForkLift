@@ -1,6 +1,4 @@
-import {
-  completeSetPayloadSchema, MAX_TARGET_WEIGHT, sessionIncreaseSchema
-} from "@forklift/db/client";
+import { completeSetPayloadSchema, sessionIncreaseSchema } from "@forklift/db/client";
 import type {
   CompleteSetPayload,
   SessionAttributes,
@@ -13,7 +11,8 @@ import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 
 import { advanceRotation } from "../../plan/src/planService";
-import { getExerciseEntryByQuery, updateExerciseEntryDb } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryDb";
+import { getExerciseEntryByQuery } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryDb";
+import { raiseTargetWeight } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryService";
 import { listBlocks } from "../../plan/workout/block/src/blockService";
 import { createLoggedSetDb } from "../loggedSet/src/loggedSetDb";
 import { listLoggedSets } from "../loggedSet/src/loggedSetService";
@@ -29,7 +28,7 @@ const debug = createDebugger("sessionService");
 
 const setIncreasePayloadSchema = sessionIncreaseSchema.pick({
   exerciseEntryId: true,
-  on: true
+  enabled: true
 });
 
 // One set of the Session, in the order Workout Mode runs them.
@@ -337,7 +336,7 @@ export function setIncrease(
 ): SessionStep {
   const data = parseOrThrow(setIncreasePayloadSchema, {
     exerciseEntryId,
-    on
+    enabled: on
   });
 
   return inTransaction(tx, t => {
@@ -349,7 +348,7 @@ export function setIncrease(
       throw new ApiError(404, `Exercise entry ${data.exerciseEntryId} is not in this Session`, "NotFoundError");
     }
 
-    debug.info("turning Increase Next Time %s for entry %s in session %s", data.on ? "on" : "off", data.exerciseEntryId, sessionId);
+    debug.info("turning Increase Next Time %s for entry %s in session %s", data.enabled ? "on" : "off", data.exerciseEntryId, sessionId);
 
     const existing = getSessionIncreaseByQuery({
       where: {
@@ -359,10 +358,7 @@ export function setIncrease(
     }, t);
 
     if (existing) {
-      updateSessionIncreaseDb(existing.id, {
-        on: data.on,
-        deletedAt: null
-      }, t);
+      updateSessionIncreaseDb(existing.id, { enabled: data.enabled }, t);
     } else {
       createSessionIncreaseDb({
         sessionId,
@@ -386,7 +382,7 @@ function applyIncreases(sessionId: string, tx: TransactionType): void {
     }, tx);
 
     if (entry) {
-      updateExerciseEntryDb(entry.id, { targetWeight: Math.min(MAX_TARGET_WEIGHT, entry.targetWeight + entry.weightStep) }, tx);
+      raiseTargetWeight(entry.id, tx);
     }
   }
 }

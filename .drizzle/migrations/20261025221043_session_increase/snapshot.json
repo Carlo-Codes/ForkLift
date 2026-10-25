@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "10c57300-6cbd-4ad2-ab0f-966881078e8e",
+  "id": "9da15caf-b479-4fd7-9efe-9d5ee954d4d1",
   "prevIds": [
     "666f4e12-f7c5-46e1-b7db-9d22c6142660"
   ],
@@ -544,7 +544,7 @@
     },
     {
       "table": "sessionIncrease",
-      "name": "on",
+      "name": "enabled",
       "type": "integer",
       "notNull": true,
       "autoincrement": false,

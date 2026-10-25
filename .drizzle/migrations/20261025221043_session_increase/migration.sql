@@ -2,7 +2,7 @@ CREATE TABLE `sessionIncrease` (
 	`id` text PRIMARY KEY,
 	`sessionId` text NOT NULL,
 	`exerciseEntryId` text NOT NULL,
-	`on` integer NOT NULL,
+	`enabled` integer NOT NULL,
 	`createdAt` integer NOT NULL,
 	`updatedAt` integer NOT NULL,
 	`deletedAt` integer,

@@ -8,8 +8,9 @@ import { exerciseEntryTable } from "./exerciseEntryModel";
 import { sessionTable } from "./sessionModel";
 
 // Synced table (ADR-0003). An Increase Next Time toggle of a Session: one row
-// per Exercise Entry the lifter has flipped, on or back off. Finishing the
-// Session raises the target weight of every entry left on.
+// per Exercise Entry the lifter has flipped, enabled or back off. Finishing the
+// Session raises the target weight of every entry left enabled. Part of the
+// Session, so never edited by the AI.
 export const sessionIncreaseTable = sqliteTable("sessionIncrease", {
   id: text("id").primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
@@ -23,7 +24,7 @@ export const sessionIncreaseTable = sqliteTable("sessionIncrease", {
       onDelete: "restrict",
       onUpdate: "cascade"
     }),
-  on: integer("on", { mode: "boolean" }).notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull(),
   createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull()
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull()
@@ -36,7 +37,7 @@ export const sessionIncreaseSchema = createInsertSchema(sessionIncreaseTable, {
   id: z.uuid().optional(),
   sessionId: () => z.uuid(),
   exerciseEntryId: () => z.uuid(),
-  on: () => z.boolean("Increase Next Time must be on or off")
+  enabled: () => z.boolean("Increase Next Time must be on or off")
 });
 
 type SessionIncreaseDbSelect = typeof sessionIncreaseTable.$inferSelect;
