@@ -7,6 +7,8 @@ allowBuilds:
   unrs-resolver: true
   # ships prebuilt binaries; its install script only builds from source as a fallback
   "@parcel/watcher": false
+  # its postinstall only repairs framework symlinks that Yarn v1 breaks
+  react-native-nitro-http-server: false
 publicHoistPattern:
   - "@ianvs/prettier-plugin-sort-imports"
   - "prettier-plugin-tailwindcss"

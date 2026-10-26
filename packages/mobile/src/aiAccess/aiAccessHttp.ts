@@ -1,5 +1,3 @@
-import { Buffer } from "buffer";
-
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import { createDebugger } from "@forklift/debug";
@@ -7,65 +5,56 @@ import { createDebugger } from "@forklift/debug";
 import { createAiAccessMcpServer } from "./aiAccessTools";
 
 const debug = createDebugger("aiAccessHttp");
-const MAX_HEAD_BYTES = 16 * 1024;
-const MAX_BODY_BYTES = 1024 * 1024;
-const SOCKET_TIMEOUT_MS = 30_000;
+const MAX_BODY_LENGTH = 1024 * 1024;
 
-// The few socket calls the server makes, shared by Node's net (tests) and
-// react-native-tcp-socket (the phone), which mirrors it.
-export interface TcpSocketLike {
-  on(event: "data", listener: (data: Buffer | string) => void): unknown;
+// The part of Node's http server API AI Access uses, which both node:http
+// (tests) and react-native-nitro-http-server (the phone) provide.
+interface IncomingMessageLike {
+  method?: string;
+  url?: string;
+  headers: Record<string, string | string[] | undefined>;
+  setEncoding(encoding: "utf8"): unknown;
+  on(event: "data", listener: (chunk: string | { toString(encoding: "utf8"): string }) => void): unknown;
+  on(event: "end", listener: () => void): unknown;
   on(event: "error", listener: (error: Error) => void): unknown;
-  on(event: "close", listener: () => void): unknown;
-  setTimeout(ms: number, callback: () => void): unknown;
-  write(data: Buffer): unknown;
-  end(): unknown;
   destroy(): unknown;
 }
 
-interface TcpServerLike {
-  listen(options: { port: number; host: string }, callback: () => void): unknown;
+interface ServerResponseLike {
+  writeHead(status: number, headers: Record<string, string>): unknown;
+  end(body: string): unknown;
+}
+
+interface HttpServerLike {
+  listen(port: number, host: string, callback: () => void): unknown;
   on(event: "error", listener: (error: Error) => void): unknown;
   address(): { port: number } | string | null;
   close(callback?: () => void): unknown;
 }
 
-export type CreateTcpServer = (onConnection: (socket: TcpSocketLike) => void) => TcpServerLike;
+export type CreateHttpServer = (
+  listener: (request: IncomingMessageLike, response: ServerResponseLike) => void
+) => HttpServerLike;
 
 export interface AiAccessHttpServer {
   port: number;
   close: () => Promise<void>;
 }
 
-interface HttpRequest {
+interface AiAccessRequest {
   method: string;
   path: string;
   headers: Record<string, string>;
   body: string;
 }
 
-interface HttpResponse {
+interface AiAccessResponse {
   status: number;
-  headers?: Record<string, string>;
-  body?: string;
+  headers: Record<string, string>;
+  body: string;
 }
 
-type ParseResult = { kind: "incomplete" } | { kind: "error"; response: HttpResponse } | { kind: "request"; request: HttpRequest };
-
-const STATUS_TEXT: Record<number, string> = {
-  200: "OK",
-  202: "Accepted",
-  400: "Bad Request",
-  401: "Unauthorized",
-  404: "Not Found",
-  405: "Method Not Allowed",
-  406: "Not Acceptable",
-  411: "Length Required",
-  413: "Content Too Large",
-  415: "Unsupported Media Type",
-  431: "Request Header Fields Too Large",
-  500: "Internal Server Error"
-};
+type RouteHandler = (request: AiAccessRequest) => Promise<AiAccessResponse>;
 
 // The request headers the MCP transport reads; nothing else is passed on.
 const FORWARDED_HEADERS = [
@@ -76,7 +65,7 @@ const FORWARDED_HEADERS = [
   "last-event-id"
 ];
 
-const jsonRpcError = (status: number, code: number, message: string, headers?: Record<string, string>): HttpResponse => ({
+const jsonRpcError = (status: number, code: number, message: string, headers?: Record<string, string>): AiAccessResponse => ({
   status,
   headers: {
     "content-type": "application/json",
@@ -91,91 +80,6 @@ const jsonRpcError = (status: number, code: number, message: string, headers?: R
     id: null
   })
 });
-
-const failed = (status: number, message: string): ParseResult => ({
-  kind: "error",
-  response: jsonRpcError(status, -32000, message)
-});
-
-// Just enough HTTP/1.1 for an MCP client: one request per connection, its
-// body sized by Content-Length.
-function parseRequest(buffer: Buffer): ParseResult {
-  const headEnd = buffer.indexOf("\r\n\r\n");
-
-  if (headEnd === -1) {
-    return buffer.length > MAX_HEAD_BYTES ? failed(431, "Request headers too large") : { kind: "incomplete" };
-  }
-
-  const [ requestLine = "", ...headerLines ] = buffer.subarray(0, headEnd).toString("latin1")
-    .split("\r\n");
-
-  const [ method, target ] = /^([A-Z]+) (\S+) HTTP\/1\.[01]$/.exec(requestLine)?.slice(1) ?? [];
-
-  if (!method || !target) {
-    return failed(400, "Malformed request");
-  }
-
-  const headers: Record<string, string> = {};
-
-  for (const line of headerLines) {
-    const colon = line.indexOf(":");
-
-    if (colon <= 0) {
-      return failed(400, "Malformed header");
-    }
-
-    const name = line.slice(0, colon).trim()
-      .toLowerCase();
-
-    const value = line.slice(colon + 1).trim();
-
-    headers[ name ] = headers[ name ] === undefined ? value : `${headers[ name ]}, ${value}`;
-  }
-
-  if (headers[ "transfer-encoding" ] !== undefined) {
-    return failed(411, "Send the body with a Content-Length");
-  }
-
-  const contentLength = headers[ "content-length" ] ?? "0";
-  const length = Number(contentLength);
-
-  if (!/^\d+$/.test(contentLength)) {
-    return failed(400, "Malformed Content-Length");
-  }
-
-  if (length > MAX_BODY_BYTES) {
-    return failed(413, "Request body too large");
-  }
-
-  const bodyStart = headEnd + 4;
-
-  if (buffer.length < bodyStart + length) {
-    return { kind: "incomplete" };
-  }
-
-  return {
-    kind: "request",
-    request: {
-      method,
-      path: target.split("?")[ 0 ]!,
-      headers,
-      body: buffer.subarray(bodyStart, bodyStart + length).toString("utf8")
-    }
-  };
-}
-
-function serialize({
-  status, headers = {}, body = ""
-}: HttpResponse): Buffer {
-  const head = [
-    `HTTP/1.1 ${status} ${STATUS_TEXT[ status ] ?? ""}`,
-    ...Object.entries(headers).map(([ name, value ]) => `${name}: ${value}`),
-    `content-length: ${Buffer.byteLength(body, "utf8")}`,
-    "connection: close"
-  ].join("\r\n");
-
-  return Buffer.from(`${head}\r\n\r\n${body}`, "utf8");
-}
 
 // Compares every character so how long a guess takes says nothing about how
 // close it is.
@@ -195,7 +99,7 @@ function isToken(candidate: string, token: string): boolean {
 
 // Stateless Streamable HTTP with plain JSON answers: a fresh server and
 // transport per request, so there's no session to keep and no event stream.
-async function handleMcp(request: HttpRequest): Promise<HttpResponse> {
+async function handleMcp(request: AiAccessRequest): Promise<AiAccessResponse> {
   let parsedBody: unknown;
 
   try {
@@ -245,114 +149,111 @@ async function handleMcp(request: HttpRequest): Promise<HttpResponse> {
   }
 }
 
-async function route(
-  request: HttpRequest,
-  getPairingToken: () => string,
-  onActivity: () => void
-): Promise<HttpResponse> {
-  const bearer = /^Bearer (\S+)$/i.exec(request.headers.authorization ?? "")?.[ 1 ] ?? "";
+// Every route AI Access serves, by path then method. A new route goes here and
+// is behind the pairing token like the rest.
+const ROUTES: Record<string, Record<string, RouteHandler>> = { "/mcp": { POST: handleMcp } };
 
-  if (!isToken(bearer, getPairingToken())) {
-    debug.info("rejected a request without the pairing token");
+// Only requests bearing the current pairing token reach a route, and each one
+// counts as activity. The token is read per request, so regenerating it shuts
+// out the old one at once.
+function createRouter(getPairingToken: () => string, onActivity: () => void): RouteHandler {
+  return async request => {
+    const bearer = /^Bearer (\S+)$/i.exec(request.headers.authorization ?? "")?.[ 1 ] ?? "";
 
-    return jsonRpcError(401, -32001, "Unauthorized: send the pairing token as a Bearer token", { "www-authenticate": "Bearer" });
-  }
+    if (!isToken(bearer, getPairingToken())) {
+      debug.info("rejected a request without the pairing token");
 
-  onActivity();
+      return jsonRpcError(401, -32001, "Unauthorized: send the pairing token as a Bearer token", { "www-authenticate": "Bearer" });
+    }
 
-  if (request.path !== "/mcp") {
-    return jsonRpcError(404, -32000, "Not found: the MCP endpoint is /mcp");
-  }
+    onActivity();
 
-  if (request.method !== "POST") {
-    return jsonRpcError(405, -32000, "Method not allowed: this server takes POST only", { allow: "POST" });
-  }
+    const methods = ROUTES[ request.path ];
 
-  return handleMcp(request);
+    if (!methods) {
+      return jsonRpcError(404, -32000, "Not found: the MCP endpoint is /mcp");
+    }
+
+    const handle = methods[ request.method ];
+
+    if (!handle) {
+      const allowed = Object.keys(methods).join(", ");
+
+      return jsonRpcError(405, -32000, `Method not allowed: use ${allowed}`, { allow: allowed });
+    }
+
+    return handle(request);
+  };
 }
 
-// Serves AI Access's MCP endpoint at /mcp on the given TCP server. Only
-// requests bearing the current pairing token are answered, and each one
-// counts as activity; the token is read per request, so regenerating it
-// shuts out the old one at once.
+const flattenHeaders = (headers: IncomingMessageLike["headers"]) => Object.fromEntries(Object.entries(headers)
+  .filter((entry): entry is [string, string | string[]] => entry[ 1 ] !== undefined)
+  .map(([ name, value ]) => [ name.toLowerCase(), Array.isArray(value) ? value.join(", ") : value ]));
+
 export function startAiAccessHttpServer({
-  createTcpServer, host = "0.0.0.0", port, getPairingToken, onActivity = () => undefined
+  createHttpServer, host = "0.0.0.0", port, getPairingToken, onActivity = () => undefined
 }: {
-  createTcpServer: CreateTcpServer;
+  createHttpServer: CreateHttpServer;
   host?: string;
   port: number;
   getPairingToken: () => string;
   onActivity?: () => void;
 }): Promise<AiAccessHttpServer> {
-  const sockets = new Set<TcpSocketLike>();
+  const route = createRouter(getPairingToken, onActivity);
 
-  const onConnection = (socket: TcpSocketLike) => {
-    let buffer = Buffer.alloc(0);
-    let answered = false;
-
-    sockets.add(socket);
-    socket.setTimeout(SOCKET_TIMEOUT_MS, () => socket.destroy());
-    socket.on("close", () => sockets.delete(socket));
-
-    socket.on("error", error => {
-      debug.error("socket error: %s", error.message);
-      socket.destroy();
-    });
-
-    const reply = (response: HttpResponse) => {
-      socket.write(serialize(response));
-      socket.end();
+  const server = createHttpServer((request, response) => {
+    const reply = ({
+      status, headers, body
+    }: AiAccessResponse) => {
+      response.writeHead(status, headers);
+      response.end(body);
     };
 
-    socket.on("data", data => {
-      if (answered) {
+    let body = "";
+    let tooLarge = false;
+
+    request.setEncoding("utf8");
+
+    request.on("data", chunk => {
+      body += typeof chunk === "string" ? chunk : chunk.toString("utf8");
+
+      if (body.length > MAX_BODY_LENGTH && !tooLarge) {
+        tooLarge = true;
+        reply(jsonRpcError(413, -32000, "Request body too large"));
+        request.destroy();
+      }
+    });
+    request.on("error", error => debug.error("request error: %s", error.message));
+
+    request.on("end", () => {
+      if (tooLarge) {
         return;
       }
 
-      buffer = Buffer.concat([ buffer, typeof data === "string" ? Buffer.from(data, "utf8") : data ]);
-
-      const parsed = parseRequest(buffer);
-
-      if (parsed.kind === "incomplete") {
-        return;
-      }
-
-      answered = true;
-
-      if (parsed.kind === "error") {
-        reply(parsed.response);
-
-        return;
-      }
-
-      route(parsed.request, getPairingToken, onActivity).then(reply, (error: unknown) => {
+      route({
+        method: request.method ?? "GET",
+        path: (request.url ?? "/").split("?")[ 0 ]!,
+        headers: flattenHeaders(request.headers),
+        body
+      }).then(reply, (error: unknown) => {
         debug.error("request failed: %O", error);
         reply(jsonRpcError(500, -32603, "Internal error"));
       });
     });
-  };
+  });
 
   return new Promise((resolve, reject) => {
-    const tcpServer = createTcpServer(onConnection);
+    server.on("error", reject);
 
-    tcpServer.on("error", reject);
-
-    tcpServer.listen({
-      port,
-      host
-    }, () => {
-      const address = tcpServer.address();
+    server.listen(port, host, () => {
+      const address = server.address();
 
       debug.info("AI Access listening on %s:%d", host, port);
 
       resolve({
         port: typeof address === "object" && address ? address.port : port,
         close: () => new Promise(done => {
-          tcpServer.close(() => done());
-
-          for (const socket of sockets) {
-            socket.destroy();
-          }
+          server.close(() => done());
         })
       });
     });

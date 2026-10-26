@@ -1,13 +1,14 @@
-import net from "node:net";
+import http from "node:http";
 
 import { jest } from "@jest/globals";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
+import { createExercise } from "@forklift/core";
 import { setupTestDb } from "@forklift/db/server";
 
 import { startAiAccessHttpServer } from "../aiAccessHttp";
-import type { AiAccessHttpServer, CreateTcpServer } from "../aiAccessHttp";
+import type { AiAccessHttpServer, CreateHttpServer } from "../aiAccessHttp";
 
 describe("AI Access over HTTP", () => {
   let teardown: () => void;
@@ -57,7 +58,7 @@ describe("AI Access over HTTP", () => {
     token = "first-token";
     onActivity = jest.fn();
     server = await startAiAccessHttpServer({
-      createTcpServer: net.createServer as unknown as CreateTcpServer,
+      createHttpServer: http.createServer as unknown as CreateHttpServer,
       host: "127.0.0.1",
       port: 0,
       getPairingToken: () => token,
@@ -76,6 +77,24 @@ describe("AI Access over HTTP", () => {
 
     expect(tools.map(t => t.name)).toContain("list_plans");
     expect(onActivity).toHaveBeenCalled();
+
+    await client.close();
+  });
+
+  it("carries names outside ASCII both ways intact", async () => {
+    createExercise({
+      name: "Développé couché",
+      muscleGroups: [ "chest" ]
+    });
+
+    const client = await connect("first-token");
+    const result = await client.callTool({
+      name: "search_exercises",
+      arguments: { query: "développé" }
+    });
+    const [ content ] = result.content as { text: string }[];
+
+    expect(JSON.parse(content!.text)).toEqual([ expect.objectContaining({ name: "Développé couché" }) ]);
 
     await client.close();
   });
