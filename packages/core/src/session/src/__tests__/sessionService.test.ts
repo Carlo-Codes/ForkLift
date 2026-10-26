@@ -4,7 +4,7 @@ import type { ExerciseEntryCreatePayload } from "@forklift/db/client";
 import type { ApiError } from "@forklift/debug";
 
 import {
-  completeSet, finishSession, getCurrentStep, getSession, resumeSession, setIncrease, skipExercise, skipSet, startSession
+  completeSet, finishSession, getCurrentStep, getSession, resumeSession, setIncrease, skipExercise, skipRest, skipSet, startSession
 } from "..";
 import { createExercise } from "#exercise";
 import {
@@ -614,6 +614,84 @@ describe("sessions", () => {
         exerciseName: "Cable Fly",
         setNumber: 1
       }));
+    });
+  });
+
+  describe("Skip rest", () => {
+    beforeEach(() => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 3,
+        restSeconds: 90
+      });
+    });
+
+    it("ends the rest due, staying on the same set", () => {
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+
+      const step = skipRest(id);
+
+      expect(step.rest).toBeUndefined();
+      expect(step.current).toEqual(expect.objectContaining({ setNumber: 2 }));
+      expect(getCurrentStep(id).rest).toBeUndefined();
+    });
+
+    it("stays skipped when the Session is resumed after the app is reopened", () => {
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+      skipRest(id);
+      reopen();
+
+      const step = resumeSession();
+
+      expect(step?.current).toEqual(expect.objectContaining({ setNumber: 2 }));
+      expect(step?.rest).toBeUndefined();
+    });
+
+    it("gives the set after its normal rest", () => {
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+      skipRest(id);
+
+      const step = completeSet(id);
+      const [ , second ] = listLoggedSets(id);
+
+      expect(step.rest).toEqual({
+        seconds: 90,
+        endsAt: new Date(second!.completedAt.getTime() + 90_000)
+      });
+    });
+
+    it("refuses when no rest is due or the Session is finished", () => {
+      const { id } = startSession(pushId);
+
+      expect(() => skipRest(id)).toThrow(conflictError);
+
+      completeSet(id);
+      skipRest(id);
+
+      expect(() => skipRest(id)).toThrow(conflictError);
+
+      completeSet(id);
+      finishSession(id);
+
+      expect(() => skipRest(id)).toThrow(conflictError);
+    });
+
+    it("refuses the AI, leaving the rest running", () => {
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+
+      expect(() => skipRest(id, "ai")).toThrow(expect.objectContaining({
+        statusCode: 403,
+        type: "ForbiddenError"
+      }) as ApiError);
+      expect(getCurrentStep(id).rest?.seconds).toBe(90);
     });
   });
 

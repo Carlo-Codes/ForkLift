@@ -11,8 +11,9 @@ import { sessionTable } from "./sessionModel";
 // Synced table (ADR-0003). A set of a Session: round is the 1-based set number
 // of its Exercise Entry, and reps and weight are what was actually done (weight
 // in the unit chosen in Settings), or 0 for a set the lifter skipped, which is
-// marked skipped so history can leave it out. exerciseId is stored
-// too so history survives edits and deletes in Plans. Never edited by the AI.
+// marked skipped so history can leave it out. restSkipped marks a done set whose
+// rest the lifter skipped. exerciseId is stored too so history survives edits
+// and deletes in Plans. Never edited by the AI.
 export const loggedSetTable = sqliteTable("loggedSet", {
   id: text("id").primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
@@ -34,8 +35,10 @@ export const loggedSetTable = sqliteTable("loggedSet", {
   round: integer("round").notNull(),
   reps: integer("reps").notNull(),
   weight: real("weight").notNull(),
-  // A SQL default so the column can be added to a loggedSet table that shipped without it.
+  // SQL defaults so these columns can be added to a loggedSet table that shipped without them.
   skipped: integer("skipped", { mode: "boolean" }).notNull()
+    .default(false),
+  restSkipped: integer("restSkipped", { mode: "boolean" }).notNull()
     .default(false),
   completedAt: integer("completedAt", { mode: "timestamp_ms" }).notNull(),
   createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull()
