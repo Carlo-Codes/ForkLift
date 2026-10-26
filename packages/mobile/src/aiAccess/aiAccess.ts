@@ -4,7 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import {
   AppState, PermissionsAndroid, Platform
 } from "react-native";
-import type { NativeEventSubscription } from "react-native";
+import type { AppStateStatus, NativeEventSubscription } from "react-native";
 import BackgroundService from "react-native-background-actions";
 import TcpSocket from "react-native-tcp-socket";
 
@@ -50,7 +50,12 @@ export function subscribeAiAccess(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-const createPairingToken = () => Array.from(getRandomBytes(32), b => b.toString(16).padStart(2, "0")).join("");
+function storeNewPairingToken(): string {
+  token = Array.from(getRandomBytes(32), b => b.toString(16).padStart(2, "0")).join("");
+  SecureStore.setItem(TOKEN_KEY, token);
+
+  return token;
+}
 
 // The pairing token lives in the device's secure storage, not the database, so
 // it never leaves the phone in a backup. It's kept across switching AI Access
@@ -58,36 +63,55 @@ const createPairingToken = () => Array.from(getRandomBytes(32), b => b.toString(
 export function getPairingToken(): string {
   token ??= SecureStore.getItem(TOKEN_KEY) ?? undefined;
 
-  if (!token) {
-    token = createPairingToken();
-    SecureStore.setItem(TOKEN_KEY, token);
-  }
-
-  return token;
+  return token ?? storeNewPairingToken();
 }
 
 export function regeneratePairingToken(): string {
-  token = createPairingToken();
-  SecureStore.setItem(TOKEN_KEY, token);
+  const next = storeNewPairingToken();
+
   debug.info("regenerated the pairing token");
 
   if (state.status === "on") {
     setState({
       ...state,
-      token
+      token: next
     });
   }
 
-  return token;
+  return next;
 }
 
 const createTcpServer: CreateTcpServer = onConnection => TcpSocket.createServer(onConnection);
+// Opening and closing the listener run one after another, so a quick trip to
+// the background can't reopen the port before it's closed, nor a stop leave a
+// late reopen behind.
+let listenerSteps: Promise<void> = Promise.resolve();
 
-const listen = () => startAiAccessHttpServer({
-  createTcpServer,
-  port: AI_ACCESS_PORT,
-  getPairingToken,
-  onActivity: () => idle?.touch()
+function serially(step: () => Promise<void>): Promise<void> {
+  const next = listenerSteps.then(step);
+
+  listenerSteps = next.catch(() => undefined);
+
+  return next;
+}
+
+const openListener = () => serially(async () => {
+  // Gone means AI Access switched off while this waited its turn.
+  if (appStateSubscription && !http) {
+    http = await startAiAccessHttpServer({
+      createTcpServer,
+      port: AI_ACCESS_PORT,
+      getPairingToken,
+      onActivity: () => idle?.touch()
+    });
+  }
+});
+
+const closeListener = () => serially(async () => {
+  const server = http;
+
+  http = undefined;
+  await server?.close();
 });
 
 // Android keeps the server running in the background with a foreground
@@ -130,27 +154,22 @@ async function stopBackgroundService() {
 // iOS runs AI Access only while ForkLift is open: a suspended app's listening
 // socket can be reclaimed, so it's closed in the background and opened again,
 // at the same address, on return.
-function onAppStateChange(next: string) {
-  if (Platform.OS !== "ios" || state.status !== "on") {
+function onAppStateChange(next: AppStateStatus) {
+  if (Platform.OS !== "ios") {
     return;
   }
 
-  if (next === "background" && http) {
-    const server = http;
-
-    http = undefined;
-    void server.close();
-  } else if (next === "active" && !http) {
-    listen().then(server => {
-      http = server;
-    }, (e: unknown) => {
+  if (next === "background") {
+    void closeListener();
+  } else if (next === "active") {
+    openListener().catch((e: unknown) => {
       debug.error("couldn't reopen AI Access: %O", e);
       void stopAiAccess();
     });
   }
 }
 
-async function addressOf(): Promise<{ address?: string; onWifi: boolean }> {
+async function serverAddress(): Promise<{ address?: string; onWifi: boolean }> {
   const [ ip, network ] = await Promise.all([ Network.getIpAddressAsync(), Network.getNetworkStateAsync() ]);
 
   return {
@@ -164,11 +183,7 @@ async function shutDown() {
   idle = undefined;
   appStateSubscription?.remove();
   appStateSubscription = undefined;
-
-  const server = http;
-
-  http = undefined;
-  await server?.close();
+  await closeListener();
   await stopBackgroundService();
 }
 
@@ -181,18 +196,20 @@ export async function startAiAccess(): Promise<void> {
 
   try {
     getPairingToken();
-    http = await listen();
+    // Listening for app state first means backgrounding during start still
+    // closes the listener on iOS.
+    appStateSubscription = AppState.addEventListener("change", onAppStateChange);
+    await openListener();
 
     idle = createIdleTimer(AI_ACCESS_IDLE_MINUTES * 60_000, () => {
       debug.info("switching AI Access off after %d idle minutes", AI_ACCESS_IDLE_MINUTES);
       void stopAiAccess({ idle: true });
     });
-    appStateSubscription = AppState.addEventListener("change", onAppStateChange);
     await startBackgroundService();
 
     setState({
       status: "on",
-      ...await addressOf(),
+      ...await serverAddress(),
       token: getPairingToken()
     });
   } catch (e) {

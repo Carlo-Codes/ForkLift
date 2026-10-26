@@ -50,7 +50,7 @@ interface HttpResponse {
   body?: string;
 }
 
-type Parsed = { kind: "incomplete" } | { kind: "error"; response: HttpResponse } | { kind: "request"; request: HttpRequest };
+type ParseResult = { kind: "incomplete" } | { kind: "error"; response: HttpResponse } | { kind: "request"; request: HttpRequest };
 
 const STATUS_TEXT: Record<number, string> = {
   200: "OK",
@@ -92,14 +92,14 @@ const jsonRpcError = (status: number, code: number, message: string, headers?: R
   })
 });
 
-const failed = (status: number, message: string): Parsed => ({
+const failed = (status: number, message: string): ParseResult => ({
   kind: "error",
   response: jsonRpcError(status, -32000, message)
 });
 
 // Just enough HTTP/1.1 for an MCP client: one request per connection, its
 // body sized by Content-Length.
-function parseRequest(buffer: Buffer): Parsed {
+function parseRequest(buffer: Buffer): ParseResult {
   const headEnd = buffer.indexOf("\r\n\r\n");
 
   if (headEnd === -1) {
@@ -136,9 +136,10 @@ function parseRequest(buffer: Buffer): Parsed {
     return failed(411, "Send the body with a Content-Length");
   }
 
-  const length = Number(headers[ "content-length" ] ?? 0);
+  const contentLength = headers[ "content-length" ] ?? "0";
+  const length = Number(contentLength);
 
-  if (!Number.isInteger(length) || length < 0) {
+  if (!/^\d+$/.test(contentLength)) {
     return failed(400, "Malformed Content-Length");
   }
 

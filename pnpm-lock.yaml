@@ -282,7 +282,7 @@ importers:
         specifier: 3.3.2
         version: 3.3.2
       zod:
-        specifier: ^4.6.7
+        specifier: ^4.3.6
         version: 4.6.7
     devDependencies:
       '@forklift/eslint-config':

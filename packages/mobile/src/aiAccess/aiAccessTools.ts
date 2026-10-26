@@ -56,11 +56,16 @@ function answer(read: () => unknown): CallToolResult {
   }
 }
 
+// Weights are stored in the lifter's unit, so an answer with weights says which.
+const withUnit = <T extends object>(value: T) => ({
+  ...value,
+  unit: getSettings().unit
+});
+
 const idOf = (thing: string) => z.uuid().describe(`The ${thing}'s id`);
 
 // The MCP server AI Access serves (ADR-0002): read tools over the core
-// services. Weights are in the lifter's unit, so answers carrying weights
-// say which. A fresh server is made per connection.
+// services. A fresh server is made per request.
 export function createAiAccessMcpServer(): McpServer {
   const server = new McpServer({
     name: "forklift",
@@ -115,11 +120,10 @@ export function createAiAccessMcpServer(): McpServer {
       id, planId, name
     } = getWorkout(workoutId);
 
-    return {
+    return withUnit({
       id,
       planId,
       name,
-      unit: getSettings().unit,
       blocks: listBlocks(workoutId).map(block => ({
         id: block.id,
         exerciseEntries: block.exerciseEntries.map(entry => ({
@@ -133,7 +137,7 @@ export function createAiAccessMcpServer(): McpServer {
           weightStep: entry.weightStep
         }))
       }))
-    };
+    });
   }));
 
   server.registerTool("search_exercises", {
@@ -169,10 +173,7 @@ export function createAiAccessMcpServer(): McpServer {
       "the reps and weight really done, or skipped.",
     inputSchema: { sessionId: idOf("Session") },
     annotations: readOnly
-  }, ({ sessionId }) => answer(() => ({
-    ...getSessionDetail(sessionId),
-    unit: getSettings().unit
-  })));
+  }, ({ sessionId }) => answer(() => withUnit(getSessionDetail(sessionId))));
 
   server.registerTool("get_exercise_history", {
     title: "Get Exercise history",
@@ -180,10 +181,7 @@ export function createAiAccessMcpServer(): McpServer {
       "Best Set (heaviest, more reps breaking a tie) per Session and overall.",
     inputSchema: { exerciseId: idOf("Exercise") },
     annotations: readOnly
-  }, ({ exerciseId }) => answer(() => ({
-    ...getExerciseHistory(exerciseId),
-    unit: getSettings().unit
-  })));
+  }, ({ exerciseId }) => answer(() => withUnit(getExerciseHistory(exerciseId))));
 
   return server;
 }

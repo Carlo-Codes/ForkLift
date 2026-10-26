@@ -263,16 +263,26 @@ export default [
         "error",
         "never",
         {
-          jpg: "always",
-          jpeg: "always",
-          gif: "always",
-          pdf: "always",
-          svg: "always",
-          png: "always",
-          api: "always",
-          json: "always",
-          ttf: "always",
-          config: "always"
+          pattern: {
+            jpg: "always",
+            jpeg: "always",
+            gif: "always",
+            pdf: "always",
+            svg: "always",
+            png: "always",
+            api: "always",
+            json: "always",
+            ttf: "always",
+            config: "always"
+          },
+          // The MCP SDK's subpath exports map to its files only with their
+          // .js extension.
+          pathGroupOverrides: [
+            {
+              pattern: "@modelcontextprotocol/sdk/**",
+              action: "ignore"
+            }
+          ]
         }
       ],
       "import-x/export": [ "error" ],
