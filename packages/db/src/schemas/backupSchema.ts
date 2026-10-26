@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { aiChangeSchema } from "./aiChangeModel";
 import { blockSchema } from "./blockModel";
 import { exerciseEntrySchema } from "./exerciseEntryModel";
 import { exerciseSchema } from "./exerciseModel";
@@ -11,7 +12,8 @@ import { settingSchema } from "./settingModel";
 import { workoutSchema } from "./workoutModel";
 
 export const BACKUP_FORMAT = "forklift-backup";
-export const BACKUP_VERSION = 1;
+// 2 added Changes by AI; a version 1 file restores with none.
+export const BACKUP_VERSION = 2;
 
 // What every backup has, whatever its version, so a file from a newer
 // ForkLift can be told apart from a broken one.
@@ -51,13 +53,17 @@ export const backupTablesSchema = z.strictObject({
     ...rowFields,
     completedAt: jsonDate()
   }).strict()),
-  sessionIncrease: z.array(sessionIncreaseSchema.extend(rowFields).strict())
+  sessionIncrease: z.array(sessionIncreaseSchema.extend(rowFields).strict()),
+  aiChange: z.array(aiChangeSchema.extend({
+    ...rowFields,
+    undoneAt: jsonDate().nullable()
+  }).strict()).default([])
 });
 
 // One versioned JSON document holding every row of every table, soft-deleted
 // ones included.
 export const backupSchema = backupHeaderSchema.extend({
-  version: z.literal(BACKUP_VERSION),
+  version: z.union([ z.literal(1), z.literal(BACKUP_VERSION) ]),
   exportedAt: jsonDate(),
   tables: backupTablesSchema
 });

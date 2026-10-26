@@ -8,18 +8,18 @@ import {
 } from "..";
 import {
   createExercise, deleteExercise, updateExercise
-} from "../../../exercise/src";
-import { createPlan, deletePlan } from "../../../plan/src";
-import { updateExerciseEntry } from "../../../plan/workout/block/exerciseEntry/src";
+} from "#exercise";
+import { createPlan, deletePlan } from "#plan";
+import { updateExerciseEntry } from "#exerciseEntry";
 import {
   createBlock, groupBlocks, listBlocks
-} from "../../../plan/workout/block/src";
+} from "#block";
 import {
   createWorkout, deleteWorkout, updateWorkout
-} from "../../../plan/workout/src";
+} from "#workout";
 import {
   completeSet, finishSession, getCurrentStep, startSession
-} from "../../../session/src";
+} from "#session";
 
 const notFoundError = expect.objectContaining({
   statusCode: 404,

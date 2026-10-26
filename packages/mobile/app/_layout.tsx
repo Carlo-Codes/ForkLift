@@ -76,6 +76,8 @@ export default function RootLayout() {
         options={{ title: "ForkLift" }} />
       <Stack.Screen name="settings"
         options={{ title: "Settings" }} />
+      <Stack.Screen name="ai-changes"
+        options={{ title: "Changes by AI" }} />
       <Stack.Screen name="exercises/index"
         options={{ title: "Exercise Library" }} />
       <Stack.Screen name="exercises/new"

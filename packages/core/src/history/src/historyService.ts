@@ -3,11 +3,11 @@ import type {
 } from "@forklift/db/client";
 import { ApiError } from "@forklift/debug";
 
-import { getExerciseByQuery } from "../../exercise/src/exerciseDb";
-import { getWorkoutByQuery } from "../../plan/workout/src/workoutDb";
-import { getAllLoggedSetByQuery } from "../../session/loggedSet/src/loggedSetDb";
-import { listLoggedSets } from "../../session/loggedSet/src/loggedSetService";
-import { getAllSessionByQuery, getSessionByQuery } from "../../session/src/sessionDb";
+import { getExerciseByQuery } from "#exercise/exerciseDb";
+import { getWorkoutByQuery } from "#workout/workoutDb";
+import { getAllLoggedSetByQuery } from "#loggedSet/loggedSetDb";
+import { listLoggedSets } from "#loggedSet/loggedSetService";
+import { getAllSessionByQuery, getSessionByQuery } from "#session/sessionDb";
 
 // History is read-only and outlives the Plans, Workouts and Exercises it used,
 // so it reads them whether or not they're deleted since.

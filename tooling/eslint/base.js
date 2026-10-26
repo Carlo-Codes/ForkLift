@@ -285,6 +285,19 @@ export default [
           ]
         }
       ],
+      // A sibling or parent is fine; anything further away goes through the
+      // package's # imports (package.json "imports").
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(\\.\\./){2,}",
+              message: "Relative imports may go up one level at most; import from further away with a # alias from package.json \"imports\"."
+            }
+          ]
+        }
+      ],
       "import-x/export": [ "error" ],
       "import-x/no-unused-modules": [ "error" ],
       "import-x/first": [ "error" ],

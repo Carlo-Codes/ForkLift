@@ -8,6 +8,11 @@ import {
   createPlan,
   createWorkout,
   finishSession,
+  getCurrentStep,
+  getSessionDetail,
+  listAiChanges,
+  listBlocks,
+  listPlans,
   setActivePlan,
   setUnit,
   skipSet,
@@ -57,10 +62,13 @@ describe("AI Access tools", () => {
     teardown();
   });
 
-  it("offers only read tools", async () => {
+  it("offers read tools, and write tools only for Plans, Workouts and the Exercise Library", async () => {
     const { tools } = await client.listTools();
+    const named = (readOnly: boolean) => tools.filter(t => (t.annotations?.readOnlyHint === true) === readOnly)
+      .map(t => t.name)
+      .sort();
 
-    expect(tools.map(t => t.name).sort()).toEqual([
+    expect(named(true)).toEqual([
       "get_exercise_history",
       "get_plan",
       "get_session",
@@ -69,7 +77,89 @@ describe("AI Access tools", () => {
       "list_sessions",
       "search_exercises"
     ]);
-    expect(tools.every(t => t.annotations?.readOnlyHint === true)).toBe(true);
+    expect(named(false)).toEqual([
+      "add_block",
+      "add_to_superset",
+      "create_exercise",
+      "create_plan",
+      "create_workout",
+      "delete_block",
+      "delete_exercise",
+      "delete_exercise_entry",
+      "delete_plan",
+      "delete_workout",
+      "group_superset",
+      "rename_plan",
+      "rename_workout",
+      "reorder_blocks",
+      "reorder_plans",
+      "reorder_superset",
+      "reorder_workouts",
+      "split_superset",
+      "update_exercise",
+      "update_exercise_entry"
+    ]);
+  });
+
+  it("builds a Plan from scratch, each step a Change by AI", async () => {
+    const plan = (await call("create_plan", { name: "PPL" })).json() as { id: string };
+    const workout = (await call("create_workout", {
+      planId: plan.id,
+      name: "Push"
+    })).json() as { id: string };
+    const { id: exerciseId } = (await call("create_exercise", {
+      name: "Landmine Press",
+      muscleGroups: [ "shoulders" ],
+      equipment: "barbell"
+    })).json() as { id: string };
+    const { id: flyId } = createExercise({
+      name: "Cable Fly",
+      muscleGroups: [ "chest" ]
+    });
+    const block = (await call("add_block", {
+      workoutId: workout.id,
+      exerciseId,
+      targetSets: 4,
+      targetReps: 8,
+      targetWeight: 30
+    })).json() as { id: string; exerciseEntries: { id: string }[] };
+
+    await call("add_to_superset", {
+      blockId: block.id,
+      exerciseId: flyId
+    });
+    await call("update_exercise_entry", {
+      exerciseEntryId: block.exerciseEntries[ 0 ]!.id,
+      targetWeight: 32.5
+    });
+
+    const { json } = await call("get_workout", { workoutId: workout.id });
+
+    expect(json()).toEqual(expect.objectContaining({
+      name: "Push",
+      blocks: [
+        {
+          id: block.id,
+          exerciseEntries: [
+            expect.objectContaining({
+              exerciseName: "Landmine Press",
+              targetSets: 4,
+              targetReps: 8,
+              targetWeight: 32.5
+            }),
+            expect.objectContaining({ exerciseName: "Cable Fly" })
+          ]
+        }
+      ]
+    }));
+    expect(listAiChanges().map(c => c.summary)).toEqual([
+      "Changed Landmine Press in Workout \"Push\": weight 30kg → 32.5kg",
+      "Added Cable Fly to a Superset with Landmine Press in Workout \"Push\"",
+      "Added Landmine Press to Workout \"Push\"",
+      "Added \"Landmine Press\" to the Exercise Library",
+      "Added Workout \"Push\" to Plan \"PPL\"",
+      "Created Plan \"PPL\""
+    ]);
   });
 
   describe("with a Plan and a finished Session", () => {
@@ -107,6 +197,48 @@ describe("AI Access tools", () => {
       completeSet(sessionId, { reps: 9 });
       skipSet(sessionId);
       finishSession(sessionId);
+    });
+
+    it("can't delete the Active Plan", async () => {
+      const { isError, text } = await call("delete_plan", { planId });
+
+      expect(isError).toBe(true);
+      expect(text).toMatch(/Active Plan/);
+      expect(listPlans().map(p => p.id)).toContain(planId);
+    });
+
+    it("leaves Sessions and their Logged Sets alone, whatever it writes", async () => {
+      const { id: inProgressId } = startSession(pullId);
+      const sessions = () => [ getSessionDetail(sessionId), getSessionDetail(inProgressId), getCurrentStep(inProgressId) ];
+      const before = sessions();
+      const [ push ] = listBlocks(pushId);
+      const [ pull ] = listBlocks(pullId);
+
+      const writes: [string, Record<string, unknown>][] = [
+        [ "update_exercise_entry", {
+          exerciseEntryId: push!.exerciseEntries[ 0 ]!.id,
+          targetReps: 5
+        } ],
+        [ "update_exercise_entry", {
+          exerciseEntryId: pull!.exerciseEntries[ 0 ]!.id,
+          targetSets: 5
+        } ],
+        [ "update_exercise", {
+          exerciseId: benchId,
+          name: "Flat Bench Press"
+        } ],
+        [ "delete_exercise_entry", { exerciseEntryId: pull!.exerciseEntries[ 0 ]!.id } ],
+        [ "delete_workout", { workoutId: pushId } ],
+        [ "delete_exercise", { exerciseId: rowId } ]
+      ];
+      const results = [];
+
+      for (const [ name, args ] of writes) {
+        results.push(await call(name, args));
+      }
+
+      expect(results.filter(r => r.isError)).toEqual([]);
+      expect(sessions()).toEqual(before);
     });
 
     it("lists Plans in order, marking the Active one", async () => {
@@ -252,11 +384,21 @@ describe("AI Access tools", () => {
     });
   });
 
+  it("answers with the rule a write breaks, such as a Plan without a name", async () => {
+    const { isError, text } = await call("create_plan", { name: " " });
+
+    expect(isError).toBe(true);
+    expect(text).toBe("Name is required");
+    expect(listAiChanges()).toEqual([]);
+  });
+
   it.each([
     [ "get_plan", "planId" ],
     [ "get_workout", "workoutId" ],
     [ "get_session", "sessionId" ],
-    [ "get_exercise_history", "exerciseId" ]
+    [ "get_exercise_history", "exerciseId" ],
+    [ "delete_workout", "workoutId" ],
+    [ "update_exercise_entry", "exerciseEntryId" ]
   ])("%s answers with an error for something that doesn't exist", async (name, key) => {
     const { isError, text } = await call(name, { [ key ]: MISSING_ID });
 
@@ -268,7 +410,9 @@ describe("AI Access tools", () => {
     [ "get_plan", {} ],
     [ "get_workout", { workoutId: "push" } ],
     [ "get_session", { sessionId: 42 } ],
-    [ "search_exercises", { query: 7 } ]
+    [ "search_exercises", { query: 7 } ],
+    [ "create_plan", { name: 7 } ],
+    [ "reorder_blocks", { workoutId: MISSING_ID } ]
   ])("%s rejects invalid input", async (name, args) => {
     const { isError, text } = await call(name, args);
 

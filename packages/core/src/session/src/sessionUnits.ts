@@ -2,8 +2,8 @@ import { MAX_TARGET_WEIGHT } from "@forklift/db/client";
 import type { TransactionType, Unit } from "@forklift/db/client";
 
 import { convertWeight } from "#utils/units";
+import { getAllLoggedSetByQuery, updateLoggedSetDb } from "#loggedSet/loggedSetDb";
 
-import { getAllLoggedSetByQuery, updateLoggedSetDb } from "../loggedSet/src/loggedSetDb";
 import { getAllSessionByQuery, updateSessionDb } from "./sessionDb";
 
 function convert(weight: number, from: Unit, to: Unit): number {

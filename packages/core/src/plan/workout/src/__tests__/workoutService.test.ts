@@ -11,7 +11,7 @@ import {
 } from "..";
 import {
   createPlan, deletePlan, getActivePlan, listPlans, setActivePlan
-} from "../../../src";
+} from "#plan";
 
 const validationError = expect.objectContaining({
   statusCode: 400,

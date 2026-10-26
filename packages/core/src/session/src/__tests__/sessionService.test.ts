@@ -6,19 +6,19 @@ import type { ApiError } from "@forklift/debug";
 import {
   completeSet, finishSession, getCurrentStep, getSession, resumeSession, setIncrease, skipExercise, skipSet, startSession
 } from "..";
-import { createExercise } from "../../../exercise/src";
+import { createExercise } from "#exercise";
 import {
   createPlan, getNextWorkout, setActivePlan
-} from "../../../plan/src";
-import { getExerciseEntry, updateExerciseEntry } from "../../../plan/workout/block/exerciseEntry/src";
+} from "#plan";
+import { getExerciseEntry, updateExerciseEntry } from "#exerciseEntry";
 import {
   createBlock, deleteBlock, groupBlocks
-} from "../../../plan/workout/block/src";
+} from "#block";
 import {
   createWorkout, deleteWorkout, reorderWorkouts
-} from "../../../plan/workout/src";
-import { setUnit } from "../../../setting/src";
-import { listLoggedSets } from "../../loggedSet/src";
+} from "#workout";
+import { setUnit } from "#setting";
+import { listLoggedSets } from "#loggedSet";
 
 const validationError = expect.objectContaining({
   statusCode: 400,

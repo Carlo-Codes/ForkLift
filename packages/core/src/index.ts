@@ -1,3 +1,4 @@
+export * from "./aiChange/src";
 export * from "./backup/src";
 export * from "./exercise/src";
 export * from "./history/src";

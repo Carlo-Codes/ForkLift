@@ -8,7 +8,7 @@ import type {
   WorkoutCreateAttributes
 } from "@forklift/db/client";
 
-import { deleteBlockDb, getAllBlockByQuery } from "../block/src/blockDb";
+import { deleteBlockDb, getAllBlockByQuery } from "#block/blockDb";
 
 // Workouts read in the lifter's order unless asked otherwise.
 export function getAllWorkoutByQuery(
