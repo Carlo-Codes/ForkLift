@@ -1,3 +1,4 @@
+import { useKeepAwake } from "expo-keep-awake";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   useEffect, useRef, useState
@@ -109,6 +110,11 @@ function WorkoutMenu({
 // order of sets and the rest due all come from @forklift/core.
 export default function WorkoutModeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  // The rest countdown and its buzz run in JS, which stops once the phone
+  // auto-locks, so the screen stays on until the lifter leaves Workout Mode
+  // (finishing leaves it too).
+  useKeepAwake();
   const [ step, setStep ] = useState(() => loadStep(id));
   const [ unit ] = useState(() => getSettings().unit);
   const [ now, setNow ] = useState(() => Date.now());
