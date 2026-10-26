@@ -35,6 +35,9 @@ let recording = false;
 // Dates become epoch ms so a row's values survive the JSON column.
 const toJson = (value: unknown) => (value instanceof Date ? value.getTime() : value);
 
+// Whether a column's value is the one recorded in a Change by AI.
+export const isRecordedValue = (value: unknown, recorded: unknown) => JSON.stringify(toJson(value)) === JSON.stringify(recorded);
+
 function snapshot(tx: TransactionType): Map<string, { table: AiChangeTable; row: Row }> {
   const rows = new Map<string, { table: AiChangeTable; row: Row }>();
 
@@ -68,7 +71,7 @@ function diff(
         continue;
       }
 
-      if (!old || JSON.stringify(toJson(old[ column ])) !== JSON.stringify(toJson(value))) {
+      if (!old || !isRecordedValue(old[ column ], toJson(value))) {
         was[ column ] = toJson(old?.[ column ]);
         now[ column ] = toJson(value);
       }

@@ -152,6 +152,21 @@ describe("Changes by AI", () => {
       }));
     });
 
+    it("keeps a target the lifter has changed since, undoing the rest", () => {
+      updateExerciseEntry(entryId, {
+        targetSets: 4,
+        targetWeight: 70
+      }, "ai");
+      updateExerciseEntry(entryId, { targetWeight: 72.5 });
+
+      undoAiChange(listAiChanges()[ 0 ]!.id);
+
+      expect(getExerciseEntry(entryId)).toEqual(expect.objectContaining({
+        targetSets: 3,
+        targetWeight: 72.5
+      }));
+    });
+
     it("restores the last Exercise Entry of a Block, and the Block it took with it", () => {
       deleteExerciseEntry(entryId, "ai");
 

@@ -83,8 +83,8 @@ export function AiAccessSettings() {
       </View>
       <AppText className="text-brand-mediumGray">
         Lets an AI assistant on a computer on the same Wi-Fi read your Plans, Exercise Library and
-        history, and change your Plans, Workouts and Exercises. It can never change your workouts
-        in progress or history. Paste the address and pairing token into a desktop AI app that supports MCP.
+        history, and change your Plans, Workouts and Exercises. It can never change a Session, in
+        progress or finished, and everything it changes can be undone. Paste the address and pairing token into a desktop AI app that supports MCP.
         Cloud-hosted AI apps, such as ones in a web browser, can&apos;t reach your phone.
         {" "}{BACKGROUND_LIMIT} It switches itself off after {AI_ACCESS_IDLE_MINUTES} minutes without use.
       </AppText>

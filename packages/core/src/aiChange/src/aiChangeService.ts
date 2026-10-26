@@ -23,48 +23,42 @@ import {
 import {
   getAiChangeByQuery, getAllAiChangeByQuery, updateAiChangeDb
 } from "./aiChangeDb";
+import { isRecordedValue } from "./aiChangeRecorder";
 
 const debug = createDebugger("aiChangeService");
 
 type Write = (id: string, data: Record<string, unknown>, tx: TransactionType) => unknown;
 
-const liveRow = (id: string) => ({
-  where: {
-    id,
-    deletedAt: { isNull: true }
-  }
-} as const);
-
-// How Undo reaches each table the AI can change: whether a row is live, a
-// write of some of its columns, and its soft delete, which takes its children
+// How Undo reaches each table the AI can change: a row as it is now, a write
+// of some of its columns, and its soft delete, which takes its children
 // (and a Plan's Active mark) with it as the lifter deleting it would.
 const ROWS: Record<AiChangeTable, {
-  isLive: (id: string, tx: TransactionType) => boolean;
+  get: (id: string, tx: TransactionType) => Record<string, unknown> | undefined;
   update: Write;
   remove: (id: string, tx: TransactionType) => unknown;
 }> = {
   plan: {
-    isLive: (id, tx) => !!getPlanByQuery(liveRow(id), tx),
+    get: (id, tx) => getPlanByQuery({ where: { id } }, tx),
     update: updatePlanDb,
     remove: deletePlanDb
   },
   workout: {
-    isLive: (id, tx) => !!getWorkoutByQuery(liveRow(id), tx),
+    get: (id, tx) => getWorkoutByQuery({ where: { id } }, tx),
     update: updateWorkoutDb,
     remove: deleteWorkoutDb
   },
   block: {
-    isLive: (id, tx) => !!getBlockByQuery(liveRow(id), tx),
+    get: (id, tx) => getBlockByQuery({ where: { id } }, tx),
     update: updateBlockDb,
     remove: deleteBlockDb
   },
   exerciseEntry: {
-    isLive: (id, tx) => !!getExerciseEntryByQuery(liveRow(id), tx),
+    get: (id, tx) => getExerciseEntryByQuery({ where: { id } }, tx),
     update: updateExerciseEntryDb,
     remove: deleteExerciseEntryDb
   },
   exercise: {
-    isLive: (id, tx) => !!getExerciseByQuery(liveRow(id), tx),
+    get: (id, tx) => getExerciseByQuery({ where: { id } }, tx),
     update: updateExerciseDb,
     remove: deleteExerciseDb
   }
@@ -97,9 +91,10 @@ export function getAiChange(id: string, tx?: TransactionType): AiChangeAttribute
 
 // Puts back what the change touched, last row first: a row it created is
 // deleted, and the columns it changed on any other row (deletedAt included, so
-// a deletion is restored) go back to how they were. Only those columns, so
-// what the lifter has changed since is kept. A change already undone stays as
-// it is.
+// a deletion is restored) go back to how they were. A column only goes back
+// while it still holds what the AI left, so what the lifter has changed since,
+// such as a weight Increase Next Time raised, is kept. A change already undone
+// stays as it is.
 export function undoAiChange(id: string, tx?: TransactionType): AiChangeAttributes {
   return inTransaction(tx, t => {
     const change = getAiChange(id, t);
@@ -110,15 +105,29 @@ export function undoAiChange(id: string, tx?: TransactionType): AiChangeAttribut
 
     debug.info("undoing AI change %s: %s", id, change.summary);
 
-    for (const row of change.rows.toReversed()) {
-      const rows = ROWS[ row.table ];
+    for (const {
+      table, id: rowId, before, after
+    } of change.rows.toReversed()) {
+      const rows = ROWS[ table ];
+      const now = rows.get(rowId, t);
 
-      if (!row.before) {
-        if (rows.isLive(row.id, t)) {
-          rows.remove(row.id, t);
+      if (!now) {
+        continue;
+      }
+
+      if (!before) {
+        if (!now.deletedAt) {
+          rows.remove(rowId, t);
         }
-      } else {
-        rows.update(row.id, fromJson(row.before), t);
+
+        continue;
+      }
+
+      const unchanged = Object.fromEntries(Object.entries(before)
+        .filter(([ column ]) => isRecordedValue(now[ column ], after[ column ])));
+
+      if (Object.keys(unchanged).length > 0) {
+        rows.update(rowId, fromJson(unchanged), t);
       }
     }
 
