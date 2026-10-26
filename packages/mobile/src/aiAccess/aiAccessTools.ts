@@ -104,6 +104,14 @@ const idOf = (thing: string) => z.uuid().describe(`The ${thing}'s id`);
 const orderOf = (things: string) => z.array(z.uuid()).describe(`Every one of the ${things}' ids, once each, first to last`);
 const done = { done: true };
 
+// A date range on when Sessions started; core checks the dates.
+const dateRange = {
+  from: z.string().optional()
+    .describe("Only Sessions started on or after this ISO 8601 date (a whole day, UTC) or date-time"),
+  to: z.string().optional()
+    .describe("Only Sessions started on or before this ISO 8601 date (a whole day, UTC) or date-time")
+};
+
 // Exercise Entry targets as the write tools take them; core checks the ranges.
 const targets = {
   targetSets: z.number().int()
@@ -239,10 +247,11 @@ export function createAiAccessMcpServer(): McpServer {
 
   server.registerTool("list_sessions", {
     title: "List Sessions",
-    description: "Lists the lifter's finished Sessions, newest first. A Session is one performance " +
-      "of a Workout.",
+    description: "Lists the lifter's finished Sessions, newest first, optionally only those started " +
+      "between two dates. A Session is one performance of a Workout.",
+    inputSchema: dateRange,
     annotations: readOnly
-  }, () => answer(() => listSessionHistory()));
+  }, range => answer(() => listSessionHistory(range)));
 
   server.registerTool("get_session", {
     title: "Get Session",
@@ -255,10 +264,14 @@ export function createAiAccessMcpServer(): McpServer {
   server.registerTool("get_exercise_history", {
     title: "Get Exercise history",
     description: "Gets the sets done of an Exercise in each finished Session, newest first, with the " +
-      "Best Set (heaviest, more reps breaking a tie) per Session and overall.",
-    inputSchema: { exerciseId: idOf("Exercise") },
+      "Best Set (heaviest, more reps breaking a tie) per Session and overall, optionally only for " +
+      "Sessions started between two dates.",
+    inputSchema: {
+      exerciseId: idOf("Exercise"),
+      ...dateRange
+    },
     annotations: readOnly
-  }, ({ exerciseId }) => answer(() => withUnit(getExerciseHistory(exerciseId))));
+  }, ({ exerciseId, ...range }) => answer(() => withUnit(getExerciseHistory(exerciseId, range))));
 
   server.registerTool("create_plan", {
     title: "Create Plan",

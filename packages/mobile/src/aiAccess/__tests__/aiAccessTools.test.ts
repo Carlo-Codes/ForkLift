@@ -338,6 +338,33 @@ describe("AI Access tools", () => {
       ]);
     });
 
+    it("lists only the Sessions started between two dates", async () => {
+      const ids = async (args: Record<string, unknown>) => ((await call("list_sessions", args)).json() as { id: string }[])
+        .map(s => s.id);
+
+      expect(await ids({ from: "2000-01-01" })).toEqual([ sessionId ]);
+      expect(await ids({ to: "2000-01-01" })).toEqual([]);
+    });
+
+    it("narrows an Exercise's history to a date range", async () => {
+      const { json } = await call("get_exercise_history", {
+        exerciseId: benchId,
+        from: "2999-01-01"
+      });
+
+      expect(json()).toEqual(expect.objectContaining({ sessions: [] }));
+    });
+
+    it("answers a range that ends before it starts with the rule it breaks", async () => {
+      const { isError, text } = await call("list_sessions", {
+        from: "2026-10-03",
+        to: "2026-10-02T12:00:00Z"
+      });
+
+      expect(isError).toBe(true);
+      expect(text).toBe("The range must end on or after the day it starts");
+    });
+
     it("gets a Session's Logged Sets, skipped ones marked, in the lifter's unit", async () => {
       setUnit("lb");
 
