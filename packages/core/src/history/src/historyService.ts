@@ -1,8 +1,11 @@
+import { z } from "zod";
+
 import type {
   ExerciseAttributes, LoggedSetAttributes, SessionAttributes, SessionEntrySnapshot, TransactionType
 } from "@forklift/db/client";
 import { ApiError } from "@forklift/debug";
 
+import { parseOrThrow } from "#utils/validation";
 import { getExerciseByQuery } from "#exercise/exerciseDb";
 import { getWorkoutByQuery } from "#workout/workoutDb";
 import { getAllLoggedSetByQuery } from "#loggedSet/loggedSetDb";
@@ -11,6 +14,36 @@ import { getAllSessionByQuery, getSessionByQuery } from "#session/sessionDb";
 
 // History is read-only and outlives the Plans, Workouts and Exercises it used,
 // so it reads them whether or not they're deleted since.
+
+// A bound of a date range: a Date, an ISO 8601 date-time, or an ISO 8601 date,
+// which stands for the whole of that day (UTC), so a range of two dates
+// includes both.
+const dateBound = (end: "from" | "to") => z.union([
+  z.date(),
+  z.iso.datetime({ offset: true }).transform(text => new Date(text)),
+  z.iso.date().transform(text => new Date(`${text}T${end === "from" ? "00:00:00.000" : "23:59:59.999"}Z`))
+], `"${end}" must be a date, e.g. 2026-10-25, or a date and time`);
+
+const dateRangeSchema = z.object({
+  from: dateBound("from").optional(),
+  to: dateBound("to").optional()
+}).refine(({ from, to }) => !from || !to || from <= to, "The range must end on or after the day it starts");
+
+// Which Sessions to read, by when they started; either end may be left open.
+export type DateRange = z.input<typeof dateRangeSchema>;
+
+// The where filter on startedAt for a range, inclusive at both ends; none for
+// an open range, since drizzle rejects an undefined filter.
+function startedIn(range: DateRange) {
+  const { from, to } = parseOrThrow(dateRangeSchema, range);
+
+  return from || to ? {
+    startedAt: {
+      ...(from && { gte: from }),
+      ...(to && { lte: to })
+    }
+  } : {};
+}
 
 // A past Session as the History list shows it.
 export interface SessionSummary {
@@ -79,10 +112,11 @@ function toSummary(session: SessionAttributes, tx?: TransactionType): SessionSum
   };
 }
 
-// Finished Sessions, newest first.
-export function listSessionHistory(tx?: TransactionType): SessionSummary[] {
+// Finished Sessions started in the range, newest first.
+export function listSessionHistory(range: DateRange = {}, tx?: TransactionType): SessionSummary[] {
   return getAllSessionByQuery({
     where: {
+      ...startedIn(range),
       status: "finished",
       deletedAt: { isNull: true }
     }
@@ -126,10 +160,12 @@ function bestOf<T extends HistorySet>(sets: T[]): T | undefined {
     (set.weight === best.weight && set.reps > best.reps) ? set : best), undefined);
 }
 
-// The finished Sessions, newest first, with the sets done in each that match
-// the filter, in the order they were done; Sessions with none are left out.
+// The finished Sessions started in the range, newest first, with the sets done
+// in each that match the filter, in the order they were done; Sessions with
+// none are left out.
 function doneSetsByFinishedSession(
   where: { exerciseId: string; exerciseEntryId?: string },
+  range: DateRange,
   tx?: TransactionType
 ): { session: SessionAttributes; sets: HistorySet[] }[] {
   const loggedSets = getAllLoggedSetByQuery({
@@ -142,6 +178,7 @@ function doneSetsByFinishedSession(
 
   return getAllSessionByQuery({
     where: {
+      ...startedIn(range),
       id: { in: [ ...new Set(loggedSets.map(s => s.sessionId)) ] },
       status: "finished",
       deletedAt: { isNull: true }
@@ -152,16 +189,16 @@ function doneSetsByFinishedSession(
   }));
 }
 
-// Each finished Session that did the Exercise, newest first, with the sets done
-// and the best of them, and the best set overall.
-export function getExerciseHistory(exerciseId: string, tx?: TransactionType): ExerciseHistory {
+// Each finished Session started in the range that did the Exercise, newest
+// first, with the sets done and the best of them, and the best set of them all.
+export function getExerciseHistory(exerciseId: string, range: DateRange = {}, tx?: TransactionType): ExerciseHistory {
   const exercise = getExerciseByQuery({ where: { id: exerciseId } }, tx);
 
   if (!exercise) {
     throw new ApiError(404, `Exercise ${exerciseId} not found`, "NotFoundError");
   }
 
-  const sessions = doneSetsByFinishedSession({ exerciseId }, tx).map(({ session, sets }) => ({
+  const sessions = doneSetsByFinishedSession({ exerciseId }, range, tx).map(({ session, sets }) => ({
     ...toSummary(session, tx),
     sets,
     bestSet: bestOf(sets)!
@@ -185,7 +222,7 @@ export function getLastTime(
   const [ last ] = doneSetsByFinishedSession({
     exerciseEntryId: entry.exerciseEntryId,
     exerciseId: entry.exerciseId
-  }, tx);
+  }, {}, tx);
 
   return last && {
     sessionId: last.session.id,

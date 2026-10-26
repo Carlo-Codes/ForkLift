@@ -108,6 +108,61 @@ describe("history", () => {
     ]);
   });
 
+  describe("between two dates", () => {
+    const validationError = expect.objectContaining({
+      statusCode: 400,
+      type: "ValidationError"
+    }) as ApiError;
+
+    let sessionIds: string[];
+
+    beforeEach(() => {
+      // 1, 2, 3 and 4 October.
+      sessionIds = [
+        runSession(pushId, [ 8 ]),
+        runSession(pullId),
+        runSession(pushId, [ [ 8, 60 ] ]),
+        runSession(pullId)
+      ];
+    });
+
+    it("lists the Sessions started in the range, both days included", () => {
+      expect(listSessionHistory({
+        from: "2026-10-02",
+        to: "2026-10-03"
+      }).map(s => s.id)).toEqual([ sessionIds[ 2 ], sessionIds[ 1 ] ]);
+    });
+
+    it("takes a range open at either end, and exact times", () => {
+      expect(listSessionHistory({ from: "2026-10-03T09:00:00Z" }).map(s => s.id))
+        .toEqual([ sessionIds[ 3 ], sessionIds[ 2 ] ]);
+      expect(listSessionHistory({ to: new Date("2026-10-01T09:00:00Z") }).map(s => s.id))
+        .toEqual([ sessionIds[ 0 ] ]);
+    });
+
+    it("lists nothing for a range with no Sessions", () => {
+      expect(listSessionHistory({ from: "2026-11-01" })).toEqual([]);
+    });
+
+    it("rejects a range that ends before it starts, or isn't a date", () => {
+      expect(() => listSessionHistory({
+        from: "2026-10-03",
+        to: "2026-10-02"
+      })).toThrow(validationError);
+      expect(() => listSessionHistory({ from: "last week" })).toThrow(validationError);
+    });
+
+    it("narrows an Exercise's history and its best set to the range", () => {
+      const { sessions, bestSet } = getExerciseHistory(benchId, { to: "2026-10-02" });
+
+      expect(sessions.map(s => s.id)).toEqual([ sessionIds[ 0 ] ]);
+      expect(bestSet).toEqual(expect.objectContaining({
+        weight: 57.5,
+        reps: 8
+      }));
+    });
+  });
+
   it("shows every Logged Set of a Session by Block and Exercise Entry, skipped sets marked", () => {
     const curlId = createExercise({
       name: "Curl",
