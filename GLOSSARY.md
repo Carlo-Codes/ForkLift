@@ -53,7 +53,8 @@ history and are never edited by the AI.
 _Avoid_: Workout (for a performed workout), log, training
 
 **Logged Set**:
-A set of a Session, recording the reps and weight really done, or that the lifter skipped it.
+A set of a Session, recording the reps and weight really done, or that the lifter skipped it, and
+whether they skipped the rest after it.
 _Avoid_: Set record, entry
 
 **Workout Mode**:

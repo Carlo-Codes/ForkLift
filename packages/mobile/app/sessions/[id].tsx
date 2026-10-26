@@ -170,7 +170,7 @@ export default function WorkoutModeScreen() {
     }
   };
 
-  // Done, Skip set, Skip exercise and Skip rest all save at once and move to the next step.
+  // Done, Skip set, Skip exercise and Skip rest all save at once and show the step they lead to.
   const advance = (move: () => SessionStep) => () => {
     try {
       setStep(move());
