@@ -88,6 +88,7 @@ const BOOTSTRAP_SQL = `
     reps INTEGER NOT NULL,
     weight REAL NOT NULL,
     skipped INTEGER NOT NULL DEFAULT 0,
+    restSkipped INTEGER NOT NULL DEFAULT 0,
     completedAt INTEGER NOT NULL,
     createdAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL,
@@ -125,6 +126,11 @@ const ADDED_COLUMNS = [
   {
     table: "loggedSet",
     column: "skipped",
+    definition: "INTEGER NOT NULL DEFAULT 0"
+  },
+  {
+    table: "loggedSet",
+    column: "restSkipped",
     definition: "INTEGER NOT NULL DEFAULT 0"
   }
 ] as const;

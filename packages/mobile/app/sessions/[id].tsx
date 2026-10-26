@@ -8,7 +8,7 @@ import {
 } from "react-native";
 
 import {
-  completeSet, finishSession, getCurrentStep, getSettings, setIncrease, skipExercise, skipSet
+  completeSet, finishSession, getCurrentStep, getSettings, setIncrease, skipExercise, skipRest, skipSet
 } from "@forklift/core";
 import type { SessionSet, SessionStep } from "@forklift/core";
 import type { Unit } from "@forklift/db/client";
@@ -114,8 +114,7 @@ export default function WorkoutModeScreen() {
   const [ step, setStep ] = useState(() => loadStep(id));
   const [ unit ] = useState(() => getSettings().unit);
   const [ now, setNow ] = useState(() => Date.now());
-  // The rest (by its end time) the lifter skipped, and the one already buzzed.
-  const [ skippedRest, setSkippedRest ] = useState<number>();
+  // The rest (by its end time) already buzzed.
   const vibratedRest = useRef<number>(undefined);
   // What the lifter actually did, while they're adjusting the numbers.
   const [ actual, setActual ] = useState<{ reps: string; weight: string }>();
@@ -140,7 +139,7 @@ export default function WorkoutModeScreen() {
   }, [ setsLeft ]);
 
   useEffect(() => {
-    if (restEndsAt === undefined || restEndsAt === skippedRest) {
+    if (restEndsAt === undefined) {
       return;
     }
 
@@ -166,7 +165,7 @@ export default function WorkoutModeScreen() {
     }, 250);
 
     return () => clearInterval(timer);
-  }, [ restEndsAt, skippedRest ]);
+  }, [ restEndsAt ]);
 
   if (!step) {
     return (
@@ -189,7 +188,7 @@ export default function WorkoutModeScreen() {
     }
   };
 
-  // Done, Skip set and Skip exercise all save at once and move to the next step.
+  // Done, Skip set, Skip exercise and Skip rest all save at once and show the step they lead to.
   const advance = (move: () => SessionStep) => () => {
     try {
       setStep(move());
@@ -290,7 +289,7 @@ export default function WorkoutModeScreen() {
           unit={unit} />
         <AppButton variant="outline"
           className="items-center self-center px-6 py-2"
-          onPress={() => setSkippedRest(restEndsAt)}>
+          onPress={advance(() => skipRest(id))}>
           Skip rest
         </AppButton>
       </View>

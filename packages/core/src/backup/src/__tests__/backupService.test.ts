@@ -12,7 +12,7 @@ import {
 import { createBlock, groupBlocks } from "#block";
 import { createWorkout } from "#workout";
 import {
-  completeSet, finishSession, resumeSession, setIncrease, skipSet, startSession
+  completeSet, finishSession, resumeSession, setIncrease, skipRest, skipSet, startSession
 } from "#session";
 import { getSettings, setUnit } from "#setting";
 
@@ -44,7 +44,7 @@ describe("backup", () => {
 
   // Something of every kind: lb, an Active Plan mid-rotation, a Superset, a
   // deleted Exercise, a finished Session with done, skipped and increased
-  // entries, and a Session left in progress.
+  // entries, and a Session left in progress with its rest skipped.
   const seed = () => {
     setUnit("lb");
 
@@ -87,7 +87,11 @@ describe("backup", () => {
     setIncrease(sessionId, bench.exerciseEntries[ 0 ]!.id, true);
     finishSession(sessionId);
     deleteExercise(dipId);
-    startSession(pushId);
+
+    const { id: inProgressId } = startSession(pushId);
+
+    completeSet(inProgressId);
+    skipRest(inProgressId);
 
     return { benchId };
   };
@@ -111,6 +115,7 @@ describe("backup", () => {
     expect(listSessionHistory().map(s => s.workoutName)).toEqual([ "Push" ]);
     expect(getExerciseHistory(benchId).sessions[ 0 ]!.sets.map(s => s.reps)).toEqual([ 4 ]);
     expect(resumeSession()?.current?.targetWeight).toBe(140);
+    expect(resumeSession()?.rest).toBeUndefined();
   });
 
   it("replaces the data already on the phone rather than merging with it", () => {
@@ -143,6 +148,19 @@ describe("backup", () => {
 
     expect(listPlans().map(p => p.name)).toEqual([ "PPL" ]);
     expect((JSON.parse(exportBackup()) as Backup).tables.aiChange).toEqual([]);
+  });
+
+  it("restores a version 2 backup, from before Skip rest was saved, with every rest unskipped", () => {
+    seed();
+    const backup = JSON.parse(exportBackup()) as Backup;
+
+    backup.version = 2;
+    backup.tables.loggedSet!.forEach(row => delete row.restSkipped);
+
+    newPhone();
+    importBackup(JSON.stringify(backup));
+
+    expect(resumeSession()?.rest?.seconds).toBe(90);
   });
 
   describe("a file it won't restore", () => {
@@ -178,7 +196,7 @@ describe("backup", () => {
 
     it("rejects a backup from a newer version of ForkLift", () => {
       expect(() => importBackup(changed(b => {
-        b.version = 3;
+        b.version = 4;
       }))).toThrow(validationError("newer version of ForkLift"));
     });
 

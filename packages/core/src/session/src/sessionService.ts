@@ -1,6 +1,7 @@
 import { completeSetPayloadSchema, sessionIncreaseSchema } from "@forklift/db/client";
 import type {
   CompleteSetPayload,
+  LoggedSetAttributes,
   SessionAttributes,
   SessionEntrySnapshot,
   TransactionType
@@ -17,7 +18,7 @@ import { advanceRotation } from "#plan/planService";
 import { getExerciseEntryByQuery } from "#exerciseEntry/exerciseEntryDb";
 import { raiseTargetWeight } from "#exerciseEntry/exerciseEntryService";
 import { listBlocks } from "#block/blockService";
-import { createLoggedSetDb } from "#loggedSet/loggedSetDb";
+import { createLoggedSetDb, updateLoggedSetDb } from "#loggedSet/loggedSetDb";
 import { listLoggedSets } from "#loggedSet/loggedSetService";
 import {
   createSessionIncreaseDb, getSessionIncreaseByQuery, updateSessionIncreaseDb
@@ -211,6 +212,11 @@ export function startSession(workoutId: string, actor: Actor = "lifter", tx?: Tr
 }
 
 export function getCurrentStep(sessionId: string, tx?: TransactionType): SessionStep {
+  return readStep(sessionId, tx).step;
+}
+
+// The step, and the Logged Set its rest follows, which is where Skip rest is saved.
+function readStep(sessionId: string, tx?: TransactionType): { step: SessionStep; restLoggedSet?: LoggedSetAttributes } {
   const session = getSession(sessionId, tx);
   const loggedSets = listLoggedSets(sessionId, tx);
   const skipped = new Set(loggedSets.filter(s => s.skipped).map(s => setKey(s.exerciseEntryId, s.round)));
@@ -219,25 +225,29 @@ export function getCurrentStep(sessionId: string, tx?: TransactionType): Session
   const sets = orderSets(session.blocks, skipped);
   const index = sets.findIndex(s => !done.has(setKey(s.exerciseEntryId, s.setNumber)));
   // Rest follows the last set really done; skipping a set adds none.
-  const last = doneSets.at(-1);
+  const lastAt = doneSets.at(-1)?.completedAt.getTime();
 
   // Sets logged in the same millisecond tie on completedAt, so the one the rest
   // follows is the latest of those in Session order.
-  const doneLast = new Set(doneSets.filter(s => s.completedAt.getTime() === last?.completedAt.getTime())
-    .map(s => setKey(s.exerciseEntryId, s.round)));
+  const doneLast = new Map(doneSets.filter(s => s.completedAt.getTime() === lastAt)
+    .map(s => [ setKey(s.exerciseEntryId, s.round), s ]));
 
-  const restAfterLast = sets.findLast(s => doneLast.has(setKey(s.exerciseEntryId, s.setNumber)))?.restAfter;
+  const restSet = sets.findLast(s => doneLast.has(setKey(s.exerciseEntryId, s.setNumber)));
+  const restLoggedSet = restSet && doneLast.get(setKey(restSet.exerciseEntryId, restSet.setNumber));
 
   return {
-    session,
-    increases: listIncreases(sessionId, tx),
-    current: toSessionSet(sets[ index ]),
-    lastTime: sets[ index ] && getLastTime(sets[ index ], tx),
-    next: index === -1 ? undefined : toSessionSet(sets[ index + 1 ]),
-    rest: index !== -1 && last && restAfterLast ? {
-      seconds: restAfterLast,
-      endsAt: new Date(last.completedAt.getTime() + restAfterLast * 1000)
-    } : undefined
+    restLoggedSet,
+    step: {
+      session,
+      increases: listIncreases(sessionId, tx),
+      current: toSessionSet(sets[ index ]),
+      lastTime: sets[ index ] && getLastTime(sets[ index ], tx),
+      next: index === -1 ? undefined : toSessionSet(sets[ index + 1 ]),
+      rest: index !== -1 && restLoggedSet && restSet.restAfter && !restLoggedSet.restSkipped ? {
+        seconds: restSet.restAfter,
+        endsAt: new Date(restLoggedSet.completedAt.getTime() + restSet.restAfter * 1000)
+      } : undefined
+    }
   };
 }
 
@@ -314,6 +324,27 @@ export function skipSet(sessionId: string, actor: Actor = "lifter", tx?: Transac
 
     debug.info("skipping set %d of entry %s in session %s", current.setNumber, current.exerciseEntryId, sessionId);
     logSet(sessionId, current, "skipped", new Date(), t);
+
+    return getCurrentStep(sessionId, t);
+  });
+}
+
+// Ends the rest due now, saved on the set it follows so a resumed Session
+// doesn't count it down again, and returns the step, still on the same set.
+export function skipRest(sessionId: string, actor: Actor = "lifter", tx?: TransactionType): SessionStep {
+  refuseAiSessionWrite(actor);
+
+  return inTransaction(tx, t => {
+    const { step, restLoggedSet } = readStep(sessionId, t);
+
+    assertInProgress(step.session);
+
+    if (!step.rest || !restLoggedSet) {
+      throw new ApiError(409, "There's no rest to skip", "ConflictError");
+    }
+
+    debug.info("skipping rest after set %d of entry %s in session %s", restLoggedSet.round, restLoggedSet.exerciseEntryId, sessionId);
+    updateLoggedSetDb(restLoggedSet.id, { restSkipped: true }, t);
 
     return getCurrentStep(sessionId, t);
   });
