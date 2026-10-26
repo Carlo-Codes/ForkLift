@@ -11,10 +11,10 @@ import { ApiError, createDebugger } from "@forklift/debug";
 import { nextPosition, orderOrThrow } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
+import type { Actor } from "#aiChange/aiChangeRecorder";
+import { refuseAi, write } from "#aiChange/aiChangeRecorder";
+import { getAllWorkoutByQuery, getWorkoutByQuery } from "#workout/workoutDb";
 
-import type { Actor } from "../../aiChange/src/aiChangeRecorder";
-import { refuseAi, write } from "../../aiChange/src/aiChangeRecorder";
-import { getAllWorkoutByQuery, getWorkoutByQuery } from "../workout/src/workoutDb";
 import {
   createPlanDb,
   deletePlanDb,

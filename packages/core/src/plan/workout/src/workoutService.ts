@@ -9,10 +9,10 @@ import { ApiError, createDebugger } from "@forklift/debug";
 
 import { nextPosition, orderOrThrow } from "#utils/position";
 import { parseOrThrow } from "#utils/validation";
+import type { Actor } from "#aiChange/aiChangeRecorder";
+import { write } from "#aiChange/aiChangeRecorder";
+import { getPlan } from "#plan/planService";
 
-import type { Actor } from "../../../aiChange/src/aiChangeRecorder";
-import { write } from "../../../aiChange/src/aiChangeRecorder";
-import { getPlan } from "../../src/planService";
 import {
   createWorkoutDb,
   deleteWorkoutDb,

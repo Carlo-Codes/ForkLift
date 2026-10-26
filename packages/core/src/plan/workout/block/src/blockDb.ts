@@ -10,7 +10,7 @@ import type {
   TransactionType
 } from "@forklift/db/client";
 
-import { deleteExerciseEntryDb, getAllExerciseEntryByQuery } from "../exerciseEntry/src/exerciseEntryDb";
+import { deleteExerciseEntryDb, getAllExerciseEntryByQuery } from "#exerciseEntry/exerciseEntryDb";
 
 // A Block as the Workout editor shows it: its live Exercise Entries in order,
 // each with its Exercise (even a soft-deleted one, so the entry still has a name).

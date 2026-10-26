@@ -4,17 +4,17 @@ import type { ApiError } from "@forklift/debug";
 import { exportBackup, importBackup } from "..";
 import {
   createExercise, deleteExercise, listExercises
-} from "../../../exercise/src";
-import { getExerciseHistory, listSessionHistory } from "../../../history/src";
+} from "#exercise";
+import { getExerciseHistory, listSessionHistory } from "#history";
 import {
   createPlan, getNextWorkout, listPlans, setActivePlan
-} from "../../../plan/src";
-import { createBlock, groupBlocks } from "../../../plan/workout/block/src";
-import { createWorkout } from "../../../plan/workout/src";
+} from "#plan";
+import { createBlock, groupBlocks } from "#block";
+import { createWorkout } from "#workout";
 import {
   completeSet, finishSession, resumeSession, setIncrease, skipSet, startSession
-} from "../../../session/src";
-import { getSettings, setUnit } from "../../../setting/src";
+} from "#session";
+import { getSettings, setUnit } from "#setting";
 
 // The backup without its export time, to compare two exports of the same data.
 const withoutExportTime = (backup: string) => ({

@@ -3,11 +3,11 @@ import { setupTestDb } from "@forklift/db/server";
 import { ApiError } from "@forklift/debug";
 
 import { getSettings, setUnit } from "..";
-import { createExercise } from "../../../exercise/src";
-import { createPlan } from "../../../plan/src";
-import { createBlock } from "../../../plan/workout/block/src";
-import { getExerciseEntry } from "../../../plan/workout/block/exerciseEntry/src";
-import { createWorkout } from "../../../plan/workout/src";
+import { createExercise } from "#exercise";
+import { createPlan } from "#plan";
+import { createBlock } from "#block";
+import { getExerciseEntry } from "#exerciseEntry";
+import { createWorkout } from "#workout";
 
 describe("settings", () => {
   let teardown: () => void;

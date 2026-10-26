@@ -6,9 +6,9 @@ import { createDebugger } from "@forklift/debug";
 
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
+import { convertExerciseEntryWeights } from "#exerciseEntry/exerciseEntryUnits";
+import { convertSessionWeights } from "#session/sessionUnits";
 
-import { convertExerciseEntryWeights } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryUnits";
-import { convertSessionWeights } from "../../session/src/sessionUnits";
 import {
   createSettingDb, getSettingByQuery, updateSettingDb
 } from "./settingDb";

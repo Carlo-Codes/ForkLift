@@ -10,17 +10,17 @@ import {
   reorderBlocks,
   ungroupBlock
 } from "..";
-import { createExercise, deleteExercise } from "../../../../../exercise/src";
-import { setUnit } from "../../../../../setting/src";
-import { createPlan, deletePlan } from "../../../../src";
-import { createWorkout, deleteWorkout } from "../../../src";
+import { createExercise, deleteExercise } from "#exercise";
+import { setUnit } from "#setting";
+import { createPlan, deletePlan } from "#plan";
+import { createWorkout, deleteWorkout } from "#workout";
 import {
   createExerciseEntry,
   deleteExerciseEntry,
   getExerciseEntry,
   reorderExerciseEntries,
   updateExerciseEntry
-} from "../../exerciseEntry/src";
+} from "#exerciseEntry";
 
 const validationError = expect.objectContaining({
   statusCode: 400,

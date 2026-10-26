@@ -4,22 +4,22 @@ import type {
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { inTransaction } from "#utils/transaction";
-
 import {
   deleteExerciseDb, getExerciseByQuery, updateExerciseDb
-} from "../../exercise/src/exerciseDb";
+} from "#exercise/exerciseDb";
 import {
   deletePlanDb, getPlanByQuery, updatePlanDb
-} from "../../plan/src/planDb";
+} from "#plan/planDb";
 import {
   deleteExerciseEntryDb, getExerciseEntryByQuery, updateExerciseEntryDb
-} from "../../plan/workout/block/exerciseEntry/src/exerciseEntryDb";
+} from "#exerciseEntry/exerciseEntryDb";
 import {
   deleteBlockDb, getBlockByQuery, updateBlockDb
-} from "../../plan/workout/block/src/blockDb";
+} from "#block/blockDb";
 import {
   deleteWorkoutDb, getWorkoutByQuery, updateWorkoutDb
-} from "../../plan/workout/src/workoutDb";
+} from "#workout/workoutDb";
+
 import {
   getAiChangeByQuery, getAllAiChangeByQuery, updateAiChangeDb
 } from "./aiChangeDb";

@@ -18,14 +18,14 @@ import { ApiError, createDebugger } from "@forklift/debug";
 
 import { nextPosition, orderOrThrow } from "#utils/position";
 import { parseOrThrow } from "#utils/validation";
+import type { Actor } from "#aiChange/aiChangeRecorder";
+import { write } from "#aiChange/aiChangeRecorder";
+import { getExerciseByQuery } from "#exercise/exerciseDb";
+import { getExercise } from "#exercise/exerciseService";
+import { getSettings } from "#setting/settingService";
+import { getWorkoutByQuery } from "#workout/workoutDb";
+import { deleteBlockDb, getBlockByQuery } from "#block/blockDb";
 
-import type { Actor } from "../../../../../aiChange/src/aiChangeRecorder";
-import { write } from "../../../../../aiChange/src/aiChangeRecorder";
-import { getExerciseByQuery } from "../../../../../exercise/src/exerciseDb";
-import { getExercise } from "../../../../../exercise/src/exerciseService";
-import { getSettings } from "../../../../../setting/src/settingService";
-import { getWorkoutByQuery } from "../../../src/workoutDb";
-import { deleteBlockDb, getBlockByQuery } from "../../src/blockDb";
 import {
   createExerciseEntryDb,
   deleteExerciseEntryDb,

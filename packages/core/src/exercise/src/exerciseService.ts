@@ -10,9 +10,9 @@ import type {
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { parseOrThrow } from "#utils/validation";
+import type { Actor } from "#aiChange/aiChangeRecorder";
+import { write } from "#aiChange/aiChangeRecorder";
 
-import type { Actor } from "../../aiChange/src/aiChangeRecorder";
-import { write } from "../../aiChange/src/aiChangeRecorder";
 import { builtInExercises } from "./builtInExercises";
 import {
   createExerciseDb,

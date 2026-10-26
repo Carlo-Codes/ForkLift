@@ -5,12 +5,12 @@ import { ApiError, createDebugger } from "@forklift/debug";
 
 import { nextPosition, orderOrThrow } from "#utils/position";
 import { parseOrThrow } from "#utils/validation";
+import type { Actor } from "#aiChange/aiChangeRecorder";
+import { write } from "#aiChange/aiChangeRecorder";
+import { getWorkout } from "#workout/workoutService";
+import { updateExerciseEntryDb } from "#exerciseEntry/exerciseEntryDb";
+import { createExerciseEntry } from "#exerciseEntry/exerciseEntryService";
 
-import type { Actor } from "../../../../aiChange/src/aiChangeRecorder";
-import { write } from "../../../../aiChange/src/aiChangeRecorder";
-import { getWorkout } from "../../src/workoutService";
-import { updateExerciseEntryDb } from "../exerciseEntry/src/exerciseEntryDb";
-import { createExerciseEntry } from "../exerciseEntry/src/exerciseEntryService";
 import type { BlockWithEntries } from "./blockDb";
 import {
   createBlockDb,

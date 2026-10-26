@@ -4,20 +4,20 @@ import type { ApiError } from "@forklift/debug";
 import { listAiChanges, undoAiChange } from "..";
 import {
   createExercise, deleteExercise, getExercise, searchExercises, updateExercise
-} from "../../../exercise/src";
+} from "#exercise";
 import {
   deleteExerciseEntry, getExerciseEntry, updateExerciseEntry
-} from "../../../plan/workout/block/exerciseEntry/src";
+} from "#exerciseEntry";
 import {
   createPlan, deletePlan, getActivePlan, listPlans, setActivePlan
-} from "../../../plan/src";
-import { createBlock, listBlocks } from "../../../plan/workout/block/src";
+} from "#plan";
+import { createBlock, listBlocks } from "#block";
 import {
   createWorkout, deleteWorkout, getWorkout, listWorkouts, reorderWorkouts, updateWorkout
-} from "../../../plan/workout/src";
+} from "#workout";
 import {
   completeSet, finishSession, getCurrentStep, getSession, setIncrease, skipExercise, skipSet, startSession
-} from "../../../session/src";
+} from "#session";
 
 const forbidden = expect.objectContaining({
   statusCode: 403,

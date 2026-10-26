@@ -23,6 +23,8 @@ Always true:
   the `drizzle-zod` package; refine a defaulted or nullable column with a full schema, not a function.
 - Tests hit a real temp SQLite DB via `setupTestDb()`, seeded through `core` services.
 - Package directory names are lowercase; migrations live in root `.drizzle/migrations/`.
+- Relative imports go up one level at most (lint-enforced). Across `core` modules use the `#<module>`
+  aliases in its `package.json` `imports` (`#plan/planDb`, `#exercise`, `#utils/position`); add one for a new module.
 - `core` imports only `@forklift/db/client` (RN-safe) and reads the db via `getDb()`, a registry
   filled by `setDb()`: mobile's `openDb()` registers expo-sqlite, `setupTestDb()` a temp
   better-sqlite3 file. `core` is consumed as `@forklift/core` (not `/server`).

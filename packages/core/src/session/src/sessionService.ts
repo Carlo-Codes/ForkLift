@@ -9,21 +9,21 @@ import { ApiError, createDebugger } from "@forklift/debug";
 
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
-
-import type { Actor } from "../../aiChange/src/aiChangeRecorder";
-import { refuseAi } from "../../aiChange/src/aiChangeRecorder";
-import { getLastTime } from "../../history/src/historyService";
-import type { LastTime } from "../../history/src/historyService";
-import { advanceRotation } from "../../plan/src/planService";
-import { getExerciseEntryByQuery } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryDb";
-import { raiseTargetWeight } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryService";
-import { listBlocks } from "../../plan/workout/block/src/blockService";
-import { createLoggedSetDb } from "../loggedSet/src/loggedSetDb";
-import { listLoggedSets } from "../loggedSet/src/loggedSetService";
+import type { Actor } from "#aiChange/aiChangeRecorder";
+import { refuseAi } from "#aiChange/aiChangeRecorder";
+import { getLastTime } from "#history/historyService";
+import type { LastTime } from "#history/historyService";
+import { advanceRotation } from "#plan/planService";
+import { getExerciseEntryByQuery } from "#exerciseEntry/exerciseEntryDb";
+import { raiseTargetWeight } from "#exerciseEntry/exerciseEntryService";
+import { listBlocks } from "#block/blockService";
+import { createLoggedSetDb } from "#loggedSet/loggedSetDb";
+import { listLoggedSets } from "#loggedSet/loggedSetService";
 import {
   createSessionIncreaseDb, getSessionIncreaseByQuery, updateSessionIncreaseDb
-} from "../sessionIncrease/src/sessionIncreaseDb";
-import { listIncreases } from "../sessionIncrease/src/sessionIncreaseService";
+} from "#sessionIncrease/sessionIncreaseDb";
+import { listIncreases } from "#sessionIncrease/sessionIncreaseService";
+
 import {
   createSessionDb, getAllSessionByQuery, getSessionByQuery, updateSessionDb
 } from "./sessionDb";

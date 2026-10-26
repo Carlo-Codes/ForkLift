@@ -8,7 +8,7 @@ import type {
   TransactionType
 } from "@forklift/db/client";
 
-import { deleteWorkoutDb, getAllWorkoutByQuery } from "../workout/src/workoutDb";
+import { deleteWorkoutDb, getAllWorkoutByQuery } from "#workout/workoutDb";
 
 // Plans read in the lifter's order unless asked otherwise.
 export function getAllPlanByQuery(
