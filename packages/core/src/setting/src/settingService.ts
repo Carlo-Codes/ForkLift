@@ -6,6 +6,7 @@ import { createDebugger } from "@forklift/debug";
 
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
+import { convertAiChangeWeights } from "#aiChange/aiChangeUnits";
 import { convertExerciseEntryWeights } from "#exerciseEntry/exerciseEntryUnits";
 import { convertSessionWeights } from "#session/sessionUnits";
 
@@ -38,6 +39,7 @@ export function setUnit(unit: Unit, tx?: TransactionType): Pick<SettingAttribute
     debug.info("setting unit to %s", data.unit);
     convertExerciseEntryWeights(from, data.unit, t);
     convertSessionWeights(from, data.unit, t);
+    convertAiChangeWeights(from, data.unit, t);
 
     return setting ?
       updateSettingDb(setting.id, data, t) :
