@@ -1,4 +1,4 @@
-import { useKeepAwake } from "expo-keep-awake";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   useEffect, useRef, useState
@@ -20,6 +20,7 @@ import {
   formatSet, formatSets, formatSupersetPosition, toNumber
 } from "@/format";
 
+const KEEP_AWAKE_TAG = "workout-mode";
 const INPUT_CLASS = "min-w-24 rounded-lg border border-brand-lightGray px-3 py-2 text-center text-3xl text-brand-darkGray";
 
 function loadStep(id: string): SessionStep | undefined {
@@ -110,11 +111,6 @@ function WorkoutMenu({
 // order of sets and the rest due all come from @forklift/core.
 export default function WorkoutModeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-
-  // The rest countdown and its buzz run in JS, which stops once the phone
-  // auto-locks, so the screen stays on until the lifter leaves Workout Mode
-  // (finishing leaves it too).
-  useKeepAwake();
   const [ step, setStep ] = useState(() => loadStep(id));
   const [ unit ] = useState(() => getSettings().unit);
   const [ now, setNow ] = useState(() => Date.now());
@@ -126,6 +122,22 @@ export default function WorkoutModeScreen() {
   const [ error, setError ] = useState<string>();
   const restEndsAt = step?.rest?.endsAt.getTime();
   const resting = restEndsAt !== undefined && restEndsAt !== skippedRest && restEndsAt > now;
+  const setsLeft = step?.current !== undefined;
+
+  // The rest countdown and its buzz run in JS, which stops once the phone
+  // auto-locks, so the screen stays on while there are sets left. Leaving the
+  // screen (finishing does too) lets it sleep again.
+  useEffect(() => {
+    if (!setsLeft) {
+      return;
+    }
+
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => undefined);
+
+    return () => {
+      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
+    };
+  }, [ setsLeft ]);
 
   useEffect(() => {
     if (restEndsAt === undefined || restEndsAt === skippedRest) {
