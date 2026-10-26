@@ -75,6 +75,7 @@ const BOOTSTRAP_SQL = `
     blocks TEXT NOT NULL,
     startedAt INTEGER NOT NULL,
     finishedAt INTEGER,
+    restSkippedAfter INTEGER,
     createdAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL,
     deletedAt INTEGER
@@ -126,6 +127,11 @@ const ADDED_COLUMNS = [
     table: "loggedSet",
     column: "skipped",
     definition: "INTEGER NOT NULL DEFAULT 0"
+  },
+  {
+    table: "session",
+    column: "restSkippedAfter",
+    definition: "INTEGER"
   }
 ] as const;
 

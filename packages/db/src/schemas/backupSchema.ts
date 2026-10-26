@@ -12,8 +12,9 @@ import { settingSchema } from "./settingModel";
 import { workoutSchema } from "./workoutModel";
 
 export const BACKUP_FORMAT = "forklift-backup";
-// 2 added Changes by AI; a version 1 file restores with none.
-export const BACKUP_VERSION = 2;
+// 2 added Changes by AI; a version 1 file restores with none. 3 added a
+// Session's restSkippedAfter; an older file restores with no rest skipped.
+export const BACKUP_VERSION = 3;
 
 // What every backup has, whatever its version, so a file from a newer
 // ForkLift can be told apart from a broken one.
@@ -47,7 +48,9 @@ export const backupTablesSchema = z.strictObject({
   session: z.array(sessionSchema.extend({
     ...rowFields,
     startedAt: jsonDate(),
-    finishedAt: jsonDate().nullable()
+    finishedAt: jsonDate().nullable(),
+    restSkippedAfter: jsonDate().nullable()
+      .optional()
   }).strict()),
   loggedSet: z.array(loggedSetSchema.extend({
     ...rowFields,
@@ -63,7 +66,11 @@ export const backupTablesSchema = z.strictObject({
 // One versioned JSON document holding every row of every table, soft-deleted
 // ones included.
 export const backupSchema = backupHeaderSchema.extend({
-  version: z.union([ z.literal(1), z.literal(BACKUP_VERSION) ]),
+  version: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(BACKUP_VERSION)
+  ]),
   exportedAt: jsonDate(),
   tables: backupTablesSchema
 });

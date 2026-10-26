@@ -27,7 +27,8 @@ export const sessionEntrySnapshotSchema = z.object({
 
 // Synced table (ADR-0003). blocks holds the Workout's Blocks in order, each its
 // Exercise Entries in order, as snapshotted at Start; targetWeight is in the unit
-// chosen in Settings and converts with it. Sessions are history: they are never
+// chosen in Settings and converts with it. restSkippedAfter marks the rest the
+// lifter last skipped by when the set it follows was done (that set's completedAt). Sessions are history: they are never
 // edited by the AI and outlive their Workout, hence restrict.
 export const sessionTable = sqliteTable("session", {
   id: text("id").primaryKey()
@@ -42,6 +43,7 @@ export const sessionTable = sqliteTable("session", {
     .notNull(),
   startedAt: integer("startedAt", { mode: "timestamp_ms" }).notNull(),
   finishedAt: integer("finishedAt", { mode: "timestamp_ms" }),
+  restSkippedAfter: integer("restSkippedAfter", { mode: "timestamp_ms" }),
   createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull()
     .$defaultFn(() => new Date()),
   updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull()

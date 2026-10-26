@@ -178,7 +178,7 @@ describe("backup", () => {
 
     it("rejects a backup from a newer version of ForkLift", () => {
       expect(() => importBackup(changed(b => {
-        b.version = 3;
+        b.version = 4;
       }))).toThrow(validationError("newer version of ForkLift"));
     });
 

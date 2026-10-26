@@ -4,7 +4,16 @@ import type { ExerciseEntryCreatePayload } from "@forklift/db/client";
 import type { ApiError } from "@forklift/debug";
 
 import {
-  completeSet, finishSession, getCurrentStep, getSession, resumeSession, setIncrease, skipExercise, skipSet, startSession
+  completeSet,
+  finishSession,
+  getCurrentStep,
+  getSession,
+  resumeSession,
+  setIncrease,
+  skipExercise,
+  skipRest,
+  skipSet,
+  startSession
 } from "..";
 import { createExercise } from "#exercise";
 import {
@@ -515,6 +524,49 @@ describe("sessions", () => {
       expect(done?.skipped).toBe(false);
       expect(step.current).toEqual(expect.objectContaining({ setNumber: 3 }));
       expect(step.rest?.endsAt).toEqual(new Date(done!.completedAt.getTime() + 90_000));
+    });
+
+    it("skips the rest due, still skipped after the app is reopened, and rests again after the next set", () => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 3,
+        restSeconds: 90
+      });
+
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+
+      const step = skipRest(id);
+
+      expect(step.rest).toBeUndefined();
+      expect(step.current).toEqual(expect.objectContaining({ setNumber: 2 }));
+
+      reopen();
+
+      expect(resumeSession()?.rest).toBeUndefined();
+      expect(completeSet(id).rest?.seconds).toBe(90);
+    });
+
+    it("has no rest to skip before the first set, after a skipped rest, or once finished", () => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 3,
+        restSeconds: 90
+      });
+
+      const { id } = startSession(pushId);
+
+      expect(() => skipRest(id)).toThrow(conflictError);
+
+      completeSet(id);
+      skipRest(id);
+
+      expect(() => skipRest(id)).toThrow(conflictError);
+
+      finishSession(id);
+
+      expect(() => skipRest(id)).toThrow(conflictError);
     });
 
     it("finishes early, keeping what was done and recording the sets left as skipped", () => {

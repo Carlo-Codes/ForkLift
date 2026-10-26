@@ -227,6 +227,8 @@ export function getCurrentStep(sessionId: string, tx?: TransactionType): Session
     .map(s => setKey(s.exerciseEntryId, s.round)));
 
   const restAfterLast = sets.findLast(s => doneLast.has(setKey(s.exerciseEntryId, s.setNumber)))?.restAfter;
+  // A rest the lifter skipped stays skipped until the next set is done.
+  const restSkipped = last && session.restSkippedAfter?.getTime() === last.completedAt.getTime();
 
   return {
     session,
@@ -234,7 +236,7 @@ export function getCurrentStep(sessionId: string, tx?: TransactionType): Session
     current: toSessionSet(sets[ index ]),
     lastTime: sets[ index ] && getLastTime(sets[ index ], tx),
     next: index === -1 ? undefined : toSessionSet(sets[ index + 1 ]),
-    rest: index !== -1 && last && restAfterLast ? {
+    rest: index !== -1 && last && restAfterLast && !restSkipped ? {
       seconds: restAfterLast,
       endsAt: new Date(last.completedAt.getTime() + restAfterLast * 1000)
     } : undefined
@@ -300,6 +302,26 @@ export function completeSet(
       reps: data.reps ?? current.targetReps,
       weight: data.weight ?? current.targetWeight
     }, new Date(), t);
+
+    return getCurrentStep(sessionId, t);
+  });
+}
+
+// Skips the rest due before the current set and returns the step without it.
+// Saved like every tap, so a resumed Session doesn't rest again.
+export function skipRest(sessionId: string, actor: Actor = "lifter", tx?: TransactionType): SessionStep {
+  refuseAiSessionWrite(actor);
+
+  return inTransaction(tx, t => {
+    const { rest } = getOpenStep(sessionId, t);
+
+    if (!rest) {
+      throw new ApiError(409, "There's no rest to skip", "ConflictError");
+    }
+
+    debug.info("skipping rest in session %s", sessionId);
+    // The rest is known by the set it follows, which was done this long before it ends.
+    updateSessionDb(sessionId, { restSkippedAfter: new Date(rest.endsAt.getTime() - rest.seconds * 1000) }, t);
 
     return getCurrentStep(sessionId, t);
   });

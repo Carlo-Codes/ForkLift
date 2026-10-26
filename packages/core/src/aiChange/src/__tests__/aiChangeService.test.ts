@@ -17,7 +17,15 @@ import {
   createWorkout, deleteWorkout, getWorkout, listWorkouts, reorderWorkouts, updateWorkout
 } from "#workout";
 import {
-  completeSet, finishSession, getCurrentStep, getSession, setIncrease, skipExercise, skipSet, startSession
+  completeSet,
+  finishSession,
+  getCurrentStep,
+  getSession,
+  setIncrease,
+  skipExercise,
+  skipRest,
+  skipSet,
+  startSession
 } from "#session";
 
 const forbidden = expect.objectContaining({
@@ -309,6 +317,9 @@ describe("Changes by AI", () => {
       expect(() => skipExercise(sessionId, "ai")).toThrow(forbidden);
       expect(() => setIncrease(sessionId, entryId, true, "ai")).toThrow(forbidden);
       expect(() => finishSession(sessionId, "ai")).toThrow(forbidden);
+      completeSet(sessionId);
+      expect(() => skipRest(sessionId, "ai")).toThrow(forbidden);
+      expect(getCurrentStep(sessionId).rest).toBeDefined();
       expect(getSession(sessionId).status).toBe("inProgress");
     });
   });
