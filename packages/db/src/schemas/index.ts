@@ -1,3 +1,4 @@
+export * from "./backupSchema";
 export * from "./blockModel";
 export * from "./exerciseEntryModel";
 export * from "./exerciseModel";

@@ -1,3 +1,4 @@
+export * from "./backup/src";
 export * from "./exercise/src";
 export * from "./history/src";
 export * from "./plan/src";
