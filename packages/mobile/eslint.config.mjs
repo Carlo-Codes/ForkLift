@@ -14,5 +14,7 @@ export default [
       "import-x/no-cycle": "off"
     }
   },
-  { ignores: [".expo/**"] }
+  // Config plugins are CommonJS run by the Expo CLI, like the *.config.js
+  // files the base config ignores.
+  { ignores: [ ".expo/**", "plugins/**" ] }
 ];
