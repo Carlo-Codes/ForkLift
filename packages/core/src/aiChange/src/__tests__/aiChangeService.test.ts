@@ -12,6 +12,7 @@ import {
   createPlan, deletePlan, getActivePlan, listPlans, setActivePlan
 } from "#plan";
 import { createBlock, listBlocks } from "#block";
+import { setUnit } from "#setting";
 import {
   createWorkout, deleteWorkout, getWorkout, listWorkouts, reorderWorkouts, updateWorkout
 } from "#workout";
@@ -165,6 +166,47 @@ describe("Changes by AI", () => {
         targetSets: 3,
         targetWeight: 72.5
       }));
+    });
+
+    describe("after the lifter switches unit", () => {
+      beforeEach(() => {
+        updateExerciseEntry(entryId, {
+          targetWeight: 62.5,
+          weightStep: 1
+        }, "ai");
+      });
+
+      it("undoes the targets in the new unit", () => {
+        setUnit("lb");
+        undoAiChange(listAiChanges()[ 0 ]!.id);
+
+        expect(getExerciseEntry(entryId)).toEqual(expect.objectContaining({
+          targetWeight: 132.3,
+          weightStep: 5
+        }));
+      });
+
+      it("undoes the targets after switching there and back", () => {
+        setUnit("lb");
+        setUnit("kg");
+        undoAiChange(listAiChanges()[ 0 ]!.id);
+
+        expect(getExerciseEntry(entryId)).toEqual(expect.objectContaining({
+          targetWeight: 60,
+          weightStep: 2.5
+        }));
+      });
+
+      it("keeps a target the lifter has changed since the switch", () => {
+        setUnit("lb");
+        updateExerciseEntry(entryId, { targetWeight: 140 });
+        undoAiChange(listAiChanges()[ 0 ]!.id);
+
+        expect(getExerciseEntry(entryId)).toEqual(expect.objectContaining({
+          targetWeight: 140,
+          weightStep: 5
+        }));
+      });
     });
 
     it("restores the last Exercise Entry of a Block, and the Block it took with it", () => {
