@@ -177,6 +177,15 @@ describe("backup", () => {
       }))).toThrow(validationError("expected array"));
     });
 
+    it("rejects a backup with a table or column it doesn't know, rather than dropping it", () => {
+      expect(() => importBackup(changed(b => {
+        b.tables.aiChange = [];
+      }))).toThrow(validationError("aiChange"));
+      expect(() => importBackup(changed(b => {
+        b.tables.plan![ 0 ]!.colour = "red";
+      }))).toThrow(validationError("colour"));
+    });
+
     it("rejects a backup that breaks a rule, such as two Active Plans", () => {
       expect(() => importBackup(changed(b => {
         b.tables.plan!.push({

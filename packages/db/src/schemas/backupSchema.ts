@@ -22,57 +22,44 @@ export const backupHeaderSchema = z.object({
 });
 
 // JSON carries dates as strings; a row in a backup is a whole row, id included.
-const date = () => z.coerce.date();
+const jsonDate = () => z.coerce.date();
 
 const rowFields = {
   id: z.uuid(),
-  createdAt: date(),
-  updatedAt: date(),
-  deletedAt: date().nullable()
+  createdAt: jsonDate(),
+  updatedAt: jsonDate(),
+  deletedAt: jsonDate().nullable()
 };
 
 // Every table, parents before children, so restoring in this order meets each
-// foreign key. A table's key is its SQL name.
-export const backupTablesSchema = z.object({
-  setting: z.array(settingSchema.extend(rowFields)),
-  exercise: z.array(exerciseSchema.extend(rowFields)),
-  plan: z.array(planSchema.extend(rowFields)),
-  workout: z.array(workoutSchema.extend(rowFields)),
-  block: z.array(blockSchema.extend(rowFields)),
-  exerciseEntry: z.array(exerciseEntrySchema.extend(rowFields)),
+// foreign key. A table's key is its SQL name. Tables and rows are strict, so a
+// file with a table or column this version doesn't know is rejected rather than
+// restored with it dropped: bump BACKUP_VERSION whenever either changes.
+export const backupTablesSchema = z.strictObject({
+  setting: z.array(settingSchema.extend(rowFields).strict()),
+  exercise: z.array(exerciseSchema.extend(rowFields).strict()),
+  plan: z.array(planSchema.extend(rowFields).strict()),
+  workout: z.array(workoutSchema.extend(rowFields).strict()),
+  block: z.array(blockSchema.extend(rowFields).strict()),
+  exerciseEntry: z.array(exerciseEntrySchema.extend(rowFields).strict()),
   session: z.array(sessionSchema.extend({
     ...rowFields,
-    startedAt: date(),
-    finishedAt: date().nullable()
-  })),
+    startedAt: jsonDate(),
+    finishedAt: jsonDate().nullable()
+  }).strict()),
   loggedSet: z.array(loggedSetSchema.extend({
     ...rowFields,
-    completedAt: date()
-  })),
-  sessionIncrease: z.array(sessionIncreaseSchema.extend(rowFields))
+    completedAt: jsonDate()
+  }).strict()),
+  sessionIncrease: z.array(sessionIncreaseSchema.extend(rowFields).strict())
 });
 
 // One versioned JSON document holding every row of every table, soft-deleted
-// ones included. The rules core keeps (one Active Plan, one Session in progress,
-// one settings row) hold for a backup too.
+// ones included.
 export const backupSchema = backupHeaderSchema.extend({
   version: z.literal(BACKUP_VERSION),
-  exportedAt: date(),
-  tables: backupTablesSchema.superRefine((tables, ctx) => {
-    const live = <R extends { deletedAt: Date | null }>(rows: R[]): R[] => rows.filter(r => !r.deletedAt);
-
-    if (live(tables.plan).filter(p => p.isActive).length > 1) {
-      ctx.addIssue("A backup can have only one Active Plan");
-    }
-
-    if (live(tables.session).filter(s => s.status === "inProgress").length > 1) {
-      ctx.addIssue("A backup can have only one Session in progress");
-    }
-
-    if (live(tables.setting).length > 1) {
-      ctx.addIssue("A backup can have only one set of Settings");
-    }
-  })
+  exportedAt: jsonDate(),
+  tables: backupTablesSchema
 });
 
 type BackupTables = z.infer<typeof backupTablesSchema>;

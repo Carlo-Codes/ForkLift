@@ -78,7 +78,7 @@ export default function SettingsScreen() {
 
     Alert.alert(
       "Replace all your data?",
-      "Everything in ForkLift now, including Plans, history and Settings, is replaced by this backup. This can't be undone.",
+      "Everything in ForkLift now, including Plans, history, Settings and any workout in progress, is replaced by this backup. This can't be undone.",
       [
         {
           text: "Cancel",

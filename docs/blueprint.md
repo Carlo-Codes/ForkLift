@@ -675,6 +675,9 @@ Seed through `core` service functions, not raw SQL. Don't mock the DB.
    parent if it's a child entity); export from `core/src/server.index.ts`.
 7. Route file + entry in `api/src/routes/index.ts` + test.
 8. If mobile mirrors it: add the `CREATE TABLE IF NOT EXISTS` to `mobile/src/db/client.ts`.
+9. Add it to `db/src/schemas/backupSchema.ts` and `core/src/backup/src/backupDb.ts` (in parent →
+   child order), and bump `BACKUP_VERSION`: backups are strict, so a table they don't list is
+   rejected on import.
 
 ---
 
