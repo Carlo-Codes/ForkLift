@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Alert, View } from "react-native";
+import {
+  Alert, ScrollView, View
+} from "react-native";
 
 import {
   getSettings, importBackup, setUnit
@@ -7,6 +9,7 @@ import {
 import { unitValues } from "@forklift/db/client";
 import type { Unit } from "@forklift/db/client";
 
+import { AiAccessSettings } from "@/components/AiAccessSettings";
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { pickBackupText, shareBackup } from "@/backupFile";
@@ -94,7 +97,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View className="flex-1 gap-3 bg-brand-white p-6">
+    <ScrollView className="flex-1 bg-brand-white"
+      contentContainerClassName="gap-3 p-6">
       <AppText weight="semibold"
         className="text-lg text-brand-darkGray">
         Weight unit
@@ -143,6 +147,9 @@ export default function SettingsScreen() {
           {backupMessage.text}
         </AppText>
       )}
-    </View>
+      <View className="mt-6">
+        <AiAccessSettings />
+      </View>
+    </ScrollView>
   );
 }

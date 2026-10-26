@@ -14,5 +14,35 @@ export default [
       "import-x/no-cycle": "off"
     }
   },
+  {
+    // As the base rule, but the MCP SDK's subpath exports map to its files
+    // only with their .js extension.
+    rules: {
+      "import-x/extensions": [
+        "error",
+        "never",
+        {
+          pattern: {
+            jpg: "always",
+            jpeg: "always",
+            gif: "always",
+            pdf: "always",
+            svg: "always",
+            png: "always",
+            api: "always",
+            json: "always",
+            ttf: "always",
+            config: "always"
+          },
+          pathGroupOverrides: [
+            {
+              pattern: "@modelcontextprotocol/sdk/**",
+              action: "ignore"
+            }
+          ]
+        }
+      ]
+    }
+  },
   { ignores: [".expo/**"] }
 ];

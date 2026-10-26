@@ -6,11 +6,19 @@
     "orientation": "portrait",
     "scheme": "forklift",
     "ios": {
-      "bundleIdentifier": "app.forklift"
+      "bundleIdentifier": "app.forklift",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "AI Access lets an AI assistant on a computer on your Wi-Fi read your ForkLift data."
+      }
     },
     "android": {
       "package": "app.forklift",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_DATA_SYNC",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -21,7 +29,9 @@
           "backgroundColor": "#E8590C"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store",
+      "./plugins/withAiAccessService"
     ]
   }
 }
