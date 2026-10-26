@@ -1,6 +1,7 @@
 import { defineRelations } from "drizzle-orm";
 
 import {
+  aiChangeTable,
   blockTable,
   exerciseEntryTable,
   exerciseTable,
@@ -13,6 +14,7 @@ import {
 } from "./schemas";
 
 export const tables = {
+  aiChangeTable,
   blockTable,
   exerciseEntryTable,
   exerciseTable,
@@ -26,6 +28,7 @@ export const tables = {
 
 export const relations = () => {
   return defineRelations(tables, r => ({
+    aiChangeTable: {},
     blockTable: {
       workout: r.one.workoutTable({
         from: r.blockTable.workoutId,

@@ -103,6 +103,15 @@ const BOOTSTRAP_SQL = `
     deletedAt INTEGER
   );
   CREATE UNIQUE INDEX IF NOT EXISTS sessionIncrease_session_entry_idx ON sessionIncrease (sessionId, exerciseEntryId);
+  CREATE TABLE IF NOT EXISTS aiChange (
+    id TEXT PRIMARY KEY,
+    summary TEXT NOT NULL,
+    rows TEXT NOT NULL,
+    undoneAt INTEGER,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    deletedAt INTEGER
+  );
 `;
 
 // Columns added to a table after it first shipped: CREATE TABLE IF NOT EXISTS

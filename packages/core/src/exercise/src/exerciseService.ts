@@ -11,6 +11,8 @@ import { ApiError, createDebugger } from "@forklift/debug";
 
 import { parseOrThrow } from "#utils/validation";
 
+import type { Actor } from "../../aiChange/src/aiChangeRecorder";
+import { write } from "../../aiChange/src/aiChangeRecorder";
 import { builtInExercises } from "./builtInExercises";
 import {
   createExerciseDb,
@@ -40,16 +42,19 @@ export function searchExercises(query: string, tx?: TransactionType): ExerciseAt
 
 export function createExercise(
   payload: ExerciseCreatePayload,
+  actor: Actor = "lifter",
   tx?: TransactionType
 ): ExerciseAttributes {
   const data = parseOrThrow(exerciseCreatePayloadSchema, payload);
 
-  debug.info("creating exercise %s", data.name);
+  return write(actor, tx, t => {
+    debug.info("creating exercise %s", data.name);
 
-  return createExerciseDb({
-    ...data,
-    isBuiltIn: false
-  }, tx);
+    return createExerciseDb({
+      ...data,
+      isBuiltIn: false
+    }, t);
+  }, exercise => `Added "${exercise.name}" to the Exercise Library`);
 }
 
 // Soft-deleted Exercises are gone as far as the lifter is concerned.
@@ -71,20 +76,30 @@ export function getExercise(id: string, tx?: TransactionType): ExerciseAttribute
 export function updateExercise(
   id: string,
   payload: ExerciseUpdatePayload,
+  actor: Actor = "lifter",
   tx?: TransactionType
 ): ExerciseAttributes {
   const data = parseOrThrow(exerciseUpdatePayloadSchema, payload);
+  let was = "";
 
-  getExercise(id, tx);
-  debug.info("updating exercise %s", id);
+  return write(actor, tx, t => {
+    was = getExercise(id, t).name;
+    debug.info("updating exercise %s", id);
 
-  return updateExerciseDb(id, data, tx);
+    return updateExerciseDb(id, data, t);
+  }, exercise => (exercise.name === was ? `Edited Exercise "${was}"` : `Renamed Exercise "${was}" to "${exercise.name}"`));
 }
 
-export function deleteExercise(id: string, tx?: TransactionType): void {
-  getExercise(id, tx);
-  debug.info("deleting exercise %s", id);
-  deleteExerciseDb(id, tx);
+// Entries and Logged Sets keep the Exercise, so they still have a name.
+export function deleteExercise(id: string, actor: Actor = "lifter", tx?: TransactionType): void {
+  write(actor, tx, t => {
+    const exercise = getExercise(id, t);
+
+    debug.info("deleting exercise %s", id);
+    deleteExerciseDb(id, t);
+
+    return exercise;
+  }, exercise => `Deleted "${exercise.name}" from the Exercise Library`);
 }
 
 // Runs on every launch but loads the built-ins only into a library that has never

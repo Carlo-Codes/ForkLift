@@ -51,3 +51,11 @@ export function formatSupersetPosition(setNumber: number, {
 }: SupersetPosition): string {
   return `${letter}${setNumber} · Superset ${position}/${roundSize}`;
 }
+
+// e.g. "Sun 25 Oct 2026, 14:05".
+export function formatDateTime(date: Date): string {
+  return `${formatDate(date)}, ${date.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit"
+  })}`;
+}

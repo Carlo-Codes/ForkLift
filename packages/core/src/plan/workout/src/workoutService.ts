@@ -8,9 +8,10 @@ import type {
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { nextPosition, orderOrThrow } from "#utils/position";
-import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 
+import type { Actor } from "../../../aiChange/src/aiChangeRecorder";
+import { write } from "../../../aiChange/src/aiChangeRecorder";
 import { getPlan } from "../../src/planService";
 import {
   createWorkoutDb,
@@ -51,45 +52,60 @@ export function getWorkout(id: string, tx?: TransactionType): WorkoutAttributes 
 export function createWorkout(
   planId: string,
   payload: WorkoutCreatePayload,
+  actor: Actor = "lifter",
   tx?: TransactionType
 ): WorkoutAttributes {
   const data = parseOrThrow(workoutCreatePayloadSchema, payload);
 
-  debug.info("creating workout %s in plan %s", data.name, planId);
+  return write(actor, tx, t => {
+    debug.info("creating workout %s in plan %s", data.name, planId);
 
-  return createWorkoutDb({
-    ...data,
-    planId,
-    position: nextPosition(listWorkouts(planId, tx))
-  }, tx);
+    return createWorkoutDb({
+      ...data,
+      planId,
+      position: nextPosition(listWorkouts(planId, t))
+    }, t);
+  }, (workout, t) => `Added Workout "${workout.name}" to Plan "${getPlan(planId, t).name}"`);
 }
 
 export function updateWorkout(
   id: string,
   payload: WorkoutUpdatePayload,
+  actor: Actor = "lifter",
   tx?: TransactionType
 ): WorkoutAttributes {
   const data = parseOrThrow(workoutUpdatePayloadSchema, payload);
+  let was = "";
 
-  getWorkout(id, tx);
-  debug.info("updating workout %s", id);
+  return write(actor, tx, t => {
+    was = getWorkout(id, t).name;
+    debug.info("updating workout %s", id);
 
-  return updateWorkoutDb(id, data, tx);
+    return updateWorkoutDb(id, data, t);
+  }, workout => `Renamed Workout "${was}" to "${workout.name}"`);
 }
 
-export function deleteWorkout(id: string, tx?: TransactionType): void {
-  inTransaction(tx, t => {
-    getWorkout(id, t);
+export function deleteWorkout(id: string, actor: Actor = "lifter", tx?: TransactionType): void {
+  write(actor, tx, t => {
+    const workout = getWorkout(id, t);
+
     debug.info("deleting workout %s", id);
     deleteWorkoutDb(id, t);
-  });
+
+    return workout;
+  }, (workout, t) => `Deleted Workout "${workout.name}" from Plan "${getPlan(workout.planId, t).name}"`);
 }
 
 // orderedIds lists every live Workout in the Plan, first to last.
-export function reorderWorkouts(planId: string, orderedIds: string[], tx?: TransactionType): void {
-  inTransaction(tx, t => {
+export function reorderWorkouts(
+  planId: string,
+  orderedIds: string[],
+  actor: Actor = "lifter",
+  tx?: TransactionType
+): void {
+  write(actor, tx, t => {
     for (const { id, position } of orderOrThrow(listWorkouts(planId, t), orderedIds)) {
       updateWorkoutDb(id, { position }, t);
     }
-  });
+  }, (_, t) => `Reordered the Workouts of Plan "${getPlan(planId, t).name}"`);
 }

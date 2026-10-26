@@ -1,4 +1,5 @@
 import {
+  aiChangeTable,
   blockTable,
   exerciseEntryTable,
   exerciseTable,
@@ -23,7 +24,8 @@ const TABLES = {
   exerciseEntry: exerciseEntryTable,
   session: sessionTable,
   loggedSet: loggedSetTable,
-  sessionIncrease: sessionIncreaseTable
+  sessionIncrease: sessionIncreaseTable,
+  aiChange: aiChangeTable
 } as const;
 
 // Stays well under SQLite's limit on bound values per statement.
@@ -100,6 +102,11 @@ export function replaceAllRowsDb(tables: BackupTables, tx?: TransactionType): vo
 
   for (const rows of chunks(tables.sessionIncrease)) {
     db.insert(sessionIncreaseTable).values(rows)
+      .run();
+  }
+
+  for (const rows of chunks(tables.aiChange)) {
+    db.insert(aiChangeTable).values(rows)
       .run();
   }
 }

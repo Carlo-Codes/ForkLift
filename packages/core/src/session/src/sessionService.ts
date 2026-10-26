@@ -10,6 +10,8 @@ import { ApiError, createDebugger } from "@forklift/debug";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 
+import type { Actor } from "../../aiChange/src/aiChangeRecorder";
+import { refuseAi } from "../../aiChange/src/aiChangeRecorder";
 import { getLastTime } from "../../history/src/historyService";
 import type { LastTime } from "../../history/src/historyService";
 import { advanceRotation } from "../../plan/src/planService";
@@ -27,6 +29,8 @@ import {
 } from "./sessionDb";
 
 const debug = createDebugger("sessionService");
+// Sessions are history, so only the lifter writes them (ADR-0002).
+const refuseAiSessionWrite = (actor: Actor) => refuseAi(actor, "The AI can't change Sessions or Logged Sets");
 
 const setIncreasePayloadSchema = sessionIncreaseSchema.pick({
   exerciseEntryId: true,
@@ -173,7 +177,9 @@ export function resumeSession(tx?: TransactionType): SessionStep | undefined {
 
 // Starts a Session of the Workout with its targets snapshotted, so edits to the
 // Workout from here on apply from the next Session.
-export function startSession(workoutId: string, tx?: TransactionType): SessionAttributes {
+export function startSession(workoutId: string, actor: Actor = "lifter", tx?: TransactionType): SessionAttributes {
+  refuseAiSessionWrite(actor);
+
   return inTransaction(tx, t => {
     const blocks = listBlocks(workoutId, t).map(block => block.exerciseEntries.map(entry => ({
       exerciseEntryId: entry.id,
@@ -278,8 +284,11 @@ function logSet(
 export function completeSet(
   sessionId: string,
   payload: CompleteSetPayload = {},
+  actor: Actor = "lifter",
   tx?: TransactionType
 ): SessionStep {
+  refuseAiSessionWrite(actor);
+
   const data = parseOrThrow(completeSetPayloadSchema, payload);
 
   return inTransaction(tx, t => {
@@ -297,7 +306,9 @@ export function completeSet(
 }
 
 // Records the current set as skipped and returns the step after it.
-export function skipSet(sessionId: string, tx?: TransactionType): SessionStep {
+export function skipSet(sessionId: string, actor: Actor = "lifter", tx?: TransactionType): SessionStep {
+  refuseAiSessionWrite(actor);
+
   return inTransaction(tx, t => {
     const { current } = getOpenStep(sessionId, t);
 
@@ -310,7 +321,9 @@ export function skipSet(sessionId: string, tx?: TransactionType): SessionStep {
 
 // Records the current set and the rest of its Exercise Entry's sets as skipped,
 // and returns the step after them. In a Superset the other entries carry on.
-export function skipExercise(sessionId: string, tx?: TransactionType): SessionStep {
+export function skipExercise(sessionId: string, actor: Actor = "lifter", tx?: TransactionType): SessionStep {
+  refuseAiSessionWrite(actor);
+
   return inTransaction(tx, t => {
     const { current } = getOpenStep(sessionId, t);
     const logged = new Set(listLoggedSets(sessionId, t).map(s => setKey(s.exerciseEntryId, s.round)));
@@ -337,8 +350,11 @@ export function setIncrease(
   sessionId: string,
   exerciseEntryId: string,
   on: boolean,
+  actor: Actor = "lifter",
   tx?: TransactionType
 ): SessionStep {
+  refuseAiSessionWrite(actor);
+
   const data = parseOrThrow(setIncreasePayloadSchema, {
     exerciseEntryId,
     enabled: on
@@ -396,7 +412,9 @@ function applyIncreases(sessionId: string, tx: TransactionType): void {
 // moves its Plan's rotation on, together; only an in-progress Session finishes,
 // so the increases apply once. A Session finished early records the sets left
 // as skipped.
-export function finishSession(sessionId: string, tx?: TransactionType): SessionAttributes {
+export function finishSession(sessionId: string, actor: Actor = "lifter", tx?: TransactionType): SessionAttributes {
+  refuseAiSessionWrite(actor);
+
   return inTransaction(tx, t => {
     const session = getSession(sessionId, t);
     const finishedAt = new Date();

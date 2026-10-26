@@ -1,3 +1,4 @@
+export * from "./aiChangeModel";
 export * from "./backupSchema";
 export * from "./blockModel";
 export * from "./exerciseEntryModel";

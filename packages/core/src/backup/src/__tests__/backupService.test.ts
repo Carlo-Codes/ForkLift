@@ -131,6 +131,20 @@ describe("backup", () => {
     expect(listExercises().map(e => e.name)).toEqual([ "Bench Press", "Cable Fly" ]);
   });
 
+  it("restores a version 1 backup, from before Changes by AI, with none", () => {
+    seed();
+    const backup = JSON.parse(exportBackup()) as Backup;
+
+    backup.version = 1;
+    delete backup.tables.aiChange;
+
+    newPhone();
+    importBackup(JSON.stringify(backup));
+
+    expect(listPlans().map(p => p.name)).toEqual([ "PPL" ]);
+    expect((JSON.parse(exportBackup()) as Backup).tables.aiChange).toEqual([]);
+  });
+
   describe("a file it won't restore", () => {
     let backup: string;
     let before: object;
@@ -164,7 +178,7 @@ describe("backup", () => {
 
     it("rejects a backup from a newer version of ForkLift", () => {
       expect(() => importBackup(changed(b => {
-        b.version = 2;
+        b.version = 3;
       }))).toThrow(validationError("newer version of ForkLift"));
     });
 
@@ -179,8 +193,8 @@ describe("backup", () => {
 
     it("rejects a backup with a table or column it doesn't know, rather than dropping it", () => {
       expect(() => importBackup(changed(b => {
-        b.tables.aiChange = [];
-      }))).toThrow(validationError("aiChange"));
+        b.tables.workoutNote = [];
+      }))).toThrow(validationError("workoutNote"));
       expect(() => importBackup(changed(b => {
         b.tables.plan![ 0 ]!.colour = "red";
       }))).toThrow(validationError("colour"));

@@ -12,6 +12,8 @@ import { nextPosition, orderOrThrow } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 
+import type { Actor } from "../../aiChange/src/aiChangeRecorder";
+import { refuseAi, write } from "../../aiChange/src/aiChangeRecorder";
 import { getAllWorkoutByQuery, getWorkoutByQuery } from "../workout/src/workoutDb";
 import {
   createPlanDb,
@@ -43,46 +45,64 @@ export function getPlan(id: string, tx?: TransactionType): PlanAttributes {
   return plan;
 }
 
-export function createPlan(payload: PlanCreatePayload, tx?: TransactionType): PlanAttributes {
+export function createPlan(
+  payload: PlanCreatePayload,
+  actor: Actor = "lifter",
+  tx?: TransactionType
+): PlanAttributes {
   const data = parseOrThrow(planCreatePayloadSchema, payload);
 
-  debug.info("creating plan %s", data.name);
+  return write(actor, tx, t => {
+    debug.info("creating plan %s", data.name);
 
-  return createPlanDb({
-    ...data,
-    position: nextPosition(listPlans(tx)),
-    isActive: false
-  }, tx);
+    return createPlanDb({
+      ...data,
+      position: nextPosition(listPlans(t)),
+      isActive: false
+    }, t);
+  }, plan => `Created Plan "${plan.name}"`);
 }
 
 export function updatePlan(
   id: string,
   payload: PlanUpdatePayload,
+  actor: Actor = "lifter",
   tx?: TransactionType
 ): PlanAttributes {
   const data = parseOrThrow(planUpdatePayloadSchema, payload);
+  let was = "";
 
-  getPlan(id, tx);
-  debug.info("updating plan %s", id);
+  return write(actor, tx, t => {
+    was = getPlan(id, t).name;
+    debug.info("updating plan %s", id);
 
-  return updatePlanDb(id, data, tx);
+    return updatePlanDb(id, data, t);
+  }, plan => `Renamed Plan "${was}" to "${plan.name}"`);
 }
 
-export function deletePlan(id: string, tx?: TransactionType): void {
-  inTransaction(tx, t => {
-    getPlan(id, t);
+// The AI may not delete the Active Plan, as that changes which Plan is Active.
+export function deletePlan(id: string, actor: Actor = "lifter", tx?: TransactionType): void {
+  write(actor, tx, t => {
+    const plan = getPlan(id, t);
+
+    if (plan.isActive) {
+      refuseAi(actor, "The AI can't delete the Active Plan");
+    }
+
     debug.info("deleting plan %s", id);
     deletePlanDb(id, t);
-  });
+
+    return plan;
+  }, plan => `Deleted Plan "${plan.name}"`);
 }
 
 // orderedIds lists every live Plan, first to last.
-export function reorderPlans(orderedIds: string[], tx?: TransactionType): void {
-  inTransaction(tx, t => {
+export function reorderPlans(orderedIds: string[], actor: Actor = "lifter", tx?: TransactionType): void {
+  write(actor, tx, t => {
     for (const { id, position } of orderOrThrow(listPlans(t), orderedIds)) {
       updatePlanDb(id, { position }, t);
     }
-  });
+  }, () => "Reordered the Plans");
 }
 
 export function getActivePlan(tx?: TransactionType): PlanAttributes | undefined {
@@ -95,7 +115,9 @@ export function getActivePlan(tx?: TransactionType): PlanAttributes | undefined 
 }
 
 // Makes id the one Active Plan, or leaves none Active when id is null.
-export function setActivePlan(id: string | null, tx?: TransactionType): void {
+export function setActivePlan(id: string | null, actor: Actor = "lifter", tx?: TransactionType): void {
+  refuseAi(actor, "The AI can't change which Plan is Active");
+
   inTransaction(tx, t => {
     if (id) {
       getPlan(id, t);
