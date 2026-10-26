@@ -1,4 +1,4 @@
-import type { SupersetPosition } from "@forklift/core";
+import type { HistorySet, SupersetPosition } from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
 // e.g. "3 × 10 @ 60kg · rest 90s"; weight is left out for 0 (bodyweight).
@@ -14,6 +14,28 @@ export function formatTargets(
 // e.g. "50kg × 10"; just "10 reps" for 0 (bodyweight).
 export function formatSet(reps: number, weight: number, unit: Unit): string {
   return weight > 0 ? `${weight}${unit} × ${reps}` : `${reps} reps`;
+}
+
+// A run of sets as "57.5kg × 8, 8, 7", naming the weight again only where it
+// changes: "60kg × 8, 57.5kg × 7"; bodyweight sets read "8, 8, 7 reps".
+export function formatSets(sets: Pick<HistorySet, "reps" | "weight">[], unit: Unit): string {
+  return sets.map((set, i) => {
+    if (i > 0 && set.weight === sets[ i - 1 ]!.weight) {
+      return String(set.reps);
+    }
+
+    return set.weight > 0 ? `${set.weight}${unit} × ${set.reps}` : String(set.reps);
+  }).join(", ") + (sets.at(-1)?.weight === 0 ? " reps" : "");
+}
+
+// e.g. "Sun 25 Oct 2026".
+export function formatDate(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
 }
 
 // Text fields hold what the lifter types; an empty or non-numeric field becomes

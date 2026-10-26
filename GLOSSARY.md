@@ -66,6 +66,16 @@ A per-Exercise-Entry toggle in Workout Mode. When the Session ends, it raises th
 weight by its Weight Step.
 _Avoid_: Progress, level up, auto-progression
 
+**Last Time**:
+What Workout Mode shows for the current Exercise Entry: the sets done for it, with its current
+Exercise, in the most recent finished Session where any were done (e.g. "57.5kg × 8, 8, 7").
+_Avoid_: Previous, last session
+
+**Best Set**:
+The heaviest set done of an Exercise, more reps breaking a tie, shown per Session and overall in
+its history.
+_Avoid_: PR, record, top set
+
 ## AI
 
 **AI Access**:

@@ -1,4 +1,6 @@
-import { router, useLocalSearchParams } from "expo-router";
+import {
+  Link, router, useLocalSearchParams
+} from "expo-router";
 import { useState } from "react";
 import { Alert, View } from "react-native";
 
@@ -61,6 +63,15 @@ export default function ExerciseDetailScreen() {
         router.back();
       }}
     >
+      <Link href={{
+        pathname: "/history/exercises/[id]",
+        params: { id: exercise.id }
+      }}
+        asChild>
+        <AppButton className="items-center p-4">
+          <AppText className="text-brand-primary">History</AppText>
+        </AppButton>
+      </Link>
       <AppButton className="items-center p-4"
         onPress={confirmDelete}>
         <AppText className="text-brand-error">Delete exercise</AppText>

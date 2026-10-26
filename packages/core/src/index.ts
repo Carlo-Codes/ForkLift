@@ -1,4 +1,6 @@
+export * from "./backup/src";
 export * from "./exercise/src";
+export * from "./history/src";
 export * from "./plan/src";
 export * from "./plan/workout/block/exerciseEntry/src";
 export * from "./plan/workout/block/src";

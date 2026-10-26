@@ -20,7 +20,8 @@
         {
           "backgroundColor": "#E8590C"
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }

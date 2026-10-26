@@ -16,7 +16,7 @@ import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
 import {
-  formatSet, formatSupersetPosition, toNumber
+  formatSet, formatSets, formatSupersetPosition, toNumber
 } from "@/format";
 
 const INPUT_CLASS = "min-w-24 rounded-lg border border-brand-lightGray px-3 py-2 text-center text-3xl text-brand-darkGray";
@@ -304,6 +304,11 @@ export default function WorkoutModeScreen() {
         <AppText className="text-center text-lg text-brand-mediumGray">
           Set {current.setNumber} of {current.totalSets}
         </AppText>
+        {step.lastTime && (
+          <AppText className="text-center text-brand-mediumGray">
+            Last time: {formatSets(step.lastTime.sets, unit)}
+          </AppText>
+        )}
         <IncreaseToggle label="Increase next time"
           on={increaseOn(current.exerciseEntryId)}
           onChange={toggleIncrease(current.exerciseEntryId)} />

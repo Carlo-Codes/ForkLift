@@ -10,6 +10,8 @@ import { ApiError, createDebugger } from "@forklift/debug";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 
+import { getLastTime } from "../../history/src/historyService";
+import type { LastTime } from "../../history/src/historyService";
 import { advanceRotation } from "../../plan/src/planService";
 import { getExerciseEntryByQuery } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryDb";
 import { raiseTargetWeight } from "../../plan/workout/block/exerciseEntry/src/exerciseEntryService";
@@ -54,11 +56,13 @@ export interface SupersetPosition {
 
 // Where Workout Mode stands: the set to do now (none once every set is logged),
 // the one after it, the rest due before the current set, counted from when the
-// last set was logged, and the Exercise Entries with Increase Next Time on.
+// last set was logged, what the current set's entry did last time, and the
+// Exercise Entries with Increase Next Time on.
 export interface SessionStep {
   session: SessionAttributes;
   increases: string[];
   current?: SessionSet;
+  lastTime?: LastTime;
   next?: SessionSet;
   rest?: { seconds: number; endsAt: Date };
 }
@@ -222,6 +226,7 @@ export function getCurrentStep(sessionId: string, tx?: TransactionType): Session
     session,
     increases: listIncreases(sessionId, tx),
     current: toSessionSet(sets[ index ]),
+    lastTime: sets[ index ] && getLastTime(sets[ index ], tx),
     next: index === -1 ? undefined : toSessionSet(sets[ index + 1 ]),
     rest: index !== -1 && last && restAfterLast ? {
       seconds: restAfterLast,
