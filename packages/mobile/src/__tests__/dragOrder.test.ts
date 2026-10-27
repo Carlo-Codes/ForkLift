@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
-  dragEnd, dropIndex, moveItem, settleOffset, shiftOf
+  dragEnd, dropIndex, dropLanded, moveItem, restAfterDrop, settleOffset, shiftOf
 } from "../dragOrder";
 
 // Four rows 50pt tall with a 10pt gap: each takes a 60pt slot, starting at
@@ -60,6 +60,84 @@ describe("moveItem", () => {
     expect(moveItem([ "a", "b", "c", "d" ], 0, 2)).toEqual([ "b", "c", "a", "d" ]);
     expect(moveItem([ "a", "b", "c", "d" ], 3, 1)).toEqual([ "a", "d", "b", "c" ]);
     expect(moveItem([ "a", "b" ], 1, 1)).toEqual([ "a", "b" ]);
+  });
+});
+
+// Where each item's slot starts along the list, by key.
+const starts = (keys: string[], sizes: number[]) => {
+  const start: Record<string, number> = {};
+  let at = 0;
+
+  keys.forEach((key, i) => {
+    start[ key ] = at;
+    at += sizes[ i ]!;
+  });
+
+  return start;
+};
+
+describe("restAfterDrop", () => {
+  // The cause of the jank after a drop (#59): React commits the new order
+  // with the transforms the settle left still applied, and resetting them
+  // only reaches the screen a frame later, so every moved row jumps a second
+  // slot and back. Instead the transforms stay put and each item's inner view
+  // takes the new rest offset in the same commit as the new order, so the
+  // re-render must draw every item exactly where the settle left it.
+  it.each([
+    [ "down past a tall Superset", 0, 2 ],
+    [ "up to the top", 3, 0 ],
+    [ "one place down", 1, 2 ]
+  ])("draws every item where the settle left it once the list shows the new order: %s", (_, from, to) => {
+    const keys = [ "a", "b", "c", "d" ];
+    const sizes = [ 60, 200, 60, 90 ];
+    // Offsets left by earlier drops.
+    const rest: Record<string, number> = {
+      a: 30,
+      b: -60,
+      c: 0,
+      d: 120
+    };
+
+    const next = restAfterDrop(rest, keys, sizes, from, to);
+    const before = starts(keys, sizes);
+    const after = starts(moveItem(keys, from, to), moveItem(sizes, from, to));
+
+    keys.forEach((key, index) => {
+      // The settled drag draws each item at its slot moved by its transform
+      // (its rest offset plus the drag's move), less its rest offset (undone
+      // by the inner view).
+      const moved = index === from ? settleOffset(sizes, from, to) : shiftOf(index, from, to, sizes);
+      const transform = rest[ key ]! + moved;
+
+      // The new order keeps the transform and undoes the new rest offset.
+      expect(after[ key ]! + transform - next[ key ]!).toBe(before[ key ]! + transform - rest[ key ]!);
+    });
+  });
+
+  it("drops the offsets of items no longer in the list", () => {
+    expect(restAfterDrop({
+      gone: 40,
+      a: 10
+    }, [ "a", "b" ], [ 60, 60 ], 0, 1)).toEqual({
+      a: 70,
+      b: -60
+    });
+  });
+});
+
+describe("dropLanded", () => {
+  const pending = {
+    order: [ "b", "a", "c" ],
+    rest: {}
+  };
+
+  it("is true once the list shows the order the drop saved", () => {
+    expect(dropLanded(pending, [ "b", "a", "c" ])).toBe(true);
+  });
+
+  it("is false while the list shows another order, e.g. the old one after a failed save", () => {
+    expect(dropLanded(pending, [ "a", "b", "c" ])).toBe(false);
+    expect(dropLanded(pending, [ "b", "a" ])).toBe(false);
   });
 });
 

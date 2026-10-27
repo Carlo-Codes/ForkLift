@@ -1,5 +1,5 @@
 import {
-  createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef
+  createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState
 } from "react";
 import type { ReactNode } from "react";
 import { View } from "react-native";
@@ -12,13 +12,14 @@ import Animated, {
   useAnimatedStyle, useSharedValue, withTiming
 } from "react-native-reanimated";
 import type { SharedValue } from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
+import { scheduleOnRN, scheduleOnUI } from "react-native-worklets";
 
 import { AppIcon } from "./AppIcon";
 
 import {
-  dragEnd, dropIndex, moveItem, settleOffset, shiftOf
+  dragEnd, dropIndex, dropLanded, moveItem, restAfterDrop, settleOffset, shiftOf
 } from "@/dragOrder";
+import type { PendingDrop, RestOffsets } from "@/dragOrder";
 
 // How a drag, a scroll and a tap share an item (in points and milliseconds):
 // - Lists scroll the same way their items are dragged, so an item lifts for
@@ -60,6 +61,8 @@ interface DragShared {
   // Counts drags, so what's left of one (its settling, its drop) does nothing
   // once another has started.
   token: SharedValue<number>;
+  // Where each item's transform rests, as the UI thread knows it.
+  rest: SharedValue<RestOffsets>;
 }
 
 // The drag in progress, as the JS thread knows it.
@@ -68,12 +71,20 @@ interface Drag {
   token: number;
 }
 
+// A drop waiting for the list to show its order, and the drag it ends.
+interface Drop extends PendingDrop {
+  from: number;
+  to: number;
+  token: number;
+}
+
 interface DragListProps<T> {
   data: T[];
   keyOf: (item: T) => string;
   renderItem: (item: T, index: number) => ReactNode;
   // The keys in their new order, once an item is dropped somewhere new. It
-  // re-renders the list, in the new order or, if it couldn't be saved, the old.
+  // re-renders the list straight away, in the new order or, if it couldn't be
+  // saved, the old.
   onReorder: (keys: string[]) => void;
   horizontal?: boolean;
   // Between items, in points.
@@ -87,6 +98,14 @@ interface DragListProps<T> {
 // way while an item is dragged, and onReorder saves the order it's dropped in.
 // Each item is held from the DragArea it renders: the whole row, say, or only
 // a Superset's header.
+//
+// A drop must not move anything on screen when the list re-renders in the new
+// order. React commits that order with the items' animated transforms still
+// applied (Reanimated re-applies them to every React commit, and holds its own
+// updates until that commit is mounted), so resetting the transforms then
+// would draw each moved item a second slot away for a frame. Instead the
+// transforms stay where the drop left them, and each item's inner view undoes
+// its rest offset (RestOffsets), which changes in that same commit.
 export function DragList<T>({
   data, keyOf, renderItem, onReorder, horizontal = false, gap = 0, onHoldRelease, enabled = true
 }: DragListProps<T>) {
@@ -98,7 +117,8 @@ export function DragList<T>({
     offset: useSharedValue(0),
     sizes: useSharedValue<number[]>([]),
     wandered: useSharedValue(false),
-    token: useSharedValue(0)
+    token: useSharedValue(0),
+    rest: useSharedValue<RestOffsets>({})
   };
 
   const sizes = useRef<number[]>([]);
@@ -107,11 +127,19 @@ export function DragList<T>({
   const notifyRef = useRef(notifyScroll);
 
   notifyRef.current = notifyScroll;
+
+  // The rest offsets the items are drawn with, and the drop the next render
+  // shows, if any.
+  const [ rest, setRest ] = useState<RestOffsets>({});
+  const [ drop, setDrop ] = useState<Drop>();
   const keys = data.map(keyOf);
+  const landed = drop !== undefined && dropLanded(drop, keys);
+  const shownRest = landed ? drop.rest : rest;
 
   const latest = useRef({
     data,
     keys,
+    rest,
     onReorder,
     onHoldRelease
   });
@@ -119,74 +147,112 @@ export function DragList<T>({
   latest.current = {
     data,
     keys,
+    rest,
     onReorder,
     onHoldRelease
   };
 
-  // Set on a drop, so the items are put back once they're drawn in the new
-  // order rather than jumping back first.
-  const resetOnRender = useRef(false);
-
   const {
-    from, to, offset
+    from, to, offset, token, rest: sharedRest
   } = shared;
 
-  const reset = useCallback(() => {
-    from.set(-1);
-    to.set(-1);
-    offset.set(0);
-  }, [
+  // What the end of a drag does on the UI thread. Each acts only while its
+  // drag is the latest, so it leaves one started since alone.
+  const ui = useMemo(() => ({
+    // Nothing dragged: every item where its transform rests.
+    reset: (current: number) => {
+      "worklet";
+
+      if (token.get() === current) {
+        from.set(-1);
+        to.set(-1);
+        offset.set(0);
+      }
+    },
+    // The list shows a drop's order: its rest offsets take over from the
+    // drag. Nothing moves, as each transform stays where it is.
+    land: (next: RestOffsets, current: number) => {
+      "worklet";
+
+      sharedRest.set(next);
+
+      if (token.get() === current) {
+        from.set(-1);
+        to.set(-1);
+        offset.set(0);
+      }
+    },
+    // A drop the list doesn't show (it couldn't be saved): the dropped item
+    // and the ones that made way glide back.
+    goBack: (current: number) => {
+      "worklet";
+
+      if (token.get() !== current) {
+        return;
+      }
+
+      to.set(from.get());
+
+      offset.set(withTiming(0, { duration: MOVE_MS }, finished => {
+        if (finished && token.get() === current) {
+          from.set(-1);
+          to.set(-1);
+        }
+      }));
+    }
+  }), [
     from,
     to,
-    offset
+    offset,
+    token,
+    sharedRest
   ]);
 
-  // The first render after a drop shows what onReorder saved: the new order,
-  // or the old one again if it couldn't be saved.
+  // Items removed since are no longer measured.
   useLayoutEffect(() => {
-    // Items removed since are no longer measured.
     if (sizes.current.length > latest.current.keys.length) {
       sizes.current.length = latest.current.keys.length;
       shared.sizes.set([ ...sizes.current ]);
     }
-
-    if (resetOnRender.current) {
-      resetOnRender.current = false;
-      reset();
-    }
   });
 
-  const move = useCallback((fromIndex: number, toIndex: number) => {
-    const order = latest.current.keys;
-
-    if (fromIndex === toIndex || toIndex < 0 || toIndex >= order.length) {
-      reset();
-
+  // The first render after a drop shows what onReorder saved: the new order,
+  // or the old one again if it couldn't be saved.
+  useLayoutEffect(() => {
+    if (!drop) {
       return;
     }
 
-    resetOnRender.current = true;
+    setDrop(undefined);
 
-    try {
-      latest.current.onReorder(moveItem(order, fromIndex, toIndex));
-    } catch (e) {
-      resetOnRender.current = false;
-      reset();
-      throw e;
+    if (landed) {
+      setRest(drop.rest);
+      sizes.current = moveItem(sizes.current, drop.from, drop.to);
+      shared.sizes.set([ ...sizes.current ]);
+      scheduleOnUI(ui.land, drop.rest, drop.token);
+    } else {
+      scheduleOnUI(ui.goBack, drop.token);
     }
-  }, [ reset ]);
+  }, [
+    drop,
+    landed,
+    shared.sizes,
+    ui
+  ]);
 
   // Ends the drag in progress if it's the one given (by its token, or by the
   // item's key when that item goes away), letting the scroll view move again.
   const end = useCallback((matches: (current: Drag) => boolean) => {
-    if (!drag.current || !matches(drag.current)) {
-      return false;
+    const current = drag.current;
+
+    if (!current || !matches(current)) {
+      return undefined;
     }
 
     drag.current = undefined;
     notifyRef.current(false);
 
-    return true;
+    return current;
   }, []);
 
   const handlers = useMemo((): DragHandlers => ({
@@ -194,29 +260,57 @@ export function DragList<T>({
       sizes.current[ index ] = size;
       shared.sizes.set([ ...sizes.current ]);
     },
-    start: (key, token) => {
+    start: (key, current) => {
       drag.current = {
         key,
-        token
+        token: current
       };
       notifyRef.current(true);
     },
-    drop: (fromIndex, toIndex, token) => {
-      if (end(d => d.token === token)) {
-        move(fromIndex, toIndex);
-      }
-    },
-    cancel: token => {
-      if (end(d => d.token === token)) {
-        reset();
-      }
-    },
-    holdRelease: (index, token) => {
-      if (!end(d => d.token === token)) {
+    drop: (key, toIndex, current) => {
+      if (!end(d => d.token === current)) {
         return;
       }
 
-      reset();
+      const { keys: order, rest: now } = latest.current;
+      const fromIndex = order.indexOf(key);
+
+      if (fromIndex < 0 || fromIndex === toIndex || toIndex < 0 || toIndex >= order.length) {
+        scheduleOnUI(ui.reset, current);
+
+        return;
+      }
+
+      const next = moveItem(order, fromIndex, toIndex);
+
+      // Batched with the re-render onReorder causes, so that render has it.
+      setDrop({
+        order: next,
+        rest: restAfterDrop(now, order, sizes.current, fromIndex, toIndex),
+        from: fromIndex,
+        to: toIndex,
+        token: current
+      });
+
+      try {
+        latest.current.onReorder(next);
+      } catch (e) {
+        setDrop(undefined);
+        scheduleOnUI(ui.goBack, current);
+        throw e;
+      }
+    },
+    cancel: current => {
+      if (end(d => d.token === current)) {
+        scheduleOnUI(ui.reset, current);
+      }
+    },
+    holdRelease: (index, current) => {
+      if (!end(d => d.token === current)) {
+        return;
+      }
+
+      scheduleOnUI(ui.reset, current);
 
       const item = latest.current.data[ index ];
 
@@ -225,16 +319,27 @@ export function DragList<T>({
       }
     },
     lost: key => {
-      if (end(d => d.key === key)) {
-        reset();
+      const ended = end(d => d.key === key);
+
+      if (ended) {
+        scheduleOnUI(ui.reset, ended.token);
       }
     },
-    move
+    // A screen reader's move: nothing was dragged, so the list just
+    // re-renders in the new order.
+    move: (fromIndex, toIndex) => {
+      const order = latest.current.keys;
+
+      if (fromIndex === toIndex || toIndex < 0 || toIndex >= order.length) {
+        return;
+      }
+
+      latest.current.onReorder(moveItem(order, fromIndex, toIndex));
+    }
   }), [
     shared.sizes,
     end,
-    move,
-    reset
+    ui
   ]);
 
   return (
@@ -248,6 +353,7 @@ export function DragList<T>({
           itemKey={keys[ index ]!}
           index={index}
           count={data.length}
+          restOffset={shownRest[ keys[ index ]! ] ?? 0}
           shared={shared}
           handlers={handlers}
           horizontal={horizontal}
@@ -265,7 +371,7 @@ export function DragList<T>({
 interface DragHandlers {
   measure: (index: number, size: number) => void;
   start: (key: string, token: number) => void;
-  drop: (from: number, to: number, token: number) => void;
+  drop: (key: string, to: number, token: number) => void;
   cancel: (token: number) => void;
   holdRelease: (index: number, token: number) => void;
   // The item went away (e.g. a refresh removed it), mid-drag or not.
@@ -277,6 +383,8 @@ interface DragItemProps {
   itemKey: string;
   index: number;
   count: number;
+  // Where its transform rests, undone by its inner view.
+  restOffset: number;
   shared: DragShared;
   handlers: DragHandlers;
   horizontal: boolean;
@@ -286,10 +394,10 @@ interface DragItemProps {
 }
 
 function DragItem({
-  itemKey, index, count, shared, handlers, horizontal, gap, enabled, children
+  itemKey, index, count, restOffset, shared, handlers, horizontal, gap, enabled, children
 }: DragItemProps) {
   const {
-    from, to, offset, sizes, wandered, token
+    from, to, offset, sizes, wandered, token, rest
   } = shared;
 
   // Passed back to the JS thread from the gesture's worklets.
@@ -336,8 +444,11 @@ function DragItem({
         wandered: wandered.get()
       });
 
-      // Interrupted (e.g. by the system): back to where it was, unchanged.
+      // Interrupted (e.g. by the system): back to where it was, unchanged,
+      // with the items that made way.
       if (end === "cancel") {
+        to.set(index);
+
         offset.set(withTiming(0, { duration: MOVE_MS }, finished => {
           if (finished && token.get() === current) {
             scheduleOnRN(cancel, current);
@@ -358,7 +469,7 @@ function DragItem({
       // Settling is cut short when another drag starts; that one carries on.
       offset.set(withTiming(settleOffset(sizes.get(), index, target), { duration: MOVE_MS }, finished => {
         if (finished && token.get() === current) {
-          scheduleOnRN(drop, index, target, current);
+          scheduleOnRN(drop, itemKey, target, current);
         }
       }));
     }
@@ -366,12 +477,13 @@ function DragItem({
 
   const style = useAnimatedStyle(() => {
     const dragged = from.get() === index;
-    let moved = 0;
+    const resting = rest.get()[ itemKey ] ?? 0;
+    let moved = resting;
 
     if (dragged) {
-      moved = offset.get();
+      moved = resting + offset.get();
     } else if (from.get() >= 0) {
-      moved = withTiming(shiftOf(index, from.get(), to.get(), sizes.get()), { duration: MOVE_MS });
+      moved = withTiming(resting + shiftOf(index, from.get(), to.get(), sizes.get()), { duration: MOVE_MS });
     }
 
     return {
@@ -419,7 +531,13 @@ function DragItem({
     <DragItemContext value={item}>
       <Animated.View style={style}
         onLayout={onLayout}>
-        {children}
+        {/* Undoes the rest offset, in the same commit as the order it's
+            for. Never flattened, so its children aren't remounted when it
+            first moves. */}
+        <View collapsable={false}
+          style={{ transform: [ horizontal ? { translateX: -restOffset } : { translateY: -restOffset } ] }}>
+          {children}
+        </View>
       </Animated.View>
     </DragItemContext>
   );
