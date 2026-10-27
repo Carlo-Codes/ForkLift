@@ -9,16 +9,19 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
 
 import { loadBuiltInExercises } from "@forklift/core";
 
 import { AppText } from "@/components/AppText";
 import { Screen } from "@/components/Screen";
 import { openDb } from "@/db/client";
+import { useStackScreenOptions } from "@/navigation";
 import { useThemeColors } from "@/theme";
 
 void SplashScreen.preventAutoHideAsync();
+
+// A screen opened by a link still has the tabs under it to go back to.
+export const unstable_settings = { initialRouteName: "(tabs)" };
 
 const ALL_EDGES = [
   "top",
@@ -35,6 +38,7 @@ export default function RootLayout() {
   });
 
   const colors = useThemeColors();
+  const stackScreenOptions = useStackScreenOptions();
   const [ dbReady, setDbReady ] = useState(false);
   const [ dbError, setDbError ] = useState<Error>();
 
@@ -87,47 +91,16 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="auto" />
-      <Stack
-        screenOptions={{
-          // Large titles on the screen's own background, with no orange bar.
-          // iOS collapses them as the content scrolls; Android's native header
-          // has no large title, so its title is set bigger and bolder instead.
-          headerLargeTitle: true,
-          headerLargeTitleShadowVisible: false,
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.accent,
-          headerTitleStyle: Platform.OS === "android" ?
-            {
-              fontFamily: "Inter_700Bold",
-              fontSize: 26,
-              color: colors.ink
-            } :
-            {
-              fontFamily: "Inter_600SemiBold",
-              color: colors.ink
-            },
-          headerLargeTitleStyle: {
-            fontFamily: "Inter_700Bold",
-            color: colors.ink
-          },
-          contentStyle: { backgroundColor: colors.background }
-        }}
-      >
-        <Stack.Screen name="index"
-          options={{ title: "ForkLift" }} />
-        <Stack.Screen name="settings"
-          options={{ title: "Settings" }} />
+      <Stack screenOptions={stackScreenOptions}>
+        {/* Home, Plans, History, Library and Settings, each with its own header. */}
+        <Stack.Screen name="(tabs)"
+          options={{ headerShown: false }} />
         <Stack.Screen name="ai-changes"
           options={{ title: "Changes by AI" }} />
-        <Stack.Screen name="exercises/index"
-          options={{ title: "Exercise Library" }} />
         <Stack.Screen name="exercises/new"
           options={{ title: "Add Exercise" }} />
         <Stack.Screen name="exercises/[id]"
           options={{ title: "Exercise" }} />
-        <Stack.Screen name="plans/index"
-          options={{ title: "Plans" }} />
         <Stack.Screen name="plans/[id]"
           options={{ title: "Plan" }} />
         <Stack.Screen name="workouts/[id]"
@@ -138,14 +111,13 @@ export default function RootLayout() {
           options={{ title: "Targets" }} />
         <Stack.Screen name="sessions/new"
           options={{ title: "Choose Workout" }} />
+        {/* Workout Mode: pushed over the tabs, so it fills the screen. */}
         <Stack.Screen name="sessions/[id]"
           options={{
             title: "Workout Mode",
             // The set and the Done button need the room.
             headerLargeTitle: false
           }} />
-        <Stack.Screen name="history/index"
-          options={{ title: "History" }} />
         <Stack.Screen name="history/sessions/[id]"
           options={{ title: "Session" }} />
         <Stack.Screen name="history/exercises/[id]"

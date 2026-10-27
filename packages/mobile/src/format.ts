@@ -52,6 +52,17 @@ export function formatSupersetPosition(setNumber: number, {
   return `${letter}${setNumber} · Superset ${position}/${roundSize}`;
 }
 
+// A Workout's Exercise Entries at a glance, e.g. "Bench Press 3×8 · Row 3×10 · …",
+// naming at most limit of them.
+export function formatEntrySummary(
+  entries: { exerciseName: string; targetSets: number; targetReps: number }[],
+  limit = 4
+): string {
+  const named = entries.slice(0, limit).map(e => `${e.exerciseName} ${e.targetSets}×${e.targetReps}`);
+
+  return [ ...named, ...(entries.length > limit ? [ "…" ] : []) ].join(" · ");
+}
+
 // e.g. "Sun 25 Oct 2026, 14:05".
 export function formatDateTime(date: Date): string {
   return `${formatDate(date)}, ${date.toLocaleTimeString(undefined, {
