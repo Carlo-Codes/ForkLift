@@ -6,7 +6,8 @@ account and no tracking.
 ## Planning
 
 **Plan**:
-A named collection of Workouts that the lifter cycles through in order (e.g. "Push / Pull / Legs").
+A named collection of Workouts that the lifter cycles through in order (e.g. "Push / Pull / Legs"),
+with optional From and To dates. The dates are informational: they don't choose the Active Plan.
 _Avoid_: Program, routine, split
 
 **Active Plan**:
@@ -22,9 +23,14 @@ One step of a Workout: either a single Exercise Entry (straight sets) or a Super
 _Avoid_: Group, section, circuit
 
 **Superset**:
-A Block of two or more Exercise Entries performed alternately, one set of each per round, with rest
-only after each round.
+A Block of two or more Exercise Entries performed alternately, one set of each per round, with Round
+Rest only after each round.
 _Avoid_: Circuit, giant set, combo
+
+**Round Rest**:
+The rest after each round of a Superset: the longest rest time among its Exercise Entries. Setting
+it sets the rest time of every Exercise Entry in the Superset.
+_Avoid_: Superset rest, group rest
 
 **Exercise**:
 A movement in the Exercise Library, such as "Bench Press". Built-in and user-added Exercises are
