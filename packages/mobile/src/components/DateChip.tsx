@@ -12,7 +12,7 @@ import { Chip } from "./Chip";
 import { formatCalendarDay } from "@/format";
 import { useThemeColors } from "@/theme";
 
-type DateLabel = "From" | "To";
+type DateLabel = "From" | "To" | "Start";
 
 interface DateChipProps {
   label: DateLabel;
@@ -20,6 +20,8 @@ interface DateChipProps {
   day: string | null;
   // The day the picker opens on while unset, e.g. the other date or today.
   fallback: string;
+  // A required date, such as a new Plan's start date, can't be cleared.
+  required?: boolean;
   onChange: (day: string | null) => void;
 }
 
@@ -56,9 +58,10 @@ function IosPicker({
 }
 
 // A Plan date as a chip: tap to pick a day with the native picker, "×" to clear
-// it (ADR-0006: dates are calendar days, so only the day is kept).
+// it unless it's required (ADR-0006: dates are calendar days, so only the day
+// is kept).
 export function DateChip({
-  label, day, fallback, onChange
+  label, day, fallback, required = false, onChange
 }: DateChipProps) {
   const [ picking, setPicking ] = useState(false);
   const value = fromCalendarDay(day ?? fallback);
@@ -82,7 +85,7 @@ export function DateChip({
         accessibilityRole="button"
         accessibilityLabel={day ? `${label} ${formatCalendarDay(day)}, change` : `Set ${label} date`}
         onPress={open}
-        onClear={day ? () => onChange(null) : undefined}
+        onClear={day && !required ? () => onChange(null) : undefined}
         clearLabel={`Clear ${label} date`}>
         {day ? `${label} ${formatCalendarDay(day)}` : label}
       </Chip>

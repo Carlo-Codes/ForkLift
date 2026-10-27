@@ -109,9 +109,9 @@ export default function RootLayout() {
           options={{ title: "Add Exercise" }} />
         <Stack.Screen name="exercises/[id]"
           options={{ title: "Exercise" }} />
-        {/* The Plan editor: its name is the large title, edited in place. */}
         <Stack.Screen name="plans/new"
-          options={planEditorOptions} />
+          options={{ title: "New Plan" }} />
+        {/* The Plan editor: its name is the large title, edited in place. */}
         <Stack.Screen name="plans/[id]"
           options={planEditorOptions} />
         <Stack.Screen name="workouts/add-exercise"
