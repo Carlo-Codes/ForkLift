@@ -377,6 +377,19 @@ describe("plans", () => {
       expect(getPlan(undated.id).endDate).toBeNull();
     });
 
+    it("rejects a start date that isn't a calendar day", () => {
+      const { id } = dated();
+
+      for (const day of [
+        "2026-02-30",
+        "02/11/2026"
+      ]) {
+        expect(() => setPlanStart(id, day)).toThrow(validationError);
+      }
+
+      expect(getPlan(id).startDate).toBe("2026-10-27");
+    });
+
     it("clears both dates with the start date", () => {
       const { id } = dated();
 

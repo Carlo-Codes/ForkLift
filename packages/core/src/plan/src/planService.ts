@@ -215,9 +215,12 @@ export function planDateRow({ startDate, endDate }: PlanDates): PlanDateRow {
 // it has none) and moves To with it; null clears both dates. Saved as a From/To
 // edit, so AI Access sees From and To as ever. The lifter's only: the AI sets
 // From and To.
-export function setPlanStart(id: string, startDate: string | null, tx?: TransactionType): PlanAttributes {
+export function setPlanStart(id: string, day: string | null, tx?: TransactionType): PlanAttributes {
+  // Checked before To is counted from it.
+  const { startDate } = parseOrThrow(planUpdatePayloadSchema, { startDate: day });
+
   return inTransaction(tx, t => {
-    if (startDate === null) {
+    if (!startDate) {
       return updatePlan(id, {
         startDate: null,
         endDate: null
