@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import {
@@ -29,6 +29,10 @@ interface NewPlanFormProps {
 export function NewPlanForm({ onCreate }: NewPlanFormProps) {
   const [ form, setForm ] = useState(() => newPlanDefaults());
   const [ error, setError ] = useState<string>();
+  // The ref blocks a second tap before the disabled state re-renders; on
+  // success the form stays disabled because the Plan editor replaces it.
+  const creatingRef = useRef(false);
+  const [ creating, setCreating ] = useState(false);
   const workoutNames = newPlanWorkoutNames(form.workoutCount);
 
   const change = (changes: Partial<NewPlanPayload>) => setForm(current => ({
@@ -37,10 +41,16 @@ export function NewPlanForm({ onCreate }: NewPlanFormProps) {
   }));
 
   const create = () => {
+    if (creatingRef.current) return;
+
+    creatingRef.current = true;
+    setCreating(true);
+
     try {
       onCreate(form);
-      setError(undefined);
     } catch (e) {
+      creatingRef.current = false;
+      setCreating(false);
       setError(errorMessage(e));
     }
   };
@@ -91,6 +101,7 @@ export function NewPlanForm({ onCreate }: NewPlanFormProps) {
         </Card>
         {error && <AppText className="text-danger">{error}</AppText>}
         <AppButton variant="primary"
+          disabled={creating}
           onPress={create}>
           Create
         </AppButton>
