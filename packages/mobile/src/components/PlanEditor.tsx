@@ -488,7 +488,23 @@ export function PlanEditor({ planId }: { planId: string }) {
           onChangeText={changeName}
           onEndEditing={endNameEditing} />
         {nameError && <AppText className="text-danger">{nameError}</AppText>}
-        {progressLine && <AppText className="text-muted">{progressLine}</AppText>}
+        {progressLine && (
+          <AppButton className="min-h-touch flex-row items-center gap-2 self-start"
+            accessibilityRole="link"
+            accessibilityHint="Show the plan calendar"
+            onPress={() => router.push({
+              pathname: "/plans/calendar/[id]",
+              params: { id: planId }
+            })}>
+            <AppIcon name="calendar-outline"
+              color="accent"
+              size={18} />
+            <AppText className="text-muted">{progressLine}</AppText>
+            <AppIcon name="chevron-forward"
+              color="faint"
+              size={16} />
+          </AppButton>
+        )}
       </View>
       <PlanSettings state={state}
         dateError={dateError}

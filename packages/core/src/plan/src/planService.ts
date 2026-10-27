@@ -5,6 +5,7 @@ import type {
   PlanAttributes,
   PlanCreatePayload,
   PlanUpdatePayload,
+  SessionAttributes,
   TransactionType,
   WorkoutAttributes
 } from "@forklift/db/client";
@@ -104,19 +105,32 @@ function progressOf(plan: PlanAttributes, today: string, tx?: TransactionType): 
 }
 
 function countFinishedSessions(planId: string, tx?: TransactionType): number {
-  const workoutIds = getAllWorkoutByQuery({ where: { planId } }, tx).map(w => w.id);
+  return listFinishedPlanSessions(planId, tx).length;
+}
 
-  if (workoutIds.length === 0) {
-    return 0;
+// The live, finished Sessions of the Plan's Workouts, newest first, each with
+// its Workout. Workouts deleted since are included: their Sessions are history
+// and belong to the Plan.
+export function listFinishedPlanSessions(
+  planId: string,
+  tx?: TransactionType
+): { session: SessionAttributes; workout: WorkoutAttributes }[] {
+  const workouts = new Map(getAllWorkoutByQuery({ where: { planId } }, tx).map(w => [ w.id, w ]));
+
+  if (workouts.size === 0) {
+    return [];
   }
 
   return getAllSessionByQuery({
     where: {
-      workoutId: { in: workoutIds },
+      workoutId: { in: [ ...workouts.keys() ] },
       status: "finished",
       deletedAt: { isNull: true }
     }
-  }, tx).length;
+  }, tx).map(session => ({
+    session,
+    workout: workouts.get(session.workoutId)!
+  }));
 }
 
 type PlanDates = Partial<Pick<PlanAttributes, "startDate" | "endDate">>;
