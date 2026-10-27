@@ -9,7 +9,8 @@ const calendarDay = () => z.iso.date("Dates must be a calendar day, YYYY-MM-DD")
   .optional();
 
 // Synced table (ADR-0003): client-generated UUID id, updatedAt and soft delete.
-// position orders the Plans list; isActive marks the Active Plan, which the Plan
+// The Plans list is newest first; position only breaks ties between Plans
+// created in the same millisecond. isActive marks the Active Plan, which the Plan
 // service keeps to at most one live row. nextWorkoutId is the rotation pointer:
 // the Workout the home screen offers next, falling back to the first live one
 // when it's unset or gone. It has no FK because workout already references plan.

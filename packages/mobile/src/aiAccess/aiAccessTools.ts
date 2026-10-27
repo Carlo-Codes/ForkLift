@@ -25,7 +25,6 @@ import {
   listWorkouts,
   reorderBlocks,
   reorderExerciseEntries,
-  reorderPlans,
   reorderWorkouts,
   searchExercises,
   ungroupBlock,
@@ -190,7 +189,7 @@ export function createAiAccessMcpServer(): McpServer {
 
   server.registerTool("list_plans", {
     title: "List Plans",
-    description: "Lists the lifter's Plans in their order. A Plan is a named collection of Workouts " +
+    description: "Lists the lifter's Plans, newest first. A Plan is a named collection of Workouts " +
       "cycled through in order; the Active Plan (isActive) is the one being followed. startDate and " +
       "endDate are its optional From and To dates (YYYY-MM-DD).",
     annotations: readOnly
@@ -346,17 +345,6 @@ export function createAiAccessMcpServer(): McpServer {
     annotations: deletes
   }, ({ planId }) => answer(() => {
     deletePlan(planId, "ai");
-
-    return done;
-  }));
-
-  server.registerTool("reorder_plans", {
-    title: "Reorder Plans",
-    description: "Puts the lifter's Plans in a new order." + UNDO_NOTE,
-    inputSchema: { planIds: orderOf("Plans") },
-    annotations: writes
-  }, ({ planIds }) => answer(() => {
-    reorderPlans(planIds, "ai");
 
     return done;
   }));

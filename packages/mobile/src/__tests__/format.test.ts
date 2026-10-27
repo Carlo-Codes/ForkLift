@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
-  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatSessionWhen
+  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatPlanDates, formatSessionWhen
 } from "../format";
 
 describe("formatCountdown", () => {
@@ -69,5 +69,36 @@ describe("formatEntrySummary", () => {
 
   it("is empty with no Exercise Entries", () => {
     expect(formatEntrySummary([])).toBe("");
+  });
+});
+
+describe("formatPlanDates", () => {
+  it("says so when a Plan has no dates", () => {
+    expect(formatPlanDates({
+      startDate: null,
+      endDate: null
+    })).toBe("No dates");
+  });
+
+  it("shows From and To as calendar days, naming a shared year once", () => {
+    expect(formatPlanDates({
+      startDate: "2026-01-05",
+      endDate: "2026-03-01"
+    })).toBe("5 Jan – 1 Mar 2026");
+    expect(formatPlanDates({
+      startDate: "2026-12-01",
+      endDate: "2027-01-31"
+    })).toBe("1 Dec 2026 – 31 Jan 2027");
+  });
+
+  it("shows a date set on its own", () => {
+    expect(formatPlanDates({
+      startDate: "2026-11-02",
+      endDate: null
+    })).toBe("From 2 Nov 2026");
+    expect(formatPlanDates({
+      startDate: null,
+      endDate: "2026-12-20"
+    })).toBe("Until 20 Dec 2026");
   });
 });
