@@ -1,5 +1,5 @@
 import {
-  useEffect, useRef, useState
+  use, useCallback, useEffect, useRef, useState
 } from "react";
 import {
   Alert, ScrollView, View
@@ -11,15 +11,23 @@ import type { WorkoutAttributes } from "@forklift/db/client";
 import { AppText } from "./AppText";
 import { AppTextInput } from "./AppTextInput";
 import { Chip } from "./Chip";
+import {
+  DragList, DragScrollContext, useDragActions
+} from "./DragList";
 
 import { errorMessage } from "@/errorMessage";
 
+type Tab = Pick<WorkoutAttributes, "id" | "name">;
+
 interface WorkoutTabsProps {
-  workouts: Pick<WorkoutAttributes, "id" | "name">[];
+  workouts: Tab[];
   selectedId: string | undefined;
   onSelect: (id: string) => void;
   // Throws (e.g. a ValidationError) to keep the old name, with the message shown.
   onRename: (id: string, name: string) => void;
+  // The Workout ids in their new order; it shows why if they can't be saved,
+  // the same way as the Plan editor's other drags.
+  onReorder: (ids: string[]) => void;
   onDelete: (id: string) => void;
   onAdd: () => void;
 }
@@ -43,15 +51,64 @@ function RenameField({ initial, onDone }: { initial: string; onDone: (name: stri
   );
 }
 
+const TAB_ACTIONS = [
+  {
+    name: "rename",
+    label: "Rename"
+  },
+  {
+    name: "delete",
+    label: "Delete"
+  }
+];
+
+// One Workout's tab. A screen reader can't hold and let go, so it offers
+// Rename and Delete as actions, along with moving the tab left and right.
+function WorkoutTab({
+  workout, selected, onSelect, onRename, onDelete
+}: { workout: Tab; selected: boolean; onSelect: () => void; onRename: () => void; onDelete: () => void }) {
+  const drag = useDragActions();
+
+  return (
+    <Chip selected={selected}
+      accessibilityRole="tab"
+      accessibilityState={{ selected }}
+      accessibilityHint="Hold to drag, or hold and let go to rename or delete"
+      accessibilityActions={[ ...TAB_ACTIONS, ...(drag?.actions ?? []) ]}
+      onAccessibilityAction={event => {
+        if (event.nativeEvent.actionName === "rename") {
+          onRename();
+        } else if (event.nativeEvent.actionName === "delete") {
+          onDelete();
+        } else {
+          drag?.onAction(event);
+        }
+      }}
+      onPress={onSelect}>
+      {workout.name}
+    </Chip>
+  );
+}
+
 // The Plan's Workouts as a row of tabs that scrolls sideways. Tap to switch,
-// long-press to rename or delete, "+" to add the next "Day N".
+// "+" to add the next "Day N". Held still, a tab lifts: drag it to reorder,
+// or let go for Rename and Delete. (Moving straight away scrolls the row,
+// which runs the same way a tab is dragged.)
 export function WorkoutTabs({
-  workouts, selectedId, onSelect, onRename, onDelete, onAdd
+  workouts, selectedId, onSelect, onRename, onReorder, onDelete, onAdd
 }: WorkoutTabsProps) {
   const scrollRef = useRef<ScrollViewInstance>(null);
   const [ renamingId, setRenamingId ] = useState<string>();
   const [ error, setError ] = useState<string>();
+  const [ dragging, setDragging ] = useState(false);
   const shownCount = useRef(workouts.length);
+  const outerScroll = use(DragScrollContext);
+
+  // Both this row and the editor around it hold still while a tab is dragged.
+  const holdStill = useCallback((on: boolean) => {
+    setDragging(on);
+    outerScroll(on);
+  }, [ outerScroll ]);
 
   // A Workout added with "+" is at the end: bring it into view.
   useEffect(() => {
@@ -62,18 +119,21 @@ export function WorkoutTabs({
     shownCount.current = workouts.length;
   }, [ workouts.length ]);
 
-  const rename = (id: string, name: string) => {
-    setRenamingId(undefined);
-
+  const attempt = (write: () => void) => {
     try {
-      onRename(id, name);
+      write();
       setError(undefined);
     } catch (e) {
       setError(errorMessage(e));
     }
   };
 
-  const confirmDelete = (workout: Pick<WorkoutAttributes, "id" | "name">) => Alert.alert(
+  const rename = (id: string, name: string) => {
+    setRenamingId(undefined);
+    attempt(() => onRename(id, name));
+  };
+
+  const confirmDelete = (workout: Tab) => Alert.alert(
     `Delete ${workout.name}?`,
     "Its exercises are removed from the plan. Past Sessions are kept.",
     [
@@ -89,7 +149,7 @@ export function WorkoutTabs({
     ]
   );
 
-  const showActions = (workout: Pick<WorkoutAttributes, "id" | "name">) => Alert.alert(workout.name, undefined, [
+  const showActions = (workout: Tab) => Alert.alert(workout.name, undefined, [
     {
       text: "Rename",
       onPress: () => setRenamingId(workout.id)
@@ -107,40 +167,40 @@ export function WorkoutTabs({
 
   return (
     <View className="gap-1">
-      <ScrollView ref={scrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerClassName="gap-2"
-        accessibilityRole="tablist">
-        {workouts.map(workout => {
-          if (workout.id === renamingId) {
-            return (
-              <RenameField key={workout.id}
-                initial={workout.name}
-                onDone={name => rename(workout.id, name)} />
-            );
-          }
-
-          const selected = workout.id === selectedId;
-
-          return (
-            <Chip key={workout.id}
-              selected={selected}
-              accessibilityRole="tab"
-              accessibilityState={{ selected }}
-              accessibilityHint="Long-press to rename or delete"
-              onPress={() => onSelect(workout.id)}
-              onLongPress={() => showActions(workout)}>
-              {workout.name}
-            </Chip>
-          );
-        })}
-        <Chip icon="add"
-          accessibilityRole="button"
-          accessibilityLabel="Add workout"
-          onPress={onAdd} />
-      </ScrollView>
+      <DragScrollContext value={holdStill}>
+        <ScrollView ref={scrollRef}
+          horizontal
+          scrollEnabled={!dragging}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerClassName="gap-2"
+          accessibilityRole="tablist">
+          <DragList data={workouts}
+            keyOf={w => w.id}
+            horizontal
+            gap={8}
+            startOn="hold"
+            enabled={!renamingId}
+            onReorder={onReorder}
+            onHoldRelease={showActions}
+            renderItem={workout => (workout.id === renamingId ?
+              (
+                <RenameField initial={workout.name}
+                  onDone={name => rename(workout.id, name)} />
+              ) :
+              (
+                <WorkoutTab workout={workout}
+                  selected={workout.id === selectedId}
+                  onSelect={() => onSelect(workout.id)}
+                  onRename={() => setRenamingId(workout.id)}
+                  onDelete={() => confirmDelete(workout)} />
+              ))} />
+          <Chip icon="add"
+            accessibilityRole="button"
+            accessibilityLabel="Add workout"
+            onPress={onAdd} />
+        </ScrollView>
+      </DragScrollContext>
       {error && <AppText className="text-danger">{error}</AppText>}
     </View>
   );

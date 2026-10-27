@@ -6,18 +6,16 @@ import { SupersetGroup } from "./SupersetGroup";
 interface BlockItemProps {
   block: BlockWithEntries;
   onSetRoundRest: (restSeconds: number) => void;
-  onMoveEntry: (index: number, delta: -1 | 1) => void;
+  // The Superset's Exercise Entry ids in their new order.
+  onReorderEntries: (exerciseEntryIds: string[]) => void;
   onAddToSuperset: () => void;
-  // Omitted at the top / bottom of the Workout.
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
 }
 
-// One Block of the selected Workout in the Plan editor: a single Exercise
-// Entry as a row, or a Superset as a bordered group. Reordering (8/9)
-// replaces the up/down buttons here.
+// One Block of the selected Workout in the Plan editor, an item of its
+// DragList: a single Exercise Entry as a row, or a Superset as a bordered
+// group. Either's drag handle moves the whole Block.
 export function BlockItem({
-  block, onSetRoundRest, onMoveEntry, onAddToSuperset, onMoveUp, onMoveDown
+  block, onSetRoundRest, onReorderEntries, onAddToSuperset
 }: BlockItemProps) {
   const [ entry, ...others ] = block.exerciseEntries;
 
@@ -30,16 +28,12 @@ export function BlockItem({
       <SupersetGroup
         block={block}
         onSetRoundRest={onSetRoundRest}
-        onMoveEntry={onMoveEntry}
+        onReorderEntries={onReorderEntries}
         onAddEntry={onAddToSuperset}
-        onMoveUp={onMoveUp}
-        onMoveDown={onMoveDown}
       />
     ) :
     (
       <ExerciseEntryRow entry={entry}
-        onMoveUp={onMoveUp}
-        onMoveDown={onMoveDown}
         first
         last />
     );

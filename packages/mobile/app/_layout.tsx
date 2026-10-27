@@ -9,6 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect, useState } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { loadBuiltInExercises } from "@forklift/core";
 
@@ -94,8 +95,9 @@ export default function RootLayout() {
     );
   }
 
+  // Gesture Handler's root, for dragging rows and tabs into a new order.
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="auto" />
       <Stack screenOptions={stackScreenOptions}>
         {/* Home, Plans, History, Library and Settings, each with its own header. */}
@@ -128,6 +130,6 @@ export default function RootLayout() {
         <Stack.Screen name="history/exercises/[id]"
           options={{ title: "Exercise History" }} />
       </Stack>
-    </>
+    </GestureHandlerRootView>
   );
 }
