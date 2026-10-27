@@ -33,6 +33,8 @@ const BOOTSTRAP_SQL = `
     position INTEGER NOT NULL,
     isActive INTEGER NOT NULL,
     nextWorkoutId TEXT,
+    startDate TEXT,
+    endDate TEXT,
     createdAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL,
     deletedAt INTEGER
@@ -121,6 +123,16 @@ const ADDED_COLUMNS = [
   {
     table: "plan",
     column: "nextWorkoutId",
+    definition: "TEXT"
+  },
+  {
+    table: "plan",
+    column: "startDate",
+    definition: "TEXT"
+  },
+  {
+    table: "plan",
+    column: "endDate",
     definition: "TEXT"
   },
   {

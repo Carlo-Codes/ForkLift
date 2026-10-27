@@ -13,8 +13,9 @@ import { workoutSchema } from "./workoutModel";
 
 export const BACKUP_FORMAT = "forklift-backup";
 // 2 added Changes by AI; a version 1 file restores with none. 3 added a Logged
-// Set's restSkipped; an older file restores with every rest unskipped.
-export const BACKUP_VERSION = 3;
+// Set's restSkipped; an older file restores with every rest unskipped. 4 added a
+// Plan's From and To dates; an older file restores with no dates.
+export const BACKUP_VERSION = 4;
 
 // What every backup has, whatever its version, so a file from a newer
 // ForkLift can be told apart from a broken one.
@@ -67,6 +68,7 @@ export const backupSchema = backupHeaderSchema.extend({
   version: z.union([
     z.literal(1),
     z.literal(2),
+    z.literal(3),
     z.literal(BACKUP_VERSION)
   ]),
   exportedAt: jsonDate(),

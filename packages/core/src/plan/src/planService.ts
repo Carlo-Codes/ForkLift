@@ -1,4 +1,6 @@
-import { planCreatePayloadSchema, planUpdatePayloadSchema } from "@forklift/db/client";
+import {
+  PLAN_DATE_ORDER_MESSAGE, isPlanDateOrder, planCreatePayloadSchema, planUpdatePayloadSchema
+} from "@forklift/db/client";
 import type {
   PlanAttributes,
   PlanCreatePayload,
@@ -45,6 +47,24 @@ export function getPlan(id: string, tx?: TransactionType): PlanAttributes {
   return plan;
 }
 
+type PlanDates = Partial<Pick<PlanAttributes, "startDate" | "endDate">>;
+
+// A Plan's From and To dates as a Change by AI words them.
+function describeDates({ startDate, endDate }: PlanDates): string {
+  if (startDate && endDate) {
+    return `from ${startDate} to ${endDate}`;
+  }
+
+  if (startDate) {
+    return `from ${startDate}`;
+  }
+
+  return endDate ? `until ${endDate}` : "with no dates";
+}
+
+const sameDates = (a: PlanDates, b: PlanDates) => (a.startDate ?? null) === (b.startDate ?? null) &&
+  (a.endDate ?? null) === (b.endDate ?? null);
+
 export function createPlan(
   payload: PlanCreatePayload,
   actor: Actor = "lifter",
@@ -60,7 +80,11 @@ export function createPlan(
       position: nextPosition(listPlans(t)),
       isActive: false
     }, t);
-  }, plan => `Created Plan "${plan.name}"`);
+  }, plan => {
+    const dated = plan.startDate !== null || plan.endDate !== null;
+
+    return `Created Plan "${plan.name}"${dated ? ` to run ${describeDates(plan)}` : ""}`;
+  });
 }
 
 export function updatePlan(
@@ -70,14 +94,30 @@ export function updatePlan(
   tx?: TransactionType
 ): PlanAttributes {
   const data = parseOrThrow(planUpdatePayloadSchema, payload);
-  let was = "";
+  let was: PlanAttributes | undefined;
 
   return write(actor, tx, t => {
-    was = getPlan(id, t).name;
+    was = getPlan(id, t);
+
+    // A date left out of the edit keeps its saved value, so the order is
+    // checked against what the Plan will hold.
+    if (!isPlanDateOrder({
+      ...was,
+      ...data
+    })) {
+      throw new ApiError(400, PLAN_DATE_ORDER_MESSAGE, "ValidationError");
+    }
+
     debug.info("updating plan %s", id);
 
     return updatePlanDb(id, data, t);
-  }, plan => `Renamed Plan "${was}" to "${plan.name}"`);
+  }, plan => {
+    const renamed = was?.name !== plan.name && `Renamed Plan "${was?.name}" to "${plan.name}"`;
+    const redated = !sameDates(was ?? {}, plan) && `Set Plan "${plan.name}" to run ${describeDates(plan)}`;
+
+    return [ renamed, redated ].filter(Boolean)
+      .join("; ");
+  });
 }
 
 // The AI may not delete the Active Plan, as that changes which Plan is Active.

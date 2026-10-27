@@ -42,13 +42,17 @@ describe("backup", () => {
     ({ teardown } = setupTestDb());
   };
 
-  // Something of every kind: lb, an Active Plan mid-rotation, a Superset, a
+  // Something of every kind: lb, a dated Active Plan mid-rotation, a Superset, a
   // deleted Exercise, a finished Session with done, skipped and increased
   // entries, and a Session left in progress with its rest skipped.
   const seed = () => {
     setUnit("lb");
 
-    const { id: planId } = createPlan({ name: "PPL" });
+    const { id: planId } = createPlan({
+      name: "PPL",
+      startDate: "2026-11-02",
+      endDate: "2026-12-27"
+    });
     const { id: pushId } = createWorkout(planId, { name: "Push" });
 
     createWorkout(planId, { name: "Pull" });
@@ -112,6 +116,10 @@ describe("backup", () => {
     expect(withoutExportTime(exportBackup())).toEqual(withoutExportTime(backup));
     expect(getSettings().unit).toBe("lb");
     expect(getNextWorkout()?.name).toBe("Pull");
+    expect(listPlans()[ 0 ]).toEqual(expect.objectContaining({
+      startDate: "2026-11-02",
+      endDate: "2026-12-27"
+    }));
     expect(listSessionHistory().map(s => s.workoutName)).toEqual([ "Push" ]);
     expect(getExerciseHistory(benchId).sessions[ 0 ]!.sets.map(s => s.reps)).toEqual([ 4 ]);
     expect(resumeSession()?.current?.targetWeight).toBe(140);
@@ -156,11 +164,37 @@ describe("backup", () => {
 
     backup.version = 2;
     backup.tables.loggedSet!.forEach(row => delete row.restSkipped);
+    backup.tables.plan!.forEach(row => {
+      delete row.startDate;
+      delete row.endDate;
+    });
 
     newPhone();
     importBackup(JSON.stringify(backup));
 
     expect(resumeSession()?.rest?.seconds).toBe(90);
+  });
+
+  it("restores a version 3 backup, from before Plan dates, with no dates", () => {
+    seed();
+    const backup = JSON.parse(exportBackup()) as Backup;
+
+    backup.version = 3;
+    backup.tables.plan!.forEach(row => {
+      delete row.startDate;
+      delete row.endDate;
+    });
+
+    newPhone();
+    importBackup(JSON.stringify(backup));
+
+    expect(listPlans()).toEqual([
+      expect.objectContaining({
+        name: "PPL",
+        startDate: null,
+        endDate: null
+      })
+    ]);
   });
 
   describe("a file it won't restore", () => {
@@ -196,7 +230,7 @@ describe("backup", () => {
 
     it("rejects a backup from a newer version of ForkLift", () => {
       expect(() => importBackup(changed(b => {
-        b.version = 4;
+        b.version = 5;
       }))).toThrow(validationError("newer version of ForkLift"));
     });
 
@@ -225,6 +259,12 @@ describe("backup", () => {
           id: crypto.randomUUID()
         });
       }))).toThrow(validationError("only one Active Plan"));
+      expect(() => importBackup(changed(b => {
+        b.tables.plan![ 0 ]!.endDate = "2026-11-01";
+      }))).toThrow(validationError("To date on or after its From date"));
+      expect(() => importBackup(changed(b => {
+        b.tables.plan![ 0 ]!.startDate = "2026-02-30";
+      }))).toThrow(validationError("calendar day"));
     });
 
     it("rejects a backup whose rows don't fit together, restoring none of it", () => {

@@ -9,7 +9,7 @@ import {
   deleteExerciseEntry, getExerciseEntry, updateExerciseEntry
 } from "#exerciseEntry";
 import {
-  createPlan, deletePlan, getActivePlan, listPlans, setActivePlan
+  createPlan, deletePlan, getActivePlan, getPlan, listPlans, setActivePlan, updatePlan
 } from "#plan";
 import { createBlock, listBlocks } from "#block";
 import { setUnit } from "#setting";
@@ -57,6 +57,86 @@ describe("Changes by AI", () => {
     expect(listPlans()).toEqual([]);
     expect(undoAiChange(change!.id).undoneAt).toEqual(undone.undoneAt);
     expect(listAiChanges()).toHaveLength(1);
+  });
+
+  describe("on a Plan's dates", () => {
+    it("records the dates of a Plan the AI creates", () => {
+      createPlan({
+        name: "PPL",
+        startDate: "2026-11-02",
+        endDate: "2026-12-27"
+      }, "ai");
+
+      expect(listAiChanges()[ 0 ]!.summary).toBe("Created Plan \"PPL\" to run from 2026-11-02 to 2026-12-27");
+    });
+
+    it("says how the dates changed, and undoes them", () => {
+      const { id } = createPlan({
+        name: "PPL",
+        startDate: "2026-11-02"
+      });
+
+      updatePlan(id, {
+        startDate: null,
+        endDate: "2026-12-27"
+      }, "ai");
+      updatePlan(id, {
+        name: "Push / Pull / Legs",
+        endDate: null
+      }, "ai");
+
+      expect(listAiChanges().map(c => c.summary)).toEqual([
+        "Renamed Plan \"PPL\" to \"Push / Pull / Legs\"; Set Plan \"Push / Pull / Legs\" to run with no dates",
+        "Set Plan \"PPL\" to run until 2026-12-27"
+      ]);
+
+      for (const change of listAiChanges()) {
+        undoAiChange(change.id);
+      }
+
+      expect(getPlan(id)).toEqual(expect.objectContaining({
+        name: "PPL",
+        startDate: "2026-11-02",
+        endDate: null
+      }));
+    });
+
+    it("keeps a date the lifter has changed since, undoing the rest", () => {
+      const { id } = createPlan({ name: "PPL" });
+
+      updatePlan(id, {
+        startDate: "2026-11-02",
+        endDate: "2026-12-27"
+      }, "ai");
+      updatePlan(id, { endDate: "2027-01-03" });
+      undoAiChange(listAiChanges()[ 0 ]!.id);
+
+      expect(getPlan(id)).toEqual(expect.objectContaining({
+        startDate: null,
+        endDate: "2027-01-03"
+      }));
+    });
+
+    it("keeps the dates whole rather than undo To to before a From the lifter moved", () => {
+      const { id } = createPlan({
+        name: "PPL",
+        startDate: "2026-01-05",
+        endDate: "2026-03-01"
+      });
+
+      updatePlan(id, {
+        name: "Push / Pull / Legs",
+        endDate: "2026-12-27"
+      }, "ai");
+      updatePlan(id, { startDate: "2026-06-01" });
+      undoAiChange(listAiChanges()[ 0 ]!.id);
+
+      expect(getPlan(id)).toEqual(expect.objectContaining({
+        name: "PPL",
+        startDate: "2026-06-01",
+        endDate: "2026-12-27"
+      }));
+    });
   });
 
   it("undoes a rename, keeping what the lifter has changed since", () => {

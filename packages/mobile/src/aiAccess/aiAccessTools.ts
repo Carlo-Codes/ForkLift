@@ -104,6 +104,17 @@ const idOf = (thing: string) => z.uuid().describe(`The ${thing}'s id`);
 const orderOf = (things: string) => z.array(z.uuid()).describe(`Every one of the ${things}' ids, once each, first to last`);
 const done = { done: true };
 
+// A Plan's From and To dates (ADR-0006); core checks the days and their order.
+const planDate = (which: string) => z.string().nullable()
+  .optional()
+  .describe(`The Plan's ${which} date, a calendar day as YYYY-MM-DD; null for none. ` +
+    "Informational only: it doesn't change which Plan is Active");
+
+const planDates = {
+  startDate: planDate("From"),
+  endDate: planDate("To (on or after From)")
+};
+
 // A date range on when Sessions started; core checks the dates.
 const dateRange = {
   from: z.string().optional()
@@ -180,31 +191,36 @@ export function createAiAccessMcpServer(): McpServer {
   server.registerTool("list_plans", {
     title: "List Plans",
     description: "Lists the lifter's Plans in their order. A Plan is a named collection of Workouts " +
-      "cycled through in order; the Active Plan (isActive) is the one being followed.",
+      "cycled through in order; the Active Plan (isActive) is the one being followed. startDate and " +
+      "endDate are its optional From and To dates (YYYY-MM-DD).",
     annotations: readOnly
   }, () => answer(() => listPlans().map(({
-    id, name, isActive
+    id, name, isActive, startDate, endDate
   }) => ({
     id,
     name,
-    isActive
+    isActive,
+    startDate,
+    endDate
   }))));
 
   server.registerTool("get_plan", {
     title: "Get Plan",
-    description: "Gets a Plan with its Workouts in rotation order and nextWorkoutId, the Workout " +
-      "the lifter does next.",
+    description: "Gets a Plan with its From and To dates (startDate, endDate), its Workouts in " +
+      "rotation order and nextWorkoutId, the Workout the lifter does next.",
     inputSchema: { planId: idOf("Plan") },
     annotations: readOnly
   }, ({ planId }) => answer(() => {
     const {
-      id, name, isActive, nextWorkoutId
+      id, name, isActive, startDate, endDate, nextWorkoutId
     } = getPlan(planId);
 
     return {
       id,
       name,
       isActive,
+      startDate,
+      endDate,
       nextWorkoutId,
       workouts: listWorkouts(planId).map(w => ({
         id: w.id,
@@ -277,14 +293,21 @@ export function createAiAccessMcpServer(): McpServer {
     title: "Create Plan",
     description: "Creates a Plan at the end of the lifter's list. It isn't made the Active Plan: only " +
       "the lifter chooses that." + UNDO_NOTE,
-    inputSchema: { name: z.string().describe("The Plan's name, e.g. \"Push / Pull / Legs\"") },
+    inputSchema: {
+      name: z.string().describe("The Plan's name, e.g. \"Push / Pull / Legs\""),
+      ...planDates
+    },
     annotations: writes
-  }, ({ name }) => answer(() => {
-    const { id } = createPlan({ name }, "ai");
+  }, payload => answer(() => {
+    const {
+      id, name, startDate, endDate
+    } = createPlan(payload, "ai");
 
     return {
       id,
-      name: getPlan(id).name
+      name,
+      startDate,
+      endDate
     };
   }));
 
@@ -298,6 +321,20 @@ export function createAiAccessMcpServer(): McpServer {
     annotations: writes
   }, ({ planId, name }) => answer(() => {
     updatePlan(planId, { name }, "ai");
+
+    return done;
+  }));
+
+  server.registerTool("set_plan_dates", {
+    title: "Set Plan dates",
+    description: "Sets or clears a Plan's From and To dates. A date left out stays as it is." + UNDO_NOTE,
+    inputSchema: {
+      planId: idOf("Plan"),
+      ...planDates
+    },
+    annotations: writes
+  }, ({ planId, ...dates }) => answer(() => {
+    updatePlan(planId, dates, "ai");
 
     return done;
   }));
