@@ -11,6 +11,8 @@ import {
   formatPlanWeek,
   formatSessionWhen,
   formatSetTargets,
+  formatWeekdayLetter,
+  formatWorkoutLetters,
   planWeekFraction,
   stepValue
 } from "../format";
@@ -248,6 +250,35 @@ describe("formatPlanProgress", () => {
       planWeek: null,
       sessionsDone: 0
     })).toBeUndefined();
+  });
+});
+
+describe("formatWeekdayLetter", () => {
+  it("reads the weekday from the calendar day itself", () => {
+    expect([
+      "2026-11-02",
+      "2026-11-04",
+      "2026-11-08"
+    ].map(formatWeekdayLetter)).toEqual([
+      "M",
+      "W",
+      "S"
+    ]);
+  });
+});
+
+describe("formatWorkoutLetters", () => {
+  it("shows each Session's Workout by its first letter, at most two", () => {
+    expect(formatWorkoutLetters([ { workoutName: "push" } ])).toBe("P");
+    expect(formatWorkoutLetters([
+      { workoutName: "Push" },
+      { workoutName: "Legs" },
+      { workoutName: "Pull" }
+    ])).toBe("PL");
+  });
+
+  it("shows a dot alone for a Workout with no name", () => {
+    expect(formatWorkoutLetters([ { workoutName: "" } ])).toBe("");
   });
 });
 

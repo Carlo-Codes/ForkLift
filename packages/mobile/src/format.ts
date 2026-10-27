@@ -1,5 +1,5 @@
 import type {
-  HistorySet, HomeEntry, PlanListItem, PlanProgress, PlanWeek, SessionSet, SessionSummary, SupersetPosition
+  HistorySet, HomeEntry, PlanCalendarSession, PlanListItem, PlanProgress, PlanWeek, SessionSet, SessionSummary, SupersetPosition
 } from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
@@ -137,6 +137,22 @@ export function formatCalendarDay(day: string, withYear = true): string {
   ] = day.split("-").map(Number);
 
   return `${date} ${MONTHS[ month! - 1 ]}${withYear ? ` ${year}` : ""}`;
+}
+
+const WEEKDAY_LETTERS = "SMTWTFS";
+
+// A YYYY-MM-DD calendar day's weekday as one letter, e.g. "M", for a Plan
+// Calendar's column headings. Read in UTC so no time zone can shift it.
+export function formatWeekdayLetter(day: string): string {
+  return WEEKDAY_LETTERS[ new Date(`${day}T00:00:00Z`).getUTCDay() ]!;
+}
+
+// A Plan Calendar day's Sessions by their Workouts' first letters, e.g. "P",
+// or "PL" for two; a cell has room for no more.
+export function formatWorkoutLetters(sessions: Pick<PlanCalendarSession, "workoutName">[]): string {
+  return sessions.slice(0, 2).map(s => s.workoutName.charAt(0)
+    .toUpperCase())
+    .join("");
 }
 
 // A Plan's From and To dates, e.g. "5 Jan – 1 Mar 2026", "From 2 Nov 2026",
