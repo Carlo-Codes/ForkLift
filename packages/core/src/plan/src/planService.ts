@@ -80,7 +80,11 @@ export function createPlan(
       position: nextPosition(listPlans(t)),
       isActive: false
     }, t);
-  }, plan => `Created Plan "${plan.name}"${sameDates(plan, {}) ? "" : ` to run ${describeDates(plan)}`}`);
+  }, plan => {
+    const dated = plan.startDate !== null || plan.endDate !== null;
+
+    return `Created Plan "${plan.name}"${dated ? ` to run ${describeDates(plan)}` : ""}`;
+  });
 }
 
 export function updatePlan(
