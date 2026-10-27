@@ -1,8 +1,20 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
-  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatPlanDates, formatSessionWhen
+  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatList, formatPlanDates, formatSessionWhen
 } from "../format";
+
+describe("formatList", () => {
+  it("joins names with commas and a final \"and\"", () => {
+    expect(formatList([
+      "Push",
+      "Pull",
+      "Legs"
+    ])).toBe("Push, Pull and Legs");
+    expect(formatList([ "Upper", "Lower" ])).toBe("Upper and Lower");
+    expect(formatList([ "Full Body" ])).toBe("Full Body");
+  });
+});
 
 describe("formatCountdown", () => {
   it("shows minutes and seconds, rounding up to the next second", () => {

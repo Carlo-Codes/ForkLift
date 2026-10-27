@@ -13,6 +13,8 @@ import { Card } from "./Card";
 import { Chip } from "./Chip";
 import { Screen } from "./Screen";
 
+import { errorMessage } from "@/errorMessage";
+
 interface ExerciseFormProps {
   initial?: ExerciseCreatePayload;
   submitLabel: string;
@@ -60,7 +62,7 @@ export function ExerciseForm({
       });
       setError(undefined);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     }
   };
 

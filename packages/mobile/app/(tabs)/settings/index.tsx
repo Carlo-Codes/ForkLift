@@ -15,8 +15,7 @@ import { AppText } from "@/components/AppText";
 import { Chip } from "@/components/Chip";
 import { Screen } from "@/components/Screen";
 import { pickBackupText, shareBackup } from "@/backupFile";
-
-const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorMessage } from "@/errorMessage";
 
 export default function SettingsScreen() {
   const [ unit, setUnitState ] = useState<Unit>(() => getSettings().unit);

@@ -30,6 +30,11 @@ export function formatSets(sets: Pick<HistorySet, "reps" | "weight">[], unit: Un
   }).join(", ") + (sets.at(-1)?.weight === 0 ? " reps" : "");
 }
 
+// e.g. "Push, Pull and Legs".
+export function formatList(names: readonly string[]): string {
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names.join("");
+}
+
 // e.g. "Sun 25 Oct 2026".
 export function formatDate(date: Date): string {
   return date.toLocaleDateString(undefined, {

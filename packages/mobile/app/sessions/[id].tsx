@@ -28,6 +28,7 @@ import {
   formatCountdown, formatSet, formatSets, formatSupersetPosition, toNumber
 } from "@/format";
 import { useThemeColors } from "@/theme";
+import { errorMessage } from "@/errorMessage";
 
 const KEEP_AWAKE_TAG = "workout-mode";
 const INPUT_CLASS = "min-w-[96px] text-center text-3xl";
@@ -204,7 +205,7 @@ export default function WorkoutModeScreen() {
       setStep(setIncrease(id, exerciseEntryId, on));
       setError(undefined);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     }
   };
 
@@ -216,7 +217,7 @@ export default function WorkoutModeScreen() {
       setActual(undefined);
       setError(undefined);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     }
   };
 
@@ -229,7 +230,7 @@ export default function WorkoutModeScreen() {
     try {
       finishSession(id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
 
       return;
     }

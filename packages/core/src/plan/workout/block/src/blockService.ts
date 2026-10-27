@@ -1,9 +1,13 @@
 import { z } from "zod";
 
-import type { ExerciseEntryCreatePayload, TransactionType } from "@forklift/db/client";
+import type {
+  ExerciseCreatePayload, ExerciseEntryCreatePayload, TransactionType
+} from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { nextPosition, orderOrThrow } from "#utils/position";
+import { inTransaction } from "#utils/transaction";
+import { createExercise } from "#exercise/exerciseService";
 import { parseOrThrow } from "#utils/validation";
 import type { Actor } from "#aiChange/aiChangeRecorder";
 import { write } from "#aiChange/aiChangeRecorder";
@@ -73,6 +77,40 @@ export function createBlock(
 
     return getBlock(id, t);
   }, (block, t) => `Added ${namesOf(block)} to ${workoutName(workoutId, t)}`);
+}
+
+// Where the Plan editor's Add exercise puts an Exercise: a new Block at the end
+// of the Workout, or the Superset blockId names.
+export interface AddExerciseTarget {
+  workoutId: string;
+  blockId?: string;
+}
+
+// Adds the Exercise with the default targets, returning the Block it's in.
+export function addExerciseToWorkout(
+  { workoutId, blockId }: AddExerciseTarget,
+  exerciseId: string,
+  tx?: TransactionType
+): BlockWithEntries {
+  return inTransaction(tx, t => {
+    if (!blockId) {
+      return createBlock(workoutId, { exerciseId }, "lifter", t);
+    }
+
+    createExerciseEntry(blockId, { exerciseId }, "lifter", t);
+
+    return getBlock(blockId, t);
+  });
+}
+
+// New exercise in the Plan editor's picker: the Exercise joins the library and
+// the Workout together, or neither does.
+export function createExerciseInWorkout(
+  target: AddExerciseTarget,
+  payload: ExerciseCreatePayload,
+  tx?: TransactionType
+): BlockWithEntries {
+  return inTransaction(tx, t => addExerciseToWorkout(target, createExercise(payload, "lifter", t).id, t));
 }
 
 export function deleteBlock(id: string, actor: Actor = "lifter", tx?: TransactionType): void {

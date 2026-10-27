@@ -1,21 +1,21 @@
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useState } from "react";
 import {
-  Modal, Platform, Pressable, View
+  Modal, Platform, Pressable
 } from "react-native";
 
 import { fromCalendarDay, toCalendarDay } from "@forklift/core";
 
 import { AppButton } from "./AppButton";
-import { AppIcon } from "./AppIcon";
-import { AppText } from "./AppText";
+import { Chip } from "./Chip";
 
 import { formatCalendarDay } from "@/format";
 import { useThemeColors } from "@/theme";
 
+type DateLabel = "From" | "To";
+
 interface DateChipProps {
-  // "From" or "To".
-  label: string;
+  label: DateLabel;
   // A YYYY-MM-DD calendar day, or null when unset.
   day: string | null;
   // The day the picker opens on while unset, e.g. the other date or today.
@@ -27,7 +27,7 @@ interface DateChipProps {
 // screen; picking a day closes it.
 function IosPicker({
   label, value, onPick, onClose
-}: { label: string; value: Date; onPick: (date: Date) => void; onClose: () => void }) {
+}: { label: DateLabel; value: Date; onPick: (date: Date) => void; onClose: () => void }) {
   const colors = useThemeColors();
 
   return (
@@ -63,11 +63,6 @@ export function DateChip({
   const [ picking, setPicking ] = useState(false);
   const value = fromCalendarDay(day ?? fallback);
 
-  const pick = (date: Date) => {
-    setPicking(false);
-    onChange(toCalendarDay(date));
-  };
-
   const open = () => {
     if (Platform.OS === "android") {
       DateTimePickerAndroid.open({
@@ -81,35 +76,25 @@ export function DateChip({
   };
 
   return (
-    <View className={`min-h-touch flex-row items-center rounded-full ${day ? "bg-accent-soft" : "bg-fill"}`}>
-      <Pressable className="min-h-touch flex-row items-center gap-2 pl-4 pr-3 active:opacity-70"
+    <>
+      <Chip selected={!!day}
+        icon="calendar-outline"
         accessibilityRole="button"
         accessibilityLabel={day ? `${label} ${formatCalendarDay(day)}, change` : `Set ${label} date`}
-        onPress={open}>
-        <AppIcon name="calendar-outline"
-          color={day ? "accent" : "muted"}
-          size={16} />
-        <AppText weight={day ? "semibold" : "regular"}
-          className={day ? "text-accent" : "text-ink"}>
-          {day ? `${label} ${formatCalendarDay(day)}` : label}
-        </AppText>
-      </Pressable>
-      {day && (
-        <Pressable className="min-h-touch min-w-touch items-center justify-center active:opacity-60"
-          accessibilityRole="button"
-          accessibilityLabel={`Clear ${label} date`}
-          onPress={() => onChange(null)}>
-          <AppIcon name="close"
-            color="accent"
-            size={18} />
-        </Pressable>
-      )}
+        onPress={open}
+        onClear={day ? () => onChange(null) : undefined}
+        clearLabel={`Clear ${label} date`}>
+        {day ? `${label} ${formatCalendarDay(day)}` : label}
+      </Chip>
       {picking && (
         <IosPicker label={label}
           value={value}
-          onPick={pick}
+          onPick={date => {
+            setPicking(false);
+            onChange(toCalendarDay(date));
+          }}
           onClose={() => setPicking(false)} />
       )}
-    </View>
+    </>
   );
 }

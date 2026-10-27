@@ -16,9 +16,7 @@ import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 import type { Actor } from "#aiChange/aiChangeRecorder";
 import { refuseAi, write } from "#aiChange/aiChangeRecorder";
-import {
-  createWorkoutDb, getAllWorkoutByQuery, getWorkoutByQuery
-} from "#workout/workoutDb";
+import { getAllWorkoutByQuery, getWorkoutByQuery } from "#workout/workoutDb";
 
 import {
   createPlanDb,
@@ -111,30 +109,6 @@ export function createPlan(
     const dated = plan.startDate !== null || plan.endDate !== null;
 
     return `Created Plan "${plan.name}"${dated ? ` to run ${describeDates(plan)}` : ""}`;
-  });
-}
-
-// The Workouts a Plan made in the Plan editor starts with, empty.
-export const DEFAULT_WORKOUT_NAMES = [
-  "Push",
-  "Pull",
-  "Legs"
-] as const;
-
-// A Plan as the lifter creates it in the Plan editor: with the default
-// Workouts, all or nothing. The AI's create_plan makes an empty Plan instead,
-// since it names its own Workouts.
-export function createPlanWithDefaultWorkouts(payload: PlanCreatePayload, tx?: TransactionType): PlanAttributes {
-  return inTransaction(tx, t => {
-    const plan = createPlan(payload, "lifter", t);
-
-    DEFAULT_WORKOUT_NAMES.forEach((name, position) => createWorkoutDb({
-      name,
-      planId: plan.id,
-      position
-    }, t));
-
-    return plan;
   });
 }
 

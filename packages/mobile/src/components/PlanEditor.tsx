@@ -5,11 +5,12 @@ import {
   useCallback, useEffect, useRef, useState
 } from "react";
 import {
-  Alert, FlatList, Switch, TextInput, View
+  Alert, FlatList, Switch, View
 } from "react-native";
 import type { TextInputInstance } from "react-native";
 
 import {
+  DEFAULT_WORKOUT_NAMES,
   createNextDayWorkout,
   createPlanWithDefaultWorkouts,
   deleteWorkout,
@@ -34,6 +35,7 @@ import type {
 import { AppButton } from "./AppButton";
 import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
+import { AppTextInput } from "./AppTextInput";
 import { BlockItem } from "./BlockItem";
 import { Card } from "./Card";
 import { DateChip } from "./DateChip";
@@ -43,6 +45,8 @@ import { Screen } from "./Screen";
 import { WorkoutTabs } from "./WorkoutTabs";
 
 import { confirmDeletePlan } from "@/confirmDeletePlan";
+import { errorMessage } from "@/errorMessage";
+import { formatList } from "@/format";
 import { useThemeColors } from "@/theme";
 
 interface EditorState {
@@ -73,15 +77,15 @@ function loadEditor(planId: string, workoutId: string | undefined): EditorState 
   }
 }
 
-// Runs a write, returning its error message (e.g. a ValidationError's) rather
-// than throwing.
-function attempt(write: () => void): string | undefined {
+// Runs a write, returning the message of the error it threw (e.g. a
+// ValidationError's), or undefined when it saved.
+function errorFrom(write: () => void): string | undefined {
   try {
     write();
 
     return undefined;
   } catch (e) {
-    return e instanceof Error ? e.message : String(e);
+    return errorMessage(e);
   }
 }
 
@@ -105,14 +109,14 @@ function TitleInput({
   }, [ focusOnMount ]);
 
   return (
-    <TextInput ref={ref}
-      className="py-1 font-Inter_Bold text-3xl text-ink"
+    <AppTextInput ref={ref}
+      variant="plain"
+      className="py-1 font-Inter_Bold text-3xl"
       value={value}
       onChangeText={onChangeText}
       onEndEditing={onEndEditing}
       placeholder="Plan name"
       placeholderTextColor={colors.faint}
-      selectionColor={colors.accent}
       returnKeyType="done"
       accessibilityLabel="Plan name" />
   );
@@ -184,6 +188,9 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   const [ workoutId, setWorkoutId ] = useState<string>();
   const [ state, setState ] = useState(() => (planId ? loadEditor(planId, workoutId) : undefined));
   const [ name, setName ] = useState(state ? state.plan.name : "");
+  // Why the name last typed wasn't saved (e.g. it's empty): shown only once
+  // editing ends, not while the lifter is mid-way through retyping it.
+  const unsavedName = useRef<string>(undefined);
   const [ nameError, setNameError ] = useState<string>();
   const [ dateError, setDateError ] = useState<string>();
   // Re-read on focus, coming back from the exercise picker or targets, and
@@ -192,23 +199,38 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
 
   useFocusEffect(refresh);
 
+  // Saved on every change. Only the name changes, so the Plan is updated in
+  // place rather than re-reading the whole editor.
   const changeName = (text: string) => {
     setName(text);
 
     if (planId) {
-      setNameError(attempt(() => updatePlan(planId, { name: text })));
-      refresh();
+      unsavedName.current = errorFrom(() => {
+        const plan = updatePlan(planId, { name: text });
+
+        setState(current => current && {
+          ...current,
+          plan
+        });
+      });
     } else if (text.trim()) {
-      setNameError(attempt(() => setPlanId(createPlanWithDefaultWorkouts({ name: text }).id)));
+      unsavedName.current = errorFrom(() => setPlanId(createPlanWithDefaultWorkouts({ name: text }).id));
+    }
+
+    if (!unsavedName.current) {
+      setNameError(undefined);
     }
   };
 
-  // A name left invalid (e.g. empty) goes back to the one saved.
+  // A name left invalid (e.g. empty) shows why and goes back to the one saved.
   const endNameEditing = () => {
-    if (state && nameError) {
+    setNameError(unsavedName.current);
+
+    if (state && unsavedName.current) {
       setName(state.plan.name);
-      setNameError(undefined);
     }
+
+    unsavedName.current = undefined;
   };
 
   const header = (
@@ -281,7 +303,7 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
           <PlanSettings state={state}
             dateError={dateError}
             onSetDates={dates => {
-              setDateError(attempt(() => updatePlan(state.plan.id, dates)));
+              setDateError(errorFrom(() => updatePlan(state.plan.id, dates)));
               refresh();
             }}
             onSelect={setWorkoutId}
@@ -289,7 +311,7 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
         ) :
         (
           <AppText className="text-muted">
-            Name your plan to start it with Push, Pull and Legs workouts. Changes save as you go.
+            Name your plan to start it with {formatList(DEFAULT_WORKOUT_NAMES)} workouts. Changes save as you go.
           </AppText>
         )}
     </View>
@@ -305,9 +327,8 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={listHeader}
         ListEmptyComponent={state && (
-          <AppText className="py-2 text-muted">
-            {workout ? `No exercises in ${workout.name} yet.` : "No workouts yet. Tap + to add one."}
-          </AppText>
+          <EmptyState icon="barbell-outline"
+            message={workout ? `No exercises in ${workout.name} yet.` : "No workouts yet. Tap + to add one."} />
         )}
         renderItem={({ item, index }) => {
           const next = blocks[ index + 1 ];

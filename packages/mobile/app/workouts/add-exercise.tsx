@@ -2,15 +2,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
 
-import { searchExercises } from "@forklift/core";
+import { addExerciseToWorkout, searchExercises } from "@forklift/core";
 
-import { AppButton } from "@/components/AppButton";
-import { AppIcon } from "@/components/AppIcon";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
 import { ListRow, rowPosition } from "@/components/ListRow";
 import { Screen } from "@/components/Screen";
-import { addToWorkout } from "@/addToWorkout";
+import { errorMessage } from "@/errorMessage";
 
 // The Plan editor's Add exercise: a searchable pick from the Exercise Library,
 // added to the Workout as a new Block with the default targets, or to the
@@ -24,13 +22,13 @@ export default function AddExerciseToWorkoutScreen() {
 
   const pick = (exerciseId: string) => {
     try {
-      addToWorkout({
+      addExerciseToWorkout({
         workoutId,
         blockId
       }, exerciseId);
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     }
   };
 
@@ -53,22 +51,19 @@ export default function AddExerciseToWorkoutScreen() {
         contentContainerClassName="px-4 pb-4"
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={(
-          <AppButton className="mb-3 min-h-touch flex-row items-center gap-2 rounded-2xl bg-surface px-4"
-            onPress={() => router.push({
-              pathname: "/exercises/new",
-              params: {
-                workoutId,
-                ...(blockId && { blockId })
-              }
-            })}>
-            <AppIcon name="add-circle"
-              color="accent"
-              size={22} />
-            <AppText weight="semibold"
-              className="text-accent">
-              New exercise
-            </AppText>
-          </AppButton>
+          <View className="mb-3">
+            <ListRow title="New exercise"
+              subtitle="Add one to the Exercise Library and this workout"
+              onPress={() => router.push({
+                pathname: "/exercises/new",
+                params: {
+                  workoutId,
+                  ...(blockId && { blockId })
+                }
+              })}
+              first
+              last />
+          </View>
         )}
         ListEmptyComponent={(
           <AppText className="text-muted">

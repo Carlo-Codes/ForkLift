@@ -2,16 +2,17 @@ import {
   useEffect, useRef, useState
 } from "react";
 import {
-  Alert, Pressable, ScrollView, TextInput, View
+  Alert, ScrollView, View
 } from "react-native";
 import type { ScrollViewInstance, TextInputInstance } from "react-native";
 
 import type { WorkoutAttributes } from "@forklift/db/client";
 
-import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
+import { AppTextInput } from "./AppTextInput";
+import { Chip } from "./Chip";
 
-import { useThemeColors } from "@/theme";
+import { errorMessage } from "@/errorMessage";
 
 interface WorkoutTabsProps {
   workouts: Pick<WorkoutAttributes, "id" | "name">[];
@@ -25,19 +26,17 @@ interface WorkoutTabsProps {
 
 // The tab being renamed: a field in place of its label, focused straight away.
 function RenameField({ initial, onDone }: { initial: string; onDone: (name: string) => void }) {
-  const colors = useThemeColors();
   const ref = useRef<TextInputInstance>(null);
   const [ name, setName ] = useState(initial);
 
   useEffect(() => ref.current?.focus(), []);
 
   return (
-    <TextInput ref={ref}
-      className="min-h-touch min-w-20 rounded-full bg-accent-soft px-4 font-Inter_SemiBold text-accent"
+    <AppTextInput ref={ref}
+      className="min-w-24"
       value={name}
       onChangeText={setName}
       selectTextOnFocus
-      selectionColor={colors.accent}
       returnKeyType="done"
       accessibilityLabel="Workout name"
       onEndEditing={() => onDone(name)} />
@@ -52,15 +51,15 @@ export function WorkoutTabs({
   const scrollRef = useRef<ScrollViewInstance>(null);
   const [ renamingId, setRenamingId ] = useState<string>();
   const [ error, setError ] = useState<string>();
-  const count = useRef(workouts.length);
+  const shownCount = useRef(workouts.length);
 
   // A Workout added with "+" is at the end: bring it into view.
   useEffect(() => {
-    if (workouts.length > count.current) {
+    if (workouts.length > shownCount.current) {
       scrollRef.current?.scrollToEnd();
     }
 
-    count.current = workouts.length;
+    shownCount.current = workouts.length;
   }, [ workouts.length ]);
 
   const rename = (id: string, name: string) => {
@@ -70,7 +69,7 @@ export function WorkoutTabs({
       onRename(id, name);
       setError(undefined);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     }
   };
 
@@ -126,28 +125,21 @@ export function WorkoutTabs({
           const selected = workout.id === selectedId;
 
           return (
-            <Pressable key={workout.id}
-              className={`min-h-touch items-center justify-center rounded-full px-4 active:opacity-70 ${selected ? "bg-accent-soft" : "bg-fill"}`}
+            <Chip key={workout.id}
+              selected={selected}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               accessibilityHint="Long-press to rename or delete"
               onPress={() => onSelect(workout.id)}
               onLongPress={() => showActions(workout)}>
-              <AppText weight={selected ? "semibold" : "regular"}
-                className={selected ? "text-accent" : "text-ink"}>
-                {workout.name}
-              </AppText>
-            </Pressable>
+              {workout.name}
+            </Chip>
           );
         })}
-        <Pressable className="min-h-touch min-w-touch items-center justify-center rounded-full bg-fill active:opacity-70"
+        <Chip icon="add"
           accessibilityRole="button"
           accessibilityLabel="Add workout"
-          onPress={onAdd}>
-          <AppIcon name="add"
-            color="accent"
-            size={22} />
-        </Pressable>
+          onPress={onAdd} />
       </ScrollView>
       {error && <AppText className="text-danger">{error}</AppText>}
     </View>

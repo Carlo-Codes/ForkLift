@@ -5,7 +5,6 @@ import type { ApiError } from "@forklift/debug";
 
 import {
   createPlan,
-  createPlanWithDefaultWorkouts,
   getActivePlan,
   getPlan,
   deletePlan,
@@ -15,7 +14,7 @@ import {
   updatePlan
 } from "..";
 import {
-  createWorkout, deleteWorkout, listWorkouts
+  createPlanWithDefaultWorkouts, createWorkout, deleteWorkout, listWorkouts
 } from "#workout";
 
 const validationError = expect.objectContaining({

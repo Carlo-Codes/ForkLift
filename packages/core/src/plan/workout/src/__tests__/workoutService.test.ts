@@ -57,6 +57,13 @@ describe("workouts", () => {
     ]);
   });
 
+  it("counts every Workout for \"Day N\", even ones sharing a name", () => {
+    createWorkout(planId, { name: "Push" });
+    createWorkout(planId, { name: "Push" });
+
+    expect(createNextDayWorkout(planId).name).toBe("Day 3");
+  });
+
   it("skips a \"Day N\" name the Plan already has", () => {
     createWorkout(planId, { name: "Day 2" });
 

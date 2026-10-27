@@ -290,7 +290,7 @@ export function createAiAccessMcpServer(): McpServer {
 
   server.registerTool("create_plan", {
     title: "Create Plan",
-    description: "Creates a Plan at the end of the lifter's list. It isn't made the Active Plan: only " +
+    description: "Creates a Plan, listed first as the lifter's Plans are newest first. It isn't made the Active Plan: only " +
       "the lifter chooses that." + UNDO_NOTE,
     inputSchema: {
       name: z.string().describe("The Plan's name, e.g. \"Push / Pull / Legs\""),

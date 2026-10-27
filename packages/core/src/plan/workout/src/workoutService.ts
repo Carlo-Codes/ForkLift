@@ -1,5 +1,7 @@
 import { workoutCreatePayloadSchema, workoutUpdatePayloadSchema } from "@forklift/db/client";
 import type {
+  PlanAttributes,
+  PlanCreatePayload,
   TransactionType,
   WorkoutAttributes,
   WorkoutCreatePayload,
@@ -12,7 +14,7 @@ import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 import type { Actor } from "#aiChange/aiChangeRecorder";
 import { write } from "#aiChange/aiChangeRecorder";
-import { getPlan } from "#plan/planService";
+import { createPlan, getPlan } from "#plan/planService";
 
 import {
   createWorkoutDb,
@@ -69,12 +71,39 @@ export function createWorkout(
   }, (workout, t) => `Added Workout "${workout.name}" to Plan "${getPlan(planId, t).name}"`);
 }
 
+// The Workouts a Plan made in the Plan editor starts with, empty.
+export const DEFAULT_WORKOUT_NAMES = [
+  "Push",
+  "Pull",
+  "Legs"
+] as const;
+
+// A Plan as the lifter creates it in the Plan editor: with the default
+// Workouts, all or nothing. It lives here rather than in planService, which
+// workoutService already depends on. The AI's create_plan makes an empty Plan.
+export function createPlanWithDefaultWorkouts(
+  payload: PlanCreatePayload,
+  actor: Actor = "lifter",
+  tx?: TransactionType
+): PlanAttributes {
+  return inTransaction(tx, t => {
+    const plan = createPlan(payload, actor, t);
+
+    for (const name of DEFAULT_WORKOUT_NAMES) {
+      createWorkout(plan.id, { name }, actor, t);
+    }
+
+    return plan;
+  });
+}
+
 // The Workout "+" adds in the Plan editor, named "Day N" for the place it takes,
 // or the next N free when the Plan already has a Workout of that name.
 export function createNextDayWorkout(planId: string, tx?: TransactionType): WorkoutAttributes {
   return inTransaction(tx, t => {
-    const names = new Set(listWorkouts(planId, t).map(w => w.name));
-    let day = names.size + 1;
+    const workouts = listWorkouts(planId, t);
+    const names = new Set(workouts.map(w => w.name));
+    let day = workouts.length + 1;
 
     while (names.has(`Day ${day}`)) {
       day++;
