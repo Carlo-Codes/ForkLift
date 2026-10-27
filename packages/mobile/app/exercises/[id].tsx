@@ -1,6 +1,4 @@
-import {
-  Link, router, useLocalSearchParams
-} from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert } from "react-native";
 
@@ -10,8 +8,9 @@ import {
 import type { ExerciseAttributes } from "@forklift/db/client";
 
 import { AppButton } from "@/components/AppButton";
-import { AppText } from "@/components/AppText";
+import { EmptyState } from "@/components/EmptyState";
 import { ExerciseForm } from "@/components/ExerciseForm";
+import { ListRow } from "@/components/ListRow";
 import { Screen } from "@/components/Screen";
 
 function loadExercise(id: string): ExerciseAttributes | undefined {
@@ -28,8 +27,9 @@ export default function ExerciseDetailScreen() {
 
   if (!exercise) {
     return (
-      <Screen className="items-center justify-center p-6">
-        <AppText className="text-muted">This exercise no longer exists.</AppText>
+      <Screen className="justify-center">
+        <EmptyState icon="alert-circle-outline"
+          message="This exercise no longer exists." />
       </Screen>
     );
   }
@@ -64,13 +64,14 @@ export default function ExerciseDetailScreen() {
         router.back();
       }}
     >
-      <Link href={{
-        pathname: "/history/exercises/[id]",
-        params: { id: exercise.id }
-      }}
-        asChild>
-        <AppButton variant="link">History</AppButton>
-      </Link>
+      <ListRow title="History"
+        subtitle="Every session that did this exercise"
+        onPress={() => router.push({
+          pathname: "/history/exercises/[id]",
+          params: { id: exercise.id }
+        })}
+        first
+        last />
       <AppButton variant="destructive"
         onPress={confirmDelete}>
         Delete exercise
