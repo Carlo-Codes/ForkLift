@@ -88,7 +88,8 @@ in order. Terms are as in `GLOSSARY.md`; plan dates are in ADR-0006.
 - AI Access tools read and set Plan dates, and Changes by AI records those edits.
 - `core` needs a call that groups any set of Blocks or Exercise Entries into one Superset, not
   only neighbouring ones, and a call that sets the Round Rest.
-- Creating a Plan seeds its Push, Pull and Legs Workouts in the same transaction.
+- Creating a Plan in the app seeds its Push, Pull and Legs Workouts in the same transaction.
+  AI Access `create_plan` makes an empty Plan, so the AI names its own Workouts.
 - Manual Plan ordering goes from `core` and AI Access too: `reorderPlans` and the `reorder_plans`
   tool are removed. `position` only breaks ties between Plans created in the same millisecond.
 
