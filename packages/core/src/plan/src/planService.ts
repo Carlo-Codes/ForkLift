@@ -10,6 +10,7 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
+import { toCalendarDay } from "#utils/calendarDay";
 import { nextPosition } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
@@ -34,22 +35,15 @@ export function listPlans(tx?: TransactionType): PlanAttributes[] {
 
 // A Plan as the Plans list shows it. ended is true once its To date has
 // passed; the Plan keeps its place in the list (ADR-0006).
-export type PlanCard = Pick<PlanAttributes, "id" | "name" | "isActive"> & {
+export type PlanListItem = Pick<PlanAttributes, "id" | "name" | "isActive"> & {
   startDate: string | null;
   endDate: string | null;
   ended: boolean;
   workoutNames: string[];
 };
 
-// A Date as the calendar day it falls on where the phone is, e.g. "2026-10-27".
-export function toCalendarDay(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 // The Plans list, newest first. today is a YYYY-MM-DD calendar day.
-export function listPlanCards(today = toCalendarDay(new Date()), tx?: TransactionType): PlanCard[] {
+export function listPlanCards(today = toCalendarDay(new Date()), tx?: TransactionType): PlanListItem[] {
   return listPlans(tx).map(plan => ({
     id: plan.id,
     name: plan.name,

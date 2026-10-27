@@ -1,5 +1,5 @@
 import type {
-  HistorySet, HomeEntry, PlanCard, SupersetPosition
+  HistorySet, HomeEntry, PlanListItem, SupersetPosition
 } from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
@@ -91,7 +91,7 @@ function formatCalendarDay(day: string, withYear = true): string {
 
 // A Plan's From and To dates, e.g. "5 Jan – 1 Mar 2026", "From 2 Nov 2026",
 // "Until 20 Dec 2026" or "No dates".
-export function formatPlanDates({ startDate, endDate }: Pick<PlanCard, "startDate" | "endDate">): string {
+export function formatPlanDates({ startDate, endDate }: Pick<PlanListItem, "startDate" | "endDate">): string {
   if (startDate && endDate) {
     const sameYear = startDate.slice(0, 4) === endDate.slice(0, 4);
 

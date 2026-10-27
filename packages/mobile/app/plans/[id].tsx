@@ -2,13 +2,10 @@ import {
   router, useFocusEffect, useLocalSearchParams
 } from "expo-router";
 import { useCallback, useState } from "react";
-import {
-  Alert, FlatList, View
-} from "react-native";
+import { FlatList, View } from "react-native";
 
 import {
   createWorkout,
-  deletePlan,
   getPlan,
   listWorkouts,
   reorderWorkouts,
@@ -24,6 +21,7 @@ import { Chip } from "@/components/Chip";
 import { rowPosition } from "@/components/ListRow";
 import { moveId, OrderedRow } from "@/components/OrderedRow";
 import { Screen } from "@/components/Screen";
+import { confirmDeletePlan } from "@/confirmDeletePlan";
 
 interface PlanState {
   plan: PlanAttributes;
@@ -63,26 +61,7 @@ export default function PlanEditorScreen() {
     refresh();
   };
 
-  const confirmDelete = () => {
-    Alert.alert(
-      `Delete ${plan.name}?`,
-      "Its Workouts are deleted too. Past Sessions are kept.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            deletePlan(plan.id);
-            router.back();
-          }
-        }
-      ]
-    );
-  };
+  const confirmDelete = () => confirmDeletePlan(plan, () => router.back());
 
   return (
     <Screen>

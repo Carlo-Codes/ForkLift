@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+
 import { setupTestDb } from "@forklift/db/server";
 import type { ApiError } from "@forklift/debug";
 
@@ -46,6 +48,24 @@ describe("plans", () => {
         isActive: false
       })
     ]);
+  });
+
+  it("lists Plans created in the same millisecond latest added first", () => {
+    jest.useFakeTimers({ now: new Date("2026-10-27T09:00:00Z") });
+
+    try {
+      createPlan({ name: "A" });
+      createPlan({ name: "B" });
+      createPlan({ name: "C" });
+
+      expect(listPlans().map(p => p.name)).toEqual([
+        "C",
+        "B",
+        "A"
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("rejects a Plan without a name and adds nothing", () => {

@@ -4,39 +4,19 @@ import {
   Alert, FlatList, Pressable, View
 } from "react-native";
 
-import {
-  deletePlan, listPlanCards, setActivePlan
-} from "@forklift/core";
-import type { PlanCard as PlanCardData } from "@forklift/core";
+import { listPlanCards, setActivePlan } from "@forklift/core";
+import type { PlanListItem } from "@forklift/core";
 
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Chip";
 import { Screen } from "@/components/Screen";
+import { confirmDeletePlan } from "@/confirmDeletePlan";
 import { formatPlanDates } from "@/format";
 
-const confirmDelete = (plan: PlanCardData, onDeleted: () => void) => Alert.alert(
-  `Delete ${plan.name}?`,
-  "Its Workouts are deleted too. Past Sessions are kept.",
-  [
-    {
-      text: "Cancel",
-      style: "cancel"
-    },
-    {
-      text: "Delete",
-      style: "destructive",
-      onPress: () => {
-        deletePlan(plan.id);
-        onDeleted();
-      }
-    }
-  ]
-);
-
 // Long-press actions: make the Plan Active (unless it is already), or delete it.
-const showActions = (plan: PlanCardData, onChanged: () => void) => Alert.alert(plan.name, undefined, [
+const showActions = (plan: PlanListItem, onChanged: () => void) => Alert.alert(plan.name, undefined, [
   ...(plan.isActive ?
     [] :
     [
@@ -51,7 +31,7 @@ const showActions = (plan: PlanCardData, onChanged: () => void) => Alert.alert(p
   {
     text: "Delete",
     style: "destructive" as const,
-    onPress: () => confirmDelete(plan, onChanged)
+    onPress: () => confirmDeletePlan(plan, onChanged)
   },
   {
     text: "Cancel",
@@ -62,7 +42,7 @@ const showActions = (plan: PlanCardData, onChanged: () => void) => Alert.alert(p
 // A Plan at a glance: its name, dates, Workouts, and whether it's Active or Ended.
 function PlanCard({
   plan, onPress, onLongPress
-}: { plan: PlanCardData; onPress: () => void; onLongPress: () => void }) {
+}: { plan: PlanListItem; onPress: () => void; onLongPress: () => void }) {
   return (
     <Pressable onPress={onPress}
       onLongPress={onLongPress}
