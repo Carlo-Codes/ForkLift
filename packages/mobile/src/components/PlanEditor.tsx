@@ -2,17 +2,15 @@ import {
   router, Stack, useFocusEffect
 } from "expo-router";
 import {
-  useCallback, useEffect, useMemo, useRef, useState
+  useCallback, useMemo, useRef, useState
 } from "react";
 import {
   Alert, ScrollView, Switch, View
 } from "react-native";
-import type { GestureResponderEvent, TextInputInstance } from "react-native";
+import type { GestureResponderEvent } from "react-native";
 
 import {
-  DEFAULT_WORKOUT_NAMES,
   createNextDayWorkout,
-  createPlanWithDefaultWorkouts,
   createSuperset,
   deleteExerciseEntries,
   deleteWorkout,
@@ -63,7 +61,8 @@ import { WorkoutTabs } from "./WorkoutTabs";
 
 import { confirmDeletePlan } from "@/confirmDeletePlan";
 import { errorMessage } from "@/errorMessage";
-import { formatList, formatPlanProgress } from "@/format";
+import { formatPlanProgress } from "@/format";
+import { openRowAfterTap } from "@/openRow";
 import { useThemeColors } from "@/theme";
 
 interface EditorState {
@@ -122,8 +121,9 @@ function saveOrder(write: () => void, refresh: () => void) {
 }
 
 // The open Exercise Entry editor closes on a tap anywhere else in the editor
-// (a scroll leaves it open). The editor's own touches, and the long-press
-// that opens it, mark themselves as inside before the touch ends here.
+// (a scroll leaves it open). The rows and the open editor mark their touches
+// as inside as they start, so a tap on a row only does what the row says
+// (open, move or close the editor).
 function useTapOutside(onTapOutside: () => void) {
   const inside = useRef(false);
   const tapOutside = useRef(onTapOutside);
@@ -165,26 +165,16 @@ function useTapOutside(onTapOutside: () => void) {
 
 // The Plan's name as a large title edited in place.
 function TitleInput({
-  value, focusOnMount, onChangeText, onEndEditing
+  value, onChangeText, onEndEditing
 }: {
   value: string;
-  focusOnMount: boolean;
   onChangeText: (name: string) => void;
   onEndEditing: () => void;
 }) {
   const colors = useThemeColors();
-  const ref = useRef<TextInputInstance>(null);
-
-  // jsx-a11y bans the autoFocus prop, so a new Plan's name is focused here.
-  useEffect(() => {
-    if (focusOnMount) {
-      ref.current?.focus();
-    }
-  }, [ focusOnMount ]);
 
   return (
-    <AppTextInput ref={ref}
-      variant="plain"
+    <AppTextInput variant="plain"
       className="py-1 font-Inter_Bold text-3xl"
       value={value}
       onChangeText={onChangeText}
@@ -255,13 +245,11 @@ function PlanSettings({
   );
 }
 
-// Creating and editing a Plan on one page. Without planId it opens as a draft
-// with the name focused; the Plan is saved, with its default Workouts, once
-// the name has a character, and from then on every change saves straight away.
-export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
-  const [ planId, setPlanId ] = useState(openedPlanId);
+// Editing a Plan on one page, every change saved straight away. A new Plan is
+// made with the New plan form first, then opens here.
+export function PlanEditor({ planId }: { planId: string }) {
   const [ workoutId, setWorkoutId ] = useState<string>();
-  const [ state, setState ] = useState(() => (planId ? loadEditor(planId, workoutId) : undefined));
+  const [ state, setState ] = useState(() => loadEditor(planId, workoutId));
   const [ name, setName ] = useState(state ? state.plan.name : "");
   // Why the name last typed wasn't saved (e.g. it's empty): shown only once
   // editing ends, not while the lifter is mid-way through retyping it.
@@ -278,7 +266,7 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   const [ dragging, setDragging ] = useState(false);
   // Re-read on focus, coming back from the exercise picker, and
   // whenever the Plan is saved or another Workout is selected.
-  const refresh = useCallback(() => setState(planId ? loadEditor(planId, workoutId) : undefined), [ planId, workoutId ]);
+  const refresh = useCallback(() => setState(loadEditor(planId, workoutId)), [ planId, workoutId ]);
 
   useFocusEffect(refresh);
 
@@ -308,10 +296,9 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
     return {
       editingId,
       error: editError,
-      onEdit: entry => {
-        tapOutside.markInside();
+      onTap: entry => {
         setEditError(undefined);
-        setEditingId(entry.id);
+        setEditingId(current => openRowAfterTap(current, entry.id));
       },
       onChange: (entry, changes) => edit(onEntry(entry), () => updateExerciseEntry(entry.id, changes)),
       // No confirmation: Undo shows instead.
@@ -346,18 +333,14 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   const changeName = (text: string) => {
     setName(text);
 
-    if (planId) {
-      unsavedName.current = errorFrom(() => {
-        const plan = updatePlan(planId, { name: text });
+    unsavedName.current = errorFrom(() => {
+      const plan = updatePlan(planId, { name: text });
 
-        setState(current => current && {
-          ...current,
-          plan
-        });
+      setState(current => current && {
+        ...current,
+        plan
       });
-    } else if (text.trim()) {
-      unsavedName.current = errorFrom(() => setPlanId(createPlanWithDefaultWorkouts({ name: text }).id));
-    }
+    });
 
     if (!unsavedName.current) {
       setNameError(undefined);
@@ -401,7 +384,7 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
     }} />
   );
 
-  if (planId && !state) {
+  if (!state) {
     return (
       <Screen>
         {header}
@@ -453,39 +436,28 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   });
 
   // e.g. "Week 3 of 6 · 7 sessions done", under the title.
-  const progressLine = state && formatPlanProgress(state.progress);
+  const progressLine = formatPlanProgress(state.progress);
 
-  // The title stays at the same place in the tree as the draft is saved, so
-  // the field keeps focus and the keyboard while the lifter types on.
   const listHeader = (
     <View className="gap-4 py-4">
       <View className="gap-1">
         <TitleInput value={name}
-          focusOnMount={!openedPlanId}
           onChangeText={changeName}
           onEndEditing={endNameEditing} />
         {nameError && <AppText className="text-danger">{nameError}</AppText>}
         {progressLine && <AppText className="text-muted">{progressLine}</AppText>}
       </View>
-      {state ?
-        (
-          <PlanSettings state={state}
-            dateError={dateError}
-            onSetDates={dates => {
-              setDateError(errorFrom(() => updatePlan(state.plan.id, dates)));
-              refresh();
-            }}
-            onSelect={id => {
-              selection.stop();
-              setWorkoutId(id);
-            }}
-            onChanged={refresh} />
-        ) :
-        (
-          <AppText className="text-muted">
-            Name your plan to start it with {formatList(DEFAULT_WORKOUT_NAMES)} workouts. Changes save as you go.
-          </AppText>
-        )}
+      <PlanSettings state={state}
+        dateError={dateError}
+        onSetDates={dates => {
+          setDateError(errorFrom(() => updatePlan(state.plan.id, dates)));
+          refresh();
+        }}
+        onSelect={id => {
+          selection.stop();
+          setWorkoutId(id);
+        }}
+        onChanged={refresh} />
       {blocks.length > 0 && (
         <AppButton variant="link"
           className="-my-2 self-end"
@@ -527,7 +499,7 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
                       onAddToSuperset={() => addExercise(block.id)} />
                   )} />
               ) :
-              state && (
+              (
                 <EmptyState icon="barbell-outline"
                   message={workout ? `No exercises in ${workout.name} yet.` : "No workouts yet. Tap + to add one."} />
               )}

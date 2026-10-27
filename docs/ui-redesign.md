@@ -61,12 +61,14 @@ in order. Terms are as in `GLOSSARY.md`; plan dates are in ADR-0006.
 
 - **Add exercise** opens a searchable picker of the Exercise Library, with **New exercise** at
   the top. The chosen Exercise is added with the default targets (3×10, 90s rest).
-- **Touch and drag** a row to reorder it straight away. Dragging a Superset moves the whole
-  group, and the Exercise Entries inside a Superset can be reordered too. The drag starts from
-  the row's handle (≡) as soon as the finger moves 4pt, so the rest of the row still scrolls the
-  list. Rows can't be dragged in Select mode; a row with its editor open can.
-- **Long-press** a row to open its editor in place: sets, reps, weight and rest steppers, plus
-  **Remove**. Tapping anywhere else closes it. A tap without moving does nothing.
+- **Hold** (300ms) anywhere on a row to lift it, then drag to reorder, the same way Workout tabs
+  work. Holding a Superset's header moves the whole group, and the Exercise Entries inside a
+  Superset can be reordered too. Moving before the hold scrolls the list, and a hold let go
+  without moving changes nothing. The handle (≡) is only a hint. Rows can't be dragged in Select
+  mode; a row with its editor open can. Screen readers move rows with Move up / Move down.
+- **Tap** a row to open its editor in place: sets, reps, weight, Weight Step and rest steppers,
+  plus **Remove**. One row is open at a time: tapping another row moves the editor there, and
+  tapping the open row, or anywhere else, closes it.
 - A Superset shows as a bordered group labelled "Superset". Its header shows the **Round Rest**
   (the longest rest among its Exercise Entries). Editing it sets the rest of every Exercise Entry
   in the group, and an Exercise Entry added to the group takes that rest. The rest field on each

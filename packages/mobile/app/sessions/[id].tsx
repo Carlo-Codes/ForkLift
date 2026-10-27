@@ -25,7 +25,7 @@ import { Badge } from "@/components/Chip";
 import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
 import {
-  formatCountdown, formatSet, formatSets, formatSupersetPosition, toNumber
+  formatCountdown, formatSet, formatSets, formatSetTargets, formatSupersetPosition, toNumber
 } from "@/format";
 import { useThemeColors } from "@/theme";
 import { errorMessage } from "@/errorMessage";
@@ -45,6 +45,19 @@ function NextUp({ set, unit }: { set?: SessionSet; unit: Unit }) {
   return (
     <AppText className="text-center text-muted">
       {set ? `Next: ${set.exerciseName} ${formatSet(set.targetReps, set.targetWeight, unit)}` : "Last set"}
+    </AppText>
+  );
+}
+
+// The rest countdown as "1:30". Inline style: NativeWind's tabular-nums has no
+// native style.
+function Countdown({ ms, className }: { ms: number; className: string }) {
+  return (
+    <AppText weight="semibold"
+      className={className}
+      style={{ fontVariant: [ "tabular-nums" ] }}
+      accessibilityLiveRegion="polite">
+      {formatCountdown(ms)}
     </AppText>
   );
 }
@@ -126,7 +139,8 @@ function WorkoutMenu({
 }
 
 // Workout Mode: the current set, Done, the rest countdown and what's next. The
-// order of sets and the rest due all come from @forklift/core. It sits on the
+// order of sets and the rest due all come from @forklift/core. A Changeover
+// shows the next exercise first, with the countdown small under it. It sits on the
 // root stack, so it has no tab bar, only a small header with Back.
 export default function WorkoutModeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -319,6 +333,55 @@ export default function WorkoutModeScreen() {
     );
   }
 
+  const skipRestButton = (
+    <AppButton variant="secondary"
+      className="self-center"
+      onPress={advance(() => skipRest(id))}>
+      Skip rest
+    </AppButton>
+  );
+
+  // A Changeover: the lifter is setting up the next exercise, so it comes first.
+  if (resting && step.rest?.changeover) {
+    return (
+      <Screen className="justify-center gap-6 p-4">
+        {header}
+        <Card className="items-center gap-2 px-4 py-8">
+          <AppText weight="semibold"
+            className="text-sm uppercase text-muted">
+            Up next
+          </AppText>
+          {current.superset && (
+            <Badge>{formatSupersetPosition(current.setNumber, current.superset)}</Badge>
+          )}
+          <AppText weight="semibold"
+            className="text-center text-4xl text-ink">
+            {current.exerciseName}
+          </AppText>
+          <AppText weight="semibold"
+            className="text-center text-2xl text-ink">
+            {formatSetTargets(current, unit)}
+          </AppText>
+          {step.lastTime && (
+            <AppText className="text-center text-lg text-muted">
+              Last time: {formatSets(step.lastTime.sets, unit)}
+            </AppText>
+          )}
+        </Card>
+        <View className="items-center gap-2">
+          <AppText weight="semibold"
+            className="text-sm uppercase text-muted">
+            Changeover
+          </AppText>
+          <Countdown ms={restEndsAt - now}
+            className="text-3xl text-ink" />
+          {skipRestButton}
+        </View>
+        {menu}
+      </Screen>
+    );
+  }
+
   if (resting) {
     return (
       <Screen className="justify-center gap-6 p-4">
@@ -328,21 +391,12 @@ export default function WorkoutModeScreen() {
             className="text-sm uppercase text-muted">
             Rest
           </AppText>
-          {/* Inline: NativeWind's tabular-nums has no native style. */}
-          <AppText weight="semibold"
-            className="text-7xl text-ink"
-            style={{ fontVariant: [ "tabular-nums" ] }}
-            accessibilityLiveRegion="polite">
-            {formatCountdown(restEndsAt - now)}
-          </AppText>
+          <Countdown ms={restEndsAt - now}
+            className="text-7xl text-ink" />
           <NextUp set={current}
             unit={unit} />
         </Card>
-        <AppButton variant="secondary"
-          className="self-center"
-          onPress={advance(() => skipRest(id))}>
-          Skip rest
-        </AppButton>
+        {skipRestButton}
         {menu}
       </Screen>
     );

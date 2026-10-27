@@ -67,6 +67,19 @@ export function settleOffset(sizes: number[], from: number, to: number): number 
   return to > from ? sum(sizes, from + 1, to + 1) : -sum(sizes, to, from);
 }
 
+// What letting go of a held item does: an item moved is dropped where it is,
+// one let go without moving (TAP_SLOP) is a hold release, which reorders
+// nothing, and one the system interrupted goes back unchanged.
+export function dragEnd({ canceled, wandered }: { canceled: boolean; wandered: boolean }): "drop" | "holdRelease" | "cancel" {
+  "worklet";
+
+  if (canceled) {
+    return "cancel";
+  }
+
+  return wandered ? "drop" : "holdRelease";
+}
+
 // The items in their new order, with the one at `from` moved to `to`.
 export function moveItem<T>(items: T[], from: number, to: number): T[] {
   const next = [ ...items ];

@@ -12,7 +12,7 @@ import { AppText } from "./AppText";
 import { AppTextInput } from "./AppTextInput";
 import { Chip } from "./Chip";
 import {
-  DragList, DragScrollContext, useDragActions
+  DragArea, DragList, DragScrollContext, useDragActions
 } from "./DragList";
 
 import { errorMessage } from "@/errorMessage";
@@ -179,7 +179,6 @@ export function WorkoutTabs({
             keyOf={w => w.id}
             horizontal
             gap={8}
-            startOn="hold"
             enabled={!renamingId}
             onReorder={onReorder}
             onHoldRelease={showActions}
@@ -189,11 +188,13 @@ export function WorkoutTabs({
                   onDone={name => rename(workout.id, name)} />
               ) :
               (
-                <WorkoutTab workout={workout}
-                  selected={workout.id === selectedId}
-                  onSelect={() => onSelect(workout.id)}
-                  onRename={() => setRenamingId(workout.id)}
-                  onDelete={() => confirmDelete(workout)} />
+                <DragArea>
+                  <WorkoutTab workout={workout}
+                    selected={workout.id === selectedId}
+                    onSelect={() => onSelect(workout.id)}
+                    onRename={() => setRenamingId(workout.id)}
+                    onDelete={() => confirmDelete(workout)} />
+                </DragArea>
               ))} />
           <Chip icon="add"
             accessibilityRole="button"
