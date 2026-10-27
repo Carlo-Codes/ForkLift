@@ -23,10 +23,10 @@ interface WorkoutTabsProps {
   workouts: Tab[];
   selectedId: string | undefined;
   onSelect: (id: string) => void;
-  // These throw (e.g. a ValidationError) to keep things as they were, with
-  // the message shown.
+  // Throws (e.g. a ValidationError) to keep the old name, with the message shown.
   onRename: (id: string, name: string) => void;
-  // The Workout ids in their new order.
+  // The Workout ids in their new order; it shows why if they can't be saved,
+  // the same way as the Plan editor's other drags.
   onReorder: (ids: string[]) => void;
   onDelete: (id: string) => void;
   onAdd: () => void;
@@ -51,10 +51,22 @@ function RenameField({ initial, onDone }: { initial: string; onDone: (name: stri
   );
 }
 
-// One Workout's tab, offering a screen reader its moves left and right.
+const TAB_ACTIONS = [
+  {
+    name: "rename",
+    label: "Rename"
+  },
+  {
+    name: "delete",
+    label: "Delete"
+  }
+];
+
+// One Workout's tab. A screen reader can't hold and let go, so it offers
+// Rename and Delete as actions, along with moving the tab left and right.
 function WorkoutTab({
-  workout, selected, onSelect
-}: { workout: Tab; selected: boolean; onSelect: () => void }) {
+  workout, selected, onSelect, onRename, onDelete
+}: { workout: Tab; selected: boolean; onSelect: () => void; onRename: () => void; onDelete: () => void }) {
   const drag = useDragActions();
 
   return (
@@ -62,8 +74,16 @@ function WorkoutTab({
       accessibilityRole="tab"
       accessibilityState={{ selected }}
       accessibilityHint="Hold to drag, or hold and let go to rename or delete"
-      accessibilityActions={drag?.actions}
-      onAccessibilityAction={drag?.onAction}
+      accessibilityActions={[ ...TAB_ACTIONS, ...(drag?.actions ?? []) ]}
+      onAccessibilityAction={event => {
+        if (event.nativeEvent.actionName === "rename") {
+          onRename();
+        } else if (event.nativeEvent.actionName === "delete") {
+          onDelete();
+        } else {
+          drag?.onAction(event);
+        }
+      }}
       onPress={onSelect}>
       {workout.name}
     </Chip>
@@ -161,7 +181,7 @@ export function WorkoutTabs({
             gap={8}
             startOn="hold"
             enabled={!renamingId}
-            onReorder={ids => attempt(() => onReorder(ids))}
+            onReorder={onReorder}
             onHoldRelease={showActions}
             renderItem={workout => (workout.id === renamingId ?
               (
@@ -171,7 +191,9 @@ export function WorkoutTabs({
               (
                 <WorkoutTab workout={workout}
                   selected={workout.id === selectedId}
-                  onSelect={() => onSelect(workout.id)} />
+                  onSelect={() => onSelect(workout.id)}
+                  onRename={() => setRenamingId(workout.id)}
+                  onDelete={() => confirmDelete(workout)} />
               ))} />
           <Chip icon="add"
             accessibilityRole="button"

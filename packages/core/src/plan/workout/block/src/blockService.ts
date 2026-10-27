@@ -6,7 +6,9 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
-import { nextPosition, orderOrThrow } from "#utils/position";
+import {
+  nextPosition, orderOrThrow, renumber
+} from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { createExercise } from "#exercise/exerciseService";
 import { parseOrThrow } from "#utils/validation";
@@ -167,25 +169,24 @@ function tickedEntryIds(
 }
 
 // Numbers the Workout's Blocks in orderedIds' order, writing only the ones
-// whose position changes.
+// whose position changes. A Block made just now has a placeholder position.
 function placeBlocks(blocks: BlockWithEntries[], orderedIds: string[], tx: TransactionType): void {
   const positions = new Map(blocks.map(b => [ b.id, b.position ]));
 
-  orderedIds.forEach((id, position) => {
-    if (positions.get(id) !== position) {
-      updateBlockDb(id, { position }, tx);
-    }
-  });
+  for (const { id, position } of renumber(orderedIds.map(id => ({
+    id,
+    position: positions.get(id) ?? -1
+  })))) {
+    updateBlockDb(id, { position }, tx);
+  }
 }
 
 // Numbers entries 0..n-1 in their order, writing only the ones whose position
 // changes, so a Superset that lost entries has no gaps.
 function renumberEntries(entries: { id: string; position: number }[], tx: TransactionType): void {
-  entries.forEach(({ id, position: was }, position) => {
-    if (was !== position) {
-      updateExerciseEntryDb(id, { position }, tx);
-    }
-  });
+  for (const { id, position } of renumber(entries)) {
+    updateExerciseEntryDb(id, { position }, tx);
+  }
 }
 
 // Where the new Superset goes among the Blocks that stay (those not wholly

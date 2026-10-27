@@ -1,5 +1,5 @@
 import {
-  createContext, use, useCallback, useLayoutEffect, useMemo, useRef
+  createContext, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef
 } from "react";
 import type { ReactNode } from "react";
 import { View } from "react-native";
@@ -39,8 +39,9 @@ export const TAP_SLOP = 10;
 // How long the rows take to move out of the way, and the dropped row to settle.
 const MOVE_MS = 150;
 
-// Told when a drag starts and ends, so the scroll view around the list holds
-// still meanwhile. A list inside another passes it on to the outer one.
+// Told when a drag starts and ends, so the scroll view that provides it holds
+// still meanwhile. A provider inside another's scroll view (WorkoutTabs in the
+// Plan editor) tells the outer one too.
 export const DragScrollContext = createContext<(dragging: boolean) => void>(() => undefined);
 
 // The item a DragHandle drags, and its moves for screen readers.
@@ -62,6 +63,15 @@ interface DragShared {
   sizes: SharedValue<number[]>;
   // Whether the finger has moved TAP_SLOP since the drag started.
   wandered: SharedValue<boolean>;
+  // Counts drags, so what's left of one (its settling, its drop) does nothing
+  // once another has started.
+  token: SharedValue<number>;
+}
+
+// The drag in progress, as the JS thread knows it.
+interface Drag {
+  key: string;
+  token: number;
 }
 
 interface DragListProps<T> {
@@ -94,10 +104,16 @@ export function DragList<T>({
     to: useSharedValue(-1),
     offset: useSharedValue(0),
     sizes: useSharedValue<number[]>([]),
-    wandered: useSharedValue(false)
+    wandered: useSharedValue(false),
+    token: useSharedValue(0)
   };
 
   const sizes = useRef<number[]>([]);
+  const drag = useRef<Drag>(undefined);
+  // Read when a drag starts or ends, so the handlers stay the same.
+  const notifyRef = useRef(notifyScroll);
+
+  notifyRef.current = notifyScroll;
   const keys = data.map(keyOf);
 
   const latest = useRef({
@@ -167,18 +183,46 @@ export function DragList<T>({
     }
   }, [ reset ]);
 
-  const handlers = useMemo(() => ({
-    measure: (index: number, size: number) => {
+  // Ends the drag in progress if it's the one given (by its token, or by the
+  // item's key when that item goes away), letting the scroll view move again.
+  const end = useCallback((matches: (current: Drag) => boolean) => {
+    if (!drag.current || !matches(drag.current)) {
+      return false;
+    }
+
+    drag.current = undefined;
+    notifyRef.current(false);
+
+    return true;
+  }, []);
+
+  const handlers = useMemo((): DragHandlers => ({
+    measure: (index, size) => {
       sizes.current[ index ] = size;
       shared.sizes.set([ ...sizes.current ]);
     },
-    start: () => notifyScroll(true),
-    drop: (fromIndex: number, toIndex: number) => {
-      notifyScroll(false);
-      move(fromIndex, toIndex);
+    start: (key, token) => {
+      drag.current = {
+        key,
+        token
+      };
+      notifyRef.current(true);
     },
-    holdRelease: (index: number) => {
-      notifyScroll(false);
+    drop: (fromIndex, toIndex, token) => {
+      if (end(d => d.token === token)) {
+        move(fromIndex, toIndex);
+      }
+    },
+    cancel: token => {
+      if (end(d => d.token === token)) {
+        reset();
+      }
+    },
+    holdRelease: (index, token) => {
+      if (!end(d => d.token === token)) {
+        return;
+      }
+
       reset();
 
       const item = latest.current.data[ index ];
@@ -187,10 +231,15 @@ export function DragList<T>({
         latest.current.onHoldRelease?.(item);
       }
     },
+    lost: key => {
+      if (end(d => d.key === key)) {
+        reset();
+      }
+    },
     move
   }), [
     shared.sizes,
-    notifyScroll,
+    end,
     move,
     reset
   ]);
@@ -203,6 +252,7 @@ export function DragList<T>({
       }}>
       {data.map((item, index) => (
         <DragItem key={keys[ index ]}
+          itemKey={keys[ index ]!}
           index={index}
           count={data.length}
           shared={shared}
@@ -218,17 +268,25 @@ export function DragList<T>({
   );
 }
 
+// What an item's gesture tells its list on the JS thread. A drag's token
+// keeps a late call about an earlier drag from touching the one in progress.
+interface DragHandlers {
+  measure: (index: number, size: number) => void;
+  start: (key: string, token: number) => void;
+  drop: (from: number, to: number, token: number) => void;
+  cancel: (token: number) => void;
+  holdRelease: (index: number, token: number) => void;
+  // The item went away (e.g. a refresh removed it), mid-drag or not.
+  lost: (key: string) => void;
+  move: (from: number, to: number) => void;
+}
+
 interface DragItemProps {
+  itemKey: string;
   index: number;
   count: number;
   shared: DragShared;
-  handlers: {
-    measure: (index: number, size: number) => void;
-    start: () => void;
-    drop: (from: number, to: number) => void;
-    holdRelease: (index: number) => void;
-    move: (from: number, to: number) => void;
-  };
+  handlers: DragHandlers;
   horizontal: boolean;
   gap: number;
   startOn: "move" | "hold";
@@ -237,16 +295,20 @@ interface DragItemProps {
 }
 
 function DragItem({
-  index, count, shared, handlers, horizontal, gap, startOn, enabled, children
+  itemKey, index, count, shared, handlers, horizontal, gap, startOn, enabled, children
 }: DragItemProps) {
   const {
-    from, to, offset, sizes, wandered
+    from, to, offset, sizes, wandered, token
   } = shared;
 
   // Passed back to the JS thread from the gesture's worklets.
   const {
-    start, drop, holdRelease
+    start, drop, cancel, holdRelease, lost
   } = handlers;
+
+  // An item removed mid-drag takes its gesture with it, so nothing else would
+  // end the drag and let the scroll view move again.
+  useEffect(() => () => lost(itemKey), [ lost, itemKey ]);
 
   const hold = startOn === "hold";
 
@@ -259,11 +321,12 @@ function DragItem({
     onActivate: () => {
       "worklet";
 
+      token.set(token.get() + 1);
       from.set(index);
       to.set(index);
       offset.set(0);
       wandered.set(false);
-      scheduleOnRN(start);
+      scheduleOnRN(start, itemKey, token.get());
     },
     onUpdate: event => {
       "worklet";
@@ -277,19 +340,35 @@ function DragItem({
         wandered.set(true);
       }
     },
-    onDeactivate: () => {
+    onDeactivate: event => {
       "worklet";
 
+      const current = token.get();
+
+      // Interrupted (e.g. by the system): back to where it was, unchanged.
+      if (event.canceled) {
+        offset.set(withTiming(0, { duration: MOVE_MS }, finished => {
+          if (finished && token.get() === current) {
+            scheduleOnRN(cancel, current);
+          }
+        }));
+
+        return;
+      }
+
       if (hold && !wandered.get()) {
-        scheduleOnRN(holdRelease, index);
+        scheduleOnRN(holdRelease, index, current);
 
         return;
       }
 
       const target = to.get();
 
-      offset.set(withTiming(settleOffset(sizes.get(), index, target), { duration: MOVE_MS }, () => {
-        scheduleOnRN(drop, index, target);
+      // Settling is cut short when another drag starts; that one carries on.
+      offset.set(withTiming(settleOffset(sizes.get(), index, target), { duration: MOVE_MS }, finished => {
+        if (finished && token.get() === current) {
+          scheduleOnRN(drop, index, target, current);
+        }
       }));
     }
   });

@@ -103,6 +103,19 @@ function errorFrom(write: () => void): string | undefined {
   }
 }
 
+// Saves the new order a drag left (Workout tabs, Blocks or a Superset's
+// entries), then re-reads the editor. One that can't be saved (e.g. the
+// Workout changed meanwhile) says why, and the old order shows again.
+function saveOrder(write: () => void, refresh: () => void) {
+  const message = errorFrom(write);
+
+  refresh();
+
+  if (message) {
+    Alert.alert("Couldn't move it", message);
+  }
+}
+
 // The open Exercise Entry editor closes on a tap anywhere else in the editor
 // (a scroll leaves it open). The editor's own touches, and the long-press
 // that opens it, mark themselves as inside before the touch ends here.
@@ -231,10 +244,7 @@ function PlanSettings({
           deleteWorkout(id);
           onChanged();
         }}
-        onReorder={ids => {
-          reorderWorkouts(plan.id, ids);
-          onChanged();
-        }}
+        onReorder={ids => saveOrder(() => reorderWorkouts(plan.id, ids), onChanged)}
         onAdd={() => onSelect(createNextDayWorkout(plan.id).id)} />
     </>
   );
@@ -396,18 +406,6 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
     );
   }
 
-  // Saves a drag's new order; one that can't be saved (e.g. the Workout
-  // changed meanwhile) says why and shows the order as it is.
-  const reorder = (write: () => void) => {
-    const message = errorFrom(write);
-
-    refresh();
-
-    if (message) {
-      Alert.alert("Couldn't move it", message);
-    }
-  };
-
   const undoRemove = (removals: ExerciseEntryRemoval[]) => {
     const message = errorFrom(() => restoreExerciseEntries(removals));
 
@@ -509,14 +507,14 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
                   keyOf={b => b.id}
                   gap={4}
                   enabled={!selecting}
-                  onReorder={ids => reorder(() => reorderBlocks(workout!.id, ids))}
+                  onReorder={ids => saveOrder(() => reorderBlocks(workout!.id, ids), refresh)}
                   renderItem={block => (
                     <BlockItem block={block}
                       onSetRoundRest={restSeconds => edit({
                         kind: "superset",
                         id: block.id
                       }, () => setRoundRest(block.id, restSeconds))}
-                      onReorderEntries={ids => reorder(() => reorderExerciseEntries(block.id, ids))}
+                      onReorderEntries={ids => saveOrder(() => reorderExerciseEntries(block.id, ids), refresh)}
                       onAddToSuperset={() => addExercise(block.id)} />
                   )} />
               ) :
