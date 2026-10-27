@@ -13,3 +13,12 @@ Plans. We may revisit this if lifters ask for scheduled Plan changes.
 Plan dates are Plan data, not Session data, so AI Access can read and set them, and Changes by AI
 records those edits. Backups include them. Backups made before the dates existed still import,
 with no dates.
+
+## Update: start date and weeks
+
+In the app a lifter picks a start date (today by default) and a length in weeks (8 by default)
+rather than two dates, because training plans are counted in weeks. They are still stored as From
+and To: To is From + weeks × 7 − 1 days. A To set otherwise (by the AI, or before this change)
+reads as the weeks it covers, rounded up. Weeks count from From as Plan Weeks, so the app can show
+how far through a Plan the lifter is ("Week 3 of 6") and a Plan Calendar of its Sessions. Progress
+is shown only; it still doesn't choose or end the Active Plan.

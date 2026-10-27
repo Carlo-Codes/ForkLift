@@ -7,8 +7,17 @@ account and no tracking.
 
 **Plan**:
 A named collection of Workouts that the lifter cycles through in order (e.g. "Push / Pull / Legs"),
-with optional From and To dates. The dates are informational: they don't choose the Active Plan.
+with optional From and To dates, chosen in the app as a start date and a length in weeks. The dates
+are informational: they don't choose the Active Plan.
 _Avoid_: Program, routine, split
+
+**Plan Week**:
+Week N of a Plan, counted in 7-day steps from its From date (e.g. "Week 3 of 6").
+_Avoid_: Cycle, phase, block (a Block is part of a Workout)
+
+**Plan Calendar**:
+A Plan's finished Sessions shown day by day, one row per Plan Week, each day opening its Session.
+_Avoid_: Progress view, schedule, month view
 
 **Active Plan**:
 The one Plan whose next Workout is offered on the home screen. Only one Plan is active at a time.

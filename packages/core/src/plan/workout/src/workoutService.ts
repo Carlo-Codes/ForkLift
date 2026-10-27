@@ -1,7 +1,10 @@
-import { workoutCreatePayloadSchema, workoutUpdatePayloadSchema } from "@forklift/db/client";
+import { z } from "zod";
+
+import {
+  planSchema, workoutCreatePayloadSchema, workoutUpdatePayloadSchema
+} from "@forklift/db/client";
 import type {
   PlanAttributes,
-  PlanCreatePayload,
   TransactionType,
   WorkoutAttributes,
   WorkoutCreatePayload,
@@ -9,6 +12,8 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
+import { toCalendarDay } from "#utils/calendarDay";
+import { planToDate } from "#utils/planWeeks";
 import { nextPosition, orderOrThrow } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
@@ -71,26 +76,90 @@ export function createWorkout(
   }, (workout, t) => `Added Workout "${workout.name}" to Plan "${getPlan(planId, t).name}"`);
 }
 
-// The Workouts a Plan made in the Plan editor starts with, empty.
-export const DEFAULT_WORKOUT_NAMES = [
-  "Push",
-  "Pull",
-  "Legs"
+// A new Plan's Workouts by how many it has, named after a common split
+// (ADR-0007). They start empty and can be renamed.
+const NEW_PLAN_WORKOUT_NAMES = [
+  [ "Full Body" ],
+  [ "Upper", "Lower" ],
+  [
+    "Push",
+    "Pull",
+    "Legs"
+  ],
+  [
+    "Upper",
+    "Lower",
+    "Upper",
+    "Lower"
+  ],
+  [
+    "Push",
+    "Pull",
+    "Legs",
+    "Upper",
+    "Lower"
+  ],
+  [
+    "Push",
+    "Pull",
+    "Legs",
+    "Push",
+    "Pull",
+    "Legs"
+  ]
 ] as const;
 
-// A Plan as the lifter creates it in the Plan editor: with the default
-// Workouts, all or nothing. It lives here rather than in planService, which
-// workoutService already depends on. The AI's create_plan makes an empty Plan.
-export function createPlanWithDefaultWorkouts(
-  payload: PlanCreatePayload,
-  actor: Actor = "lifter",
-  tx?: TransactionType
-): PlanAttributes {
-  return inTransaction(tx, t => {
-    const plan = createPlan(payload, actor, t);
+export const MAX_NEW_PLAN_WORKOUTS = NEW_PLAN_WORKOUT_NAMES.length;
+export const MAX_PLAN_WEEKS = 52;
 
-    for (const name of DEFAULT_WORKOUT_NAMES) {
-      createWorkout(plan.id, { name }, actor, t);
+// What the New plan form asks for: the Plan runs from startDate for weeks,
+// cycling through workoutCount Workouts.
+const newPlanPayloadSchema = planSchema.pick({ name: true }).extend({
+  startDate: z.iso.date("Pick a start date"),
+  weeks: z.number().int("Weeks must be a whole number")
+    .min(1, "A plan lasts at least 1 week")
+    .max(MAX_PLAN_WEEKS, `A plan lasts at most ${MAX_PLAN_WEEKS} weeks`),
+  workoutCount: z.number().int("Workouts must be a whole number")
+    .min(1, "A plan has at least 1 workout")
+    .max(MAX_NEW_PLAN_WORKOUTS, `A new plan has at most ${MAX_NEW_PLAN_WORKOUTS} workouts`)
+});
+
+export type NewPlanPayload = z.infer<typeof newPlanPayloadSchema>;
+
+// The New plan form as it opens: starting today, for 8 weeks, with 3 Workouts.
+export function newPlanDefaults(now = new Date()): NewPlanPayload {
+  return {
+    name: "",
+    startDate: toCalendarDay(now),
+    weeks: 8,
+    workoutCount: 3
+  };
+}
+
+// The Workouts a new Plan with workoutCount of them starts with; none for a
+// count the form would reject.
+export function newPlanWorkoutNames(workoutCount: number): readonly string[] {
+  return NEW_PLAN_WORKOUT_NAMES[ workoutCount - 1 ] ?? [];
+}
+
+// A Plan as the lifter creates it with the New plan form: dated by its weeks
+// (ADR-0006) and with its empty Workouts, all or nothing. It lives here rather
+// than in planService, which workoutService already depends on. The AI's
+// create_plan still makes an empty Plan.
+export function createPlanWithWorkouts(payload: NewPlanPayload, tx?: TransactionType): PlanAttributes {
+  const {
+    name, startDate, weeks, workoutCount
+  } = parseOrThrow(newPlanPayloadSchema, payload);
+
+  return inTransaction(tx, t => {
+    const plan = createPlan({
+      name,
+      startDate,
+      endDate: planToDate(startDate, weeks)
+    }, "lifter", t);
+
+    for (const workoutName of newPlanWorkoutNames(workoutCount)) {
+      createWorkout(plan.id, { name: workoutName }, "lifter", t);
     }
 
     return plan;
