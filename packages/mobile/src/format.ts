@@ -1,5 +1,5 @@
 import type {
-  HistorySet, HomeEntry, PlanListItem, SessionSummary, SupersetPosition
+  HistorySet, HomeEntry, PlanListItem, SessionSet, SessionSummary, SupersetPosition
 } from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
@@ -16,6 +16,19 @@ export function formatTargets(
 // e.g. "50kg × 10"; just "10 reps" for 0 (bodyweight).
 export function formatSet(reps: number, weight: number, unit: Unit): string {
   return weight > 0 ? `${weight}${unit} × ${reps}` : `${reps} reps`;
+}
+
+// An Exercise Entry's targets as sets × reps × weight, e.g. "3 × 8 × 57.5kg";
+// "3 × 8 reps" for 0 (bodyweight).
+export function formatSetTargets(
+  {
+    totalSets, targetReps, targetWeight
+  }: Pick<SessionSet, "totalSets" | "targetReps" | "targetWeight">,
+  unit: Unit
+): string {
+  return targetWeight > 0 ?
+    `${totalSets} × ${targetReps} × ${targetWeight}${unit}` :
+    `${totalSets} × ${targetReps} reps`;
 }
 
 // A run of sets as "57.5kg × 8, 8, 7", naming the weight again only where it

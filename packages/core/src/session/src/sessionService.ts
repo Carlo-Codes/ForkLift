@@ -69,10 +69,20 @@ export interface SessionStep {
   current?: SessionSet;
   lastTime?: LastTime;
   next?: SessionSet;
-  rest?: { seconds: number; endsAt: Date };
+  rest?: SessionRest;
 }
 
-type OrderedSet = SessionSet & { restAfter: number };
+// The rest due before the current set. It's a Changeover when the current set
+// is in another Block than the set the rest follows: the lifter is setting up a
+// different Exercise Entry, not resting between sets or Superset rounds.
+export interface SessionRest {
+  seconds: number;
+  endsAt: Date;
+  changeover: boolean;
+}
+
+// The Block index tells a Changeover from a rest within a Block.
+type OrderedSet = SessionSet & { restAfter: number; block: number };
 
 // Set ordering lives here, not in the UI: Blocks in order, each run in rounds of
 // one set per Exercise Entry still to go, so straight sets are rounds of one and
@@ -80,7 +90,7 @@ type OrderedSet = SessionSet & { restAfter: number };
 // its sets are done. Skipped sets drop out the same way, so the rounds and rest
 // fit what's left. Rest follows each round, for the longest rest among its entries.
 function orderSets(blocks: SessionEntrySnapshot[][], skipped: Set<string>): OrderedSet[] {
-  const sets = blocks.flatMap(entries => {
+  const sets = blocks.flatMap((entries, block) => {
     const rounds = Math.max(...entries.map(entry => entry.targetSets));
 
     return Array.from({ length: rounds }, (_, i) => {
@@ -101,6 +111,7 @@ function orderSets(blocks: SessionEntrySnapshot[][], skipped: Set<string>): Orde
         targetReps: entry.targetReps,
         targetWeight: entry.targetWeight,
         restAfter: position === round.length - 1 ? roundRest : 0,
+        block,
         ...(entries.length > 1 && {
           superset: {
             letter: String.fromCharCode("A".charCodeAt(0) + entries.indexOf(entry)),
@@ -127,7 +138,9 @@ function toSessionSet(set: OrderedSet | undefined): SessionSet | undefined {
     return undefined;
   }
 
-  const { restAfter: _, ...rest } = set;
+  const {
+    restAfter: _, block: __, ...rest
+  } = set;
 
   return rest;
 }
@@ -251,7 +264,8 @@ function readStep(sessionId: string, tx?: TransactionType): { step: SessionStep;
       next: index === -1 ? undefined : toSessionSet(sets[ index + 1 ]),
       rest: index !== -1 && restLoggedSet && restSet.restAfter && !restLoggedSet.restSkipped ? {
         seconds: restSet.restAfter,
-        endsAt: new Date(restLoggedSet.completedAt.getTime() + restSet.restAfter * 1000)
+        endsAt: new Date(restLoggedSet.completedAt.getTime() + restSet.restAfter * 1000),
+        changeover: restSet.block !== sets[ index ]?.block
       } : undefined
     }
   };
