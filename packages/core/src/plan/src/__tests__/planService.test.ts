@@ -13,8 +13,9 @@ import {
   setActivePlan,
   updatePlan
 } from "..";
+import { listBlocks } from "#block";
 import {
-  createPlanWithDefaultWorkouts, createWorkout, deleteWorkout, listWorkouts
+  createPlanWithWorkouts, createWorkout, deleteWorkout, listWorkouts, newPlanDefaults, newPlanWorkoutNames
 } from "#workout";
 
 const validationError = expect.objectContaining({
@@ -70,31 +71,69 @@ describe("plans", () => {
     }
   });
 
-  describe("a Plan made in the Plan editor", () => {
-    it("starts with empty Push, Pull and Legs Workouts", () => {
-      const plan = createPlanWithDefaultWorkouts({ name: "PPL" });
+  describe("a Plan made with the New plan form", () => {
+    const form = {
+      name: "PPL",
+      startDate: "2026-10-27",
+      weeks: 8,
+      workoutCount: 3
+    };
 
-      expect(plan).toEqual(expect.objectContaining({
-        name: "PPL",
-        isActive: false
-      }));
-      expect(listWorkouts(plan.id).map(w => w.name)).toEqual([
+    it("defaults to today, 8 weeks and Push, Pull and Legs", () => {
+      expect(newPlanDefaults(new Date(2026, 9, 27, 23, 30))).toEqual({
+        name: "",
+        startDate: "2026-10-27",
+        weeks: 8,
+        workoutCount: 3
+      });
+      expect(newPlanWorkoutNames(3)).toEqual([
         "Push",
         "Pull",
         "Legs"
       ]);
     });
 
-    it("adds neither the Plan nor its Workouts without a name", () => {
-      expect(() => createPlanWithDefaultWorkouts({ name: " " })).toThrow(validationError);
-      expect(listPlans()).toEqual([]);
+    it("runs from the start date to the last day of its last week", () => {
+      const plan = createPlanWithWorkouts(form);
+
+      expect(plan).toEqual(expect.objectContaining({
+        name: "PPL",
+        startDate: "2026-10-27",
+        endDate: "2026-12-21",
+        isActive: false
+      }));
     });
 
-    it("adds neither when the dates are out of order", () => {
-      expect(() => createPlanWithDefaultWorkouts({
-        name: "PPL",
-        startDate: "2026-11-02",
-        endDate: "2026-11-01"
+    it.each([
+      [ 1, [ "Full Body" ] ],
+      [ 2, [ "Upper", "Lower" ] ],
+      [ 3, [ "Push", "Pull", "Legs" ] ],
+      [ 4, [ "Upper", "Lower", "Upper", "Lower" ] ],
+      [ 5, [ "Push", "Pull", "Legs", "Upper", "Lower" ] ],
+      [ 6, [ "Push", "Pull", "Legs", "Push", "Pull", "Legs" ] ]
+    ])("with %i Workouts names them %j, empty and in order", (workoutCount, names) => {
+      const plan = createPlanWithWorkouts({
+        ...form,
+        workoutCount
+      });
+      const workouts = listWorkouts(plan.id);
+
+      expect(workouts.map(w => w.name)).toEqual(names);
+      expect(workouts.flatMap(w => listBlocks(w.id))).toEqual([]);
+    });
+
+    it.each([
+      [ "no name", { name: " " } ],
+      [ "no start date", { startDate: "" } ],
+      [ "no weeks", { weeks: 0 } ],
+      [ "part weeks", { weeks: 1.5 } ],
+      [ "too many weeks", { weeks: 53 } ],
+      [ "no Workouts", { workoutCount: 0 } ],
+      [ "too many Workouts", { workoutCount: 7 } ]
+    ])("adds neither the Plan nor its Workouts with %s", (_, change) => {
+      expect(() => createPlanWithWorkouts({
+        ...form,
+        ...change
       })).toThrow(validationError);
       expect(listPlans()).toEqual([]);
     });
