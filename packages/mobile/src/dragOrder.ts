@@ -89,3 +89,41 @@ export function moveItem<T>(items: T[], from: number, to: number): T[] {
 
   return next;
 }
+
+// Each item's rest offset, by key: where its animated transform sits while
+// nothing is dragged. The item's inner view undoes it, so at rest the item is
+// drawn in its place. A drop leaves the transforms where the settle put them
+// and moves the inner views instead, as only those change in the same commit
+// as the new order (see DragList).
+export type RestOffsets = Record<string, number>;
+
+// The rest offsets once the item at `from` is dropped at `to` and the list
+// shows the new order: each item's grows by how far it moved on screen, the
+// dropped one by its settle and the ones it passed by a slot of it. That is
+// also how far its place moved, so the new order draws every item where it
+// already was.
+export function restAfterDrop(rest: RestOffsets, keys: string[], sizes: number[], from: number, to: number): RestOffsets {
+  const next: RestOffsets = {};
+
+  keys.forEach((key, index) => {
+    const moved = index === from ? settleOffset(sizes, from, to) : shiftOf(index, from, to, sizes);
+
+    next[ key ] = (rest[ key ] ?? 0) + moved;
+  });
+
+  return next;
+}
+
+// A drop waiting for the list to show it: the order it saved, and the rest
+// offsets for that order.
+export interface PendingDrop {
+  order: string[];
+  rest: RestOffsets;
+}
+
+// Whether the list shows the order a drop saved. One that couldn't be saved
+// shows the old order again: it keeps the old rest offsets, and its items
+// glide back.
+export function dropLanded(pending: PendingDrop, keys: string[]): boolean {
+  return pending.order.length === keys.length && pending.order.every((key, i) => key === keys[ i ]);
+}
