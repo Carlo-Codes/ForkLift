@@ -120,7 +120,7 @@ export default function WorkoutModeScreen() {
   const [ actual, setActual ] = useState<{ reps: string; weight: string }>();
   const [ error, setError ] = useState<string>();
   const restEndsAt = step?.rest?.endsAt.getTime();
-  const resting = restEndsAt !== undefined && restEndsAt !== skippedRest && restEndsAt > now;
+  const resting = restEndsAt !== undefined && restEndsAt > now;
   const setsLeft = step?.current !== undefined;
 
   // The rest countdown and its buzz run in JS, which stops once the phone

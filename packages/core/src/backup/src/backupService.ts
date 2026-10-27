@@ -1,5 +1,5 @@
 import {
-  BACKUP_FORMAT, BACKUP_VERSION, backupHeaderSchema, backupSchema
+  BACKUP_FORMAT, BACKUP_VERSION, backupHeaderSchema, backupSchema, isPlanDateOrder
 } from "@forklift/db/client";
 import type {
   BackupDocument, BackupTables, TransactionType
@@ -56,7 +56,8 @@ function assertRulesHold(tables: BackupTables): void {
   const broken = [
     live(tables.plan).filter(p => p.isActive).length > 1 && "only one Active Plan",
     live(tables.session).filter(s => s.status === "inProgress").length > 1 && "only one Session in progress",
-    live(tables.setting).length > 1 && "only one set of Settings"
+    live(tables.setting).length > 1 && "only one set of Settings",
+    !tables.plan.every(isPlanDateOrder) && "each Plan's To date on or after its From date"
   ].filter(Boolean);
 
   if (broken.length > 0) {

@@ -1,3 +1,4 @@
+import { isPlanDateOrder } from "@forklift/db/client";
 import type {
   AiChangeAttributes, AiChangeTable, TransactionType
 } from "@forklift/db/client";
@@ -125,6 +126,16 @@ export function undoAiChange(id: string, tx?: TransactionType): AiChangeAttribut
 
       const unchanged = Object.fromEntries(Object.entries(before)
         .filter(([ column ]) => isRecordedValue(now[ column ], after[ column ])));
+
+      // Putting back one Plan date beside one the lifter has changed since
+      // could leave To before From, so the lifter's dates are kept whole.
+      if (table === "plan" && !isPlanDateOrder({
+        ...now,
+        ...unchanged
+      })) {
+        delete unchanged.startDate;
+        delete unchanged.endDate;
+      }
 
       if (Object.keys(unchanged).length > 0) {
         rows.update(rowId, fromJson(unchanged), t);

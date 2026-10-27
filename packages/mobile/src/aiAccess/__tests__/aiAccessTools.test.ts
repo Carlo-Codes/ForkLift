@@ -95,6 +95,7 @@ describe("AI Access tools", () => {
       "reorder_plans",
       "reorder_superset",
       "reorder_workouts",
+      "set_plan_dates",
       "split_superset",
       "update_exercise",
       "update_exercise_entry"
@@ -160,6 +161,75 @@ describe("AI Access tools", () => {
       "Added Workout \"Push\" to Plan \"PPL\"",
       "Created Plan \"PPL\""
     ]);
+  });
+
+  describe("Plan dates", () => {
+    it("creates a Plan with From and To dates, and reads them back", async () => {
+      const { json } = await call("create_plan", {
+        name: "PPL",
+        startDate: "2026-11-02",
+        endDate: "2026-12-27"
+      });
+      const { id } = json() as { id: string };
+
+      expect(json()).toEqual({
+        id,
+        name: "PPL",
+        startDate: "2026-11-02",
+        endDate: "2026-12-27"
+      });
+      expect((await call("get_plan", { planId: id })).json()).toEqual(expect.objectContaining({
+        startDate: "2026-11-02",
+        endDate: "2026-12-27"
+      }));
+      expect((await call("list_plans")).json()).toEqual([
+        expect.objectContaining({
+          startDate: "2026-11-02",
+          endDate: "2026-12-27"
+        })
+      ]);
+    });
+
+    it("sets one date, clears another, and leaves an omitted one alone, each a Change by AI", async () => {
+      const { id: planId } = createPlan({
+        name: "PPL",
+        startDate: "2026-11-02"
+      });
+
+      await call("set_plan_dates", {
+        planId,
+        endDate: "2026-12-27"
+      });
+      await call("set_plan_dates", {
+        planId,
+        startDate: null
+      });
+
+      expect((await call("get_plan", { planId })).json()).toEqual(expect.objectContaining({
+        startDate: null,
+        endDate: "2026-12-27"
+      }));
+      expect(listAiChanges().map(c => c.summary)).toEqual([
+        "Set Plan \"PPL\" to run until 2026-12-27",
+        "Set Plan \"PPL\" to run from 2026-11-02 to 2026-12-27"
+      ]);
+    });
+
+    it("answers dates out of order with the rule they break, changing nothing", async () => {
+      const { id: planId } = createPlan({
+        name: "PPL",
+        startDate: "2026-11-02"
+      });
+      const { isError, text } = await call("set_plan_dates", {
+        planId,
+        endDate: "2026-11-01"
+      });
+
+      expect(isError).toBe(true);
+      expect(text).toMatch(/on or after the From date/);
+      expect(listPlans()[ 0 ]!.endDate).toBeNull();
+      expect(listAiChanges()).toEqual([]);
+    });
   });
 
   describe("with a Plan and a finished Session", () => {
