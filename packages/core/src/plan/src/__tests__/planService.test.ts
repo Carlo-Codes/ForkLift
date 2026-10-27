@@ -5,11 +5,13 @@ import {
   createPlan,
   getActivePlan,
   getPlan,
+  deletePlan,
+  listPlanCards,
   listPlans,
-  reorderPlans,
   setActivePlan,
   updatePlan
 } from "..";
+import { createWorkout, deleteWorkout } from "#workout";
 
 const validationError = expect.objectContaining({
   statusCode: 400,
@@ -30,17 +32,17 @@ describe("plans", () => {
 
   afterEach(() => teardown());
 
-  it("lists Plans in the order the lifter adds them, none Active", () => {
+  it("lists Plans newest first, none Active", () => {
     createPlan({ name: "Push / Pull / Legs" });
     createPlan({ name: "  Upper / Lower " });
 
     expect(listPlans()).toEqual([
       expect.objectContaining({
-        name: "Push / Pull / Legs",
+        name: "Upper / Lower",
         isActive: false
       }),
       expect.objectContaining({
-        name: "Upper / Lower",
+        name: "Push / Pull / Legs",
         isActive: false
       })
     ]);
@@ -65,34 +67,6 @@ describe("plans", () => {
 
     expect(() => getPlan(missingId)).toThrow(notFoundError);
     expect(() => updatePlan(missingId, { name: "PPL" })).toThrow(notFoundError);
-  });
-
-  it("reorders Plans", () => {
-    const a = createPlan({ name: "A" });
-    const b = createPlan({ name: "B" });
-    const c = createPlan({ name: "C" });
-
-    reorderPlans([
-      c.id,
-      a.id,
-      b.id
-    ]);
-
-    expect(listPlans().map(p => p.name)).toEqual([
-      "C",
-      "A",
-      "B"
-    ]);
-  });
-
-  it("rejects an order that drops, repeats or invents a Plan", () => {
-    const a = createPlan({ name: "A" });
-    const b = createPlan({ name: "B" });
-
-    expect(() => reorderPlans([ b.id ])).toThrow(validationError);
-    expect(() => reorderPlans([ b.id, b.id ])).toThrow(validationError);
-    expect(() => reorderPlans([ b.id, crypto.randomUUID() ])).toThrow(validationError);
-    expect(listPlans().map(p => p.id)).toEqual([ a.id, b.id ]);
   });
 
   describe("From and To dates", () => {
@@ -248,6 +222,74 @@ describe("plans", () => {
 
       expect(() => setActivePlan(crypto.randomUUID())).toThrow(notFoundError);
       expect(getActivePlan()?.id).toBe(ppl.id);
+    });
+  });
+
+  describe("Plans list cards", () => {
+    it("shows each Plan newest first with its dates, Active badge and live Workout names in order", () => {
+      const ppl = createPlan({ name: "PPL" });
+      const push = createWorkout(ppl.id, { name: "Push" });
+
+      createWorkout(ppl.id, { name: "Pull" });
+      deleteWorkout(push.id);
+      createWorkout(ppl.id, { name: "Legs" });
+      setActivePlan(ppl.id);
+      const block = createPlan({
+        name: "Strength block",
+        startDate: "2026-11-02",
+        endDate: "2026-12-20"
+      });
+
+      expect(listPlanCards("2026-10-27")).toEqual([
+        {
+          id: block.id,
+          name: "Strength block",
+          startDate: "2026-11-02",
+          endDate: "2026-12-20",
+          isActive: false,
+          ended: false,
+          workoutNames: []
+        },
+        {
+          id: ppl.id,
+          name: "PPL",
+          startDate: null,
+          endDate: null,
+          isActive: true,
+          ended: false,
+          workoutNames: [ "Pull", "Legs" ]
+        }
+      ]);
+    });
+
+    it("marks a Plan Ended only once its To date has passed, keeping its place", () => {
+      createPlan({
+        name: "Old block",
+        endDate: "2026-10-26"
+      });
+      createPlan({
+        name: "Ends today",
+        endDate: "2026-10-27"
+      });
+      createPlan({
+        name: "Open-ended",
+        startDate: "2026-01-01"
+      });
+
+      expect(listPlanCards("2026-10-27").map(({ name, ended }) => [ name, ended ])).toEqual([
+        [ "Open-ended", false ],
+        [ "Ends today", false ],
+        [ "Old block", true ]
+      ]);
+    });
+
+    it("leaves deleted Plans out", () => {
+      const gone = createPlan({ name: "Gone" });
+
+      createPlan({ name: "Kept" });
+      deletePlan(gone.id);
+
+      expect(listPlanCards("2026-10-27").map(p => p.name)).toEqual([ "Kept" ]);
     });
   });
 });

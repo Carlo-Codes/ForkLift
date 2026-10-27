@@ -10,7 +10,7 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
-import { nextPosition, orderOrThrow } from "#utils/position";
+import { nextPosition } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 import type { Actor } from "#aiChange/aiChangeRecorder";
@@ -27,8 +27,39 @@ import {
 
 const debug = createDebugger("planService");
 
+// Newest first.
 export function listPlans(tx?: TransactionType): PlanAttributes[] {
   return getAllPlanByQuery({ where: { deletedAt: { isNull: true } } }, tx);
+}
+
+// A Plan as the Plans list shows it. ended is true once its To date has
+// passed; the Plan keeps its place in the list (ADR-0006).
+export type PlanCard = Pick<PlanAttributes, "id" | "name" | "isActive"> & {
+  startDate: string | null;
+  endDate: string | null;
+  ended: boolean;
+  workoutNames: string[];
+};
+
+// A Date as the calendar day it falls on where the phone is, e.g. "2026-10-27".
+export function toCalendarDay(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// The Plans list, newest first. today is a YYYY-MM-DD calendar day.
+export function listPlanCards(today = toCalendarDay(new Date()), tx?: TransactionType): PlanCard[] {
+  return listPlans(tx).map(plan => ({
+    id: plan.id,
+    name: plan.name,
+    startDate: plan.startDate ?? null,
+    endDate: plan.endDate ?? null,
+    isActive: plan.isActive,
+    // YYYY-MM-DD strings compare in calendar order.
+    ended: !!plan.endDate && plan.endDate < today,
+    workoutNames: listLiveWorkouts(plan.id, tx).map(w => w.name)
+  }));
 }
 
 // Soft-deleted Plans are gone as far as the lifter is concerned.
@@ -134,15 +165,6 @@ export function deletePlan(id: string, actor: Actor = "lifter", tx?: Transaction
 
     return plan;
   }, plan => `Deleted Plan "${plan.name}"`);
-}
-
-// orderedIds lists every live Plan, first to last.
-export function reorderPlans(orderedIds: string[], actor: Actor = "lifter", tx?: TransactionType): void {
-  write(actor, tx, t => {
-    for (const { id, position } of orderOrThrow(listPlans(t), orderedIds)) {
-      updatePlanDb(id, { position }, t);
-    }
-  }, () => "Reordered the Plans");
 }
 
 export function getActivePlan(tx?: TransactionType): PlanAttributes | undefined {

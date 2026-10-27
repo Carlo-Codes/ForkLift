@@ -101,6 +101,8 @@ export default function RootLayout() {
           options={{ title: "Add Exercise" }} />
         <Stack.Screen name="exercises/[id]"
           options={{ title: "Exercise" }} />
+        <Stack.Screen name="plans/new"
+          options={{ title: "New Plan" }} />
         <Stack.Screen name="plans/[id]"
           options={{ title: "Plan" }} />
         <Stack.Screen name="workouts/[id]"

@@ -10,7 +10,8 @@ import type {
 
 import { deleteWorkoutDb, getAllWorkoutByQuery } from "#workout/workoutDb";
 
-// Plans read in the lifter's order unless asked otherwise.
+// Plans read newest first unless asked otherwise. Plans made in the same
+// millisecond fall back to the order they were added in, latest first.
 export function getAllPlanByQuery(
   filters: QueryFilters<"planTable">,
   tx?: TransactionType
@@ -20,7 +21,10 @@ export function getAllPlanByQuery(
   return db.query.planTable.findMany({
     columns: filters.columns,
     where: filters.where,
-    orderBy: filters.pagination?.orderBy ?? { position: "asc" },
+    orderBy: filters.pagination?.orderBy ?? {
+      createdAt: "desc",
+      position: "desc"
+    },
     offset: filters.pagination?.offset,
     limit: filters.pagination?.limit
   }).sync();

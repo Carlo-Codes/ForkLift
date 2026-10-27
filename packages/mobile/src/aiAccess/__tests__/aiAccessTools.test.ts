@@ -92,7 +92,6 @@ describe("AI Access tools", () => {
       "rename_plan",
       "rename_workout",
       "reorder_blocks",
-      "reorder_plans",
       "reorder_superset",
       "reorder_workouts",
       "set_plan_dates",
@@ -311,18 +310,18 @@ describe("AI Access tools", () => {
       expect(sessions()).toEqual(before);
     });
 
-    it("lists Plans in order, marking the Active one", async () => {
+    it("lists Plans newest first, marking the Active one", async () => {
       const { json } = await call("list_plans");
 
       expect(json()).toEqual([
         expect.objectContaining({
+          name: "Upper / Lower",
+          isActive: false
+        }),
+        expect.objectContaining({
           id: planId,
           name: "Push / Pull",
           isActive: true
-        }),
-        expect.objectContaining({
-          name: "Upper / Lower",
-          isActive: false
         })
       ]);
     });

@@ -1,5 +1,5 @@
 import type {
-  HistorySet, HomeEntry, SupersetPosition
+  HistorySet, HomeEntry, PlanCard, SupersetPosition
 } from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
@@ -60,6 +60,49 @@ export function formatEntrySummary(entries: HomeEntry[], limit = 4): string {
   const named = entries.slice(0, limit).map(e => `${e.exerciseName} ${e.targetSets}×${e.targetReps}`);
 
   return [ ...named, ...(entries.length > limit ? [ "…" ] : []) ].join(" · ");
+}
+
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec"
+];
+
+// A YYYY-MM-DD calendar day as "5 Jan 2026", or "5 Jan" without its year. Read
+// from the text, not a Date, so no time zone can shift it (ADR-0006).
+function formatCalendarDay(day: string, withYear = true): string {
+  const [
+    year,
+    month,
+    date
+  ] = day.split("-").map(Number);
+
+  return `${date} ${MONTHS[ month! - 1 ]}${withYear ? ` ${year}` : ""}`;
+}
+
+// A Plan's From and To dates, e.g. "5 Jan – 1 Mar 2026", "From 2 Nov 2026",
+// "Until 20 Dec 2026" or "No dates".
+export function formatPlanDates({ startDate, endDate }: Pick<PlanCard, "startDate" | "endDate">): string {
+  if (startDate && endDate) {
+    const sameYear = startDate.slice(0, 4) === endDate.slice(0, 4);
+
+    return `${formatCalendarDay(startDate, !sameYear)} – ${formatCalendarDay(endDate)}`;
+  }
+
+  if (startDate) {
+    return `From ${formatCalendarDay(startDate)}`;
+  }
+
+  return endDate ? `Until ${formatCalendarDay(endDate)}` : "No dates";
 }
 
 // e.g. "Sun 25 Oct 2026, 14:05".
