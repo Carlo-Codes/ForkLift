@@ -19,7 +19,9 @@ in order. Terms are as in `GLOSSARY.md`; plan dates are in ADR-0006.
 ## Navigation and Home
 
 - A bottom tab bar (Home, Plans, History, Library, Settings), inset for the safe area. Workout
-  Mode is full screen, with no tab bar.
+  Mode is full screen, with no tab bar. It keeps its small header with Back.
+- The tab bar shows only on each tab's root screen. Screens opened from a tab (Plan, Workout,
+  Exercise, Session detail) are pushed over it on the root stack.
 - Home shows one card: the next Workout's name, its Plan, and a compact list of its Exercise
   Entries (e.g. "Bench 3×8 · Row 3×10 · …"). Below that are a normal-height **Start** button and a
   "Choose another" text link.
@@ -87,6 +89,8 @@ in order. Terms are as in `GLOSSARY.md`; plan dates are in ADR-0006.
 - `core` needs a call that groups any set of Blocks or Exercise Entries into one Superset, not
   only neighbouring ones, and a call that sets the Round Rest.
 - Creating a Plan seeds its Push, Pull and Legs Workouts in the same transaction.
+- Manual Plan ordering goes from `core` and AI Access too: `reorderPlans` and the `reorder_plans`
+  tool are removed. `position` only breaks ties between Plans created in the same millisecond.
 
 ## Issues
 
