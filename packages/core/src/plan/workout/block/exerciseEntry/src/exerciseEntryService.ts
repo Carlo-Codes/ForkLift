@@ -319,6 +319,24 @@ export function restoreExerciseEntry(
   });
 }
 
+// The lifter's Remove (a row's, or Select mode's for several): removes every
+// named entry, or none of them. Returns what restoreExerciseEntries needs to
+// undo them all at once.
+export function deleteExerciseEntries(ids: string[], tx?: TransactionType): ExerciseEntryRemoval[] {
+  return inTransaction(tx, t => ids.map(id => deleteExerciseEntry(id, "lifter", t)));
+}
+
+// Undo of deleteExerciseEntries: every entry goes back in its place (see
+// restoreExerciseEntry), or none does. They go back last-removed first, so a
+// Block the last of its entries took with it is back before the others return.
+export function restoreExerciseEntries(
+  removals: ExerciseEntryRemoval[],
+  tx?: TransactionType
+): ExerciseEntryAttributes[] {
+  return inTransaction(tx, t => removals.toReversed().map(removal => restoreExerciseEntry(removal, t))
+    .reverse());
+}
+
 // orderedIds lists every live entry in the Block, first to last.
 export function reorderExerciseEntries(
   blockId: string,
