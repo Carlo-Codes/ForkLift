@@ -1,4 +1,5 @@
 import { Pressable, View } from "react-native";
+import type { AccessibilityActionEvent, AccessibilityActionInfo } from "react-native";
 
 import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
@@ -15,6 +16,9 @@ interface ListRowProps {
   onLongPress?: () => void;
   accessibilityLabel?: string;
   accessibilityHint?: string;
+  // e.g. moving a dragged row up and down, for screen readers.
+  accessibilityActions?: AccessibilityActionInfo[];
+  onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
   // Controls after the title, e.g. a drag handle.
   accessory?: React.ReactNode;
   // Makes the row a Select mode tick box, ticked or not; onPress toggles it.
@@ -41,7 +45,7 @@ const PRESSABLE_CLASS = "flex-1 py-3 pl-4 pr-2";
 
 // One row in a list, sitting on a Card's surface.
 export function ListRow({
-  title, subtitle, badge, onPress, onLongPress, accessibilityLabel, accessibilityHint, accessory, ticked, first, last
+  title, subtitle, badge, onPress, onLongPress, accessibilityLabel, accessibilityHint, accessibilityActions, onAccessibilityAction, accessory, ticked, first, last
 }: ListRowProps) {
   const pressable = Boolean(onPress ?? onLongPress);
 
@@ -67,6 +71,8 @@ export function ListRow({
             accessibilityRole={pressable ? "button" : undefined}
             accessibilityLabel={accessibilityLabel}
             accessibilityHint={accessibilityHint}
+            accessibilityActions={accessibilityActions}
+            onAccessibilityAction={onAccessibilityAction}
             onPress={onPress}
             onLongPress={onLongPress}>
             {text}

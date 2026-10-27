@@ -58,6 +58,7 @@ import { WorkoutTabs } from "./WorkoutTabs";
 
 import { confirmDeletePlan } from "@/confirmDeletePlan";
 import { errorMessage } from "@/errorMessage";
+import { openRowAfterTap } from "@/openRow";
 import { useThemeColors } from "@/theme";
 
 interface EditorState {
@@ -114,8 +115,9 @@ function saveOrder(write: () => void, refresh: () => void) {
 }
 
 // The open Exercise Entry editor closes on a tap anywhere else in the editor
-// (a scroll leaves it open). The editor's own touches, and the long-press
-// that opens it, mark themselves as inside before the touch ends here.
+// (a scroll leaves it open). The rows and the open editor mark their touches
+// as inside as they start, so a tap on a row only does what the row says
+// (open, move or close the editor).
 function useTapOutside(onTapOutside: () => void) {
   const inside = useRef(false);
   const tapOutside = useRef(onTapOutside);
@@ -288,10 +290,9 @@ export function PlanEditor({ planId }: { planId: string }) {
     return {
       editingId,
       error: editError,
-      onEdit: entry => {
-        tapOutside.markInside();
+      onTap: entry => {
         setEditError(undefined);
-        setEditingId(entry.id);
+        setEditingId(current => openRowAfterTap(current, entry.id));
       },
       onChange: (entry, changes) => edit(onEntry(entry), () => updateExerciseEntry(entry.id, changes)),
       // No confirmation: Undo shows instead.

@@ -6,7 +6,9 @@ import type { BlockWithEntries } from "@forklift/core";
 import { AppButton } from "./AppButton";
 import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
-import { DragHandle, DragList } from "./DragList";
+import {
+  DragArea, DragHandle, DragList, useDragActions
+} from "./DragList";
 import { errorOn, useEntryList } from "./EntryListContext";
 import { ExerciseEntryRow } from "./ExerciseEntryRow";
 import { Stepper } from "./Stepper";
@@ -21,14 +23,15 @@ interface SupersetGroupProps {
 }
 
 // A Superset in the Plan editor: its entries shown as one bordered group and
-// dragged into a new order within it, while the header's handle drags the
-// whole group like any other Block. The header shows the Round Rest; changing
-// it sets the rest of every entry. In Select mode the header ticks the whole
-// Superset.
+// held and dragged into a new order within it, while holding the header drags
+// the whole group like any other Block. The header shows the Round Rest;
+// changing it sets the rest of every entry. In Select mode the header ticks
+// the whole Superset, and nothing drags.
 export function SupersetGroup({
   block, onSetRoundRest, onReorderEntries, onAddEntry
 }: SupersetGroupProps) {
   const { editing, selecting } = useEntryList();
+  const drag = useDragActions();
   const entries = block.exerciseEntries;
   const entryIds = entries.map(e => e.id);
   const error = errorOn(editing.error, "superset", block.id);
@@ -37,9 +40,9 @@ export function SupersetGroup({
   return (
     <View className="overflow-hidden rounded-2xl border-2 border-accent-soft bg-surface">
       <View className="gap-2 bg-accent-soft pb-3 pl-4">
-        <View className="min-h-touch flex-row items-center">
-          {selecting ?
-            (
+        {selecting ?
+          (
+            <View className="min-h-touch flex-row items-center">
               <TickButton className="flex-1"
                 ticked={Boolean(ticked)}
                 onPress={() => selecting.onToggle(entryIds)}>
@@ -48,17 +51,24 @@ export function SupersetGroup({
                   Superset
                 </AppText>
               </TickButton>
-            ) :
-            (
-              <>
+            </View>
+          ) :
+          (
+            <DragArea>
+              <View className="min-h-touch flex-row items-center"
+                accessible
+                accessibilityLabel="Superset"
+                accessibilityHint="Hold to drag"
+                accessibilityActions={drag?.actions}
+                onAccessibilityAction={drag?.onAction}>
                 <AppText weight="semibold"
                   className="flex-1 text-accent">
                   Superset
                 </AppText>
-                <DragHandle label="Superset" />
-              </>
-            )}
-        </View>
+                <DragHandle />
+              </View>
+            </DragArea>
+          )}
         <View className="flex-row pr-4">
           <Stepper label="Round Rest (s)"
             value={roundRest(entries)!}

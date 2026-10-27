@@ -78,10 +78,10 @@ rest countdown.
 _Avoid_: Gym mode, active view, player
 
 **Changeover**:
-The rest after the last set of an Exercise Entry (or the last round of a Superset) when the next set
-is a different Exercise Entry. Workout Mode shows the next exercise first and the countdown small,
-because the lifter is setting it up. It lasts the finished entry's rest time.
-_Avoid_: Transition, between-exercise rest
+The rest after the last set of an Exercise Entry, or the last round of a Superset, when the next
+set is in the next Block. It lasts the finished entry's rest time (the Round Rest for a Superset),
+and Workout Mode shows the next exercise first, with a small countdown.
+_Avoid_: Transition, setup rest
 
 **Increase Next Time**:
 A per-Exercise-Entry toggle in Workout Mode. When the Session ends, it raises that entry's target

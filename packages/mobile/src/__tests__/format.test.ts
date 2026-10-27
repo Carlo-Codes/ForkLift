@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
-  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatList, formatPlanDates, formatSessionWhen, stepValue
+  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatList, formatPlanDates, formatSessionWhen, formatSetTargets, stepValue
 } from "../format";
 
 describe("formatList", () => {
@@ -24,6 +24,24 @@ describe("formatCountdown", () => {
 
   it("stops at zero", () => {
     expect(formatCountdown(-1_000)).toBe("0:00");
+  });
+});
+
+describe("formatSetTargets", () => {
+  it("shows sets × reps × weight", () => {
+    expect(formatSetTargets({
+      totalSets: 3,
+      targetReps: 8,
+      targetWeight: 57.5
+    }, "kg")).toBe("3 × 8 × 57.5kg");
+  });
+
+  it("leaves the weight out for bodyweight", () => {
+    expect(formatSetTargets({
+      totalSets: 4,
+      targetReps: 12,
+      targetWeight: 0
+    }, "lb")).toBe("4 × 12 reps");
   });
 });
 

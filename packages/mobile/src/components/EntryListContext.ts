@@ -13,15 +13,16 @@ export interface EditError {
 }
 
 // How the Plan editor edits Exercise Entries in place: one row's editor is
-// open at a time, opened by a long-press.
+// open at a time, opened and closed by tapping the row.
 export interface EntryEditing {
   editingId: string | undefined;
   // The last edit that failed.
   error: EditError | undefined;
-  onEdit: (entry: Entry) => void;
+  // A tap on the row: opens its editor, or closes it if it's the open one.
+  onTap: (entry: Entry) => void;
   onChange: (entry: Entry, changes: ExerciseEntryUpdatePayload) => void;
   onRemove: (entry: Entry) => void;
-  // A touch on the open editor, which shouldn't close it.
+  // A touch on a row or the open editor, which a tap elsewhere would close.
   onTouchInside: () => void;
 }
 

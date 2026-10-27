@@ -180,7 +180,8 @@ describe("sessions", () => {
 
     expect(afterBench.rest).toEqual({
       seconds: 180,
-      endsAt: new Date(bench!.completedAt.getTime() + 180_000)
+      endsAt: new Date(bench!.completedAt.getTime() + 180_000),
+      changeover: true
     });
     expect(completeSet(id).rest).toBeUndefined();
   });
@@ -263,7 +264,8 @@ describe("sessions", () => {
     let curlId: string;
 
     // Runs the whole Session, noting each set as "<exercise> <set>" with the
-    // Superset position when there is one, and "rest <seconds>" where rest is due.
+    // Superset position when there is one, and "rest <seconds>" where rest is due,
+    // or "changeover <seconds>" where that rest is a Changeover.
     const runAll = (sessionId: string) => {
       const seen: string[] = [];
 
@@ -271,7 +273,7 @@ describe("sessions", () => {
         const { exerciseName, setNumber, superset } = step.current;
 
         if (step.rest) {
-          seen.push(`rest ${step.rest.seconds}`);
+          seen.push(`${step.rest.changeover ? "changeover" : "rest"} ${step.rest.seconds}`);
         }
 
         seen.push(superset ?
@@ -442,13 +444,13 @@ describe("sessions", () => {
         "Bench Press 1",
         "rest 180",
         "Bench Press 2",
-        "rest 180",
+        "changeover 180",
         "Row A1 1/2",
         "Curl B1 2/2",
         "rest 90",
         "Row A2 1/2",
         "Curl B2 2/2",
-        "rest 90",
+        "changeover 90",
         "Cable Fly 1",
         "rest 45",
         "Cable Fly 2"
@@ -484,8 +486,108 @@ describe("sessions", () => {
       expect(afterRound3.current?.exerciseName).toBe("Curl");
       expect(afterRound3.rest).toEqual({
         seconds: 60,
-        endsAt: new Date(last.completedAt.getTime() + 60_000)
+        endsAt: new Date(last.completedAt.getTime() + 60_000),
+        changeover: true
       });
+    });
+
+    it("makes the rest a Changeover once the last round's other sets are skipped", () => {
+      createSuperset({
+        exerciseId: benchId,
+        targetSets: 2,
+        restSeconds: 90
+      }, {
+        exerciseId: rowId,
+        targetSets: 2,
+        restSeconds: 60
+      });
+      createBlock(pushId, {
+        exerciseId: curlId,
+        targetSets: 1
+      });
+
+      const { id } = startSession(pushId);
+
+      // A1 → B1 → rest → A2, then B2 skipped.
+      completeSet(id);
+      expect(completeSet(id).rest?.changeover).toBe(false);
+      expect(completeSet(id).rest).toBeUndefined();
+
+      const step = skipSet(id);
+
+      expect(step.current?.exerciseName).toBe("Curl");
+      expect(step.rest).toEqual(expect.objectContaining({
+        seconds: 90,
+        changeover: true
+      }));
+    });
+  });
+
+  describe("Changeover", () => {
+    beforeEach(() => {
+      createBlock(pushId, {
+        exerciseId: benchId,
+        targetSets: 3,
+        restSeconds: 120
+      });
+      createBlock(pushId, {
+        exerciseId: flyId,
+        targetSets: 2,
+        restSeconds: 45
+      });
+    });
+
+    it("is not a Changeover between sets of the same Exercise Entry", () => {
+      const { id } = startSession(pushId);
+
+      expect(completeSet(id).rest).toEqual(expect.objectContaining({
+        seconds: 120,
+        changeover: false
+      }));
+    });
+
+    it("turns the rest into a Changeover, for the finished entry's rest time, when the entry's last sets are skipped", () => {
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+
+      const step = skipSet(id);
+
+      expect(step.current?.exerciseName).toBe("Bench Press");
+      expect(step.rest?.changeover).toBe(false);
+
+      const afterSkip = skipSet(id);
+      const [ done ] = listLoggedSets(id);
+
+      expect(afterSkip.current).toEqual(expect.objectContaining({
+        exerciseName: "Cable Fly",
+        setNumber: 1
+      }));
+      expect(afterSkip.rest).toEqual({
+        seconds: 120,
+        endsAt: new Date(done!.completedAt.getTime() + 120_000),
+        changeover: true
+      });
+    });
+
+    it("is a Changeover after Skip exercise moves on to the next Block", () => {
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+
+      expect(skipExercise(id).rest).toEqual(expect.objectContaining({
+        seconds: 120,
+        changeover: true
+      }));
+    });
+
+    it("ends with Skip rest like any other rest", () => {
+      const { id } = startSession(pushId);
+
+      completeSet(id);
+      completeSet(id);
+      expect(completeSet(id).rest?.changeover).toBe(true);
+      expect(skipRest(id).rest).toBeUndefined();
     });
   });
 
@@ -662,7 +764,8 @@ describe("sessions", () => {
 
       expect(step.rest).toEqual({
         seconds: 90,
-        endsAt: new Date(second!.completedAt.getTime() + 90_000)
+        endsAt: new Date(second!.completedAt.getTime() + 90_000),
+        changeover: false
       });
     });
 
