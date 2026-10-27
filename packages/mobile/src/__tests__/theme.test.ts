@@ -72,4 +72,18 @@ describe("theme tokens", () => {
     expect(JSON.stringify(rules?.[ "min-h-touch" ])).toContain("\"minHeight\":44");
     expect(JSON.stringify(rules?.[ "min-w-touch" ])).toContain("\"minWidth\":44");
   });
+
+  it("caps the Workout Mode menu's height with a class", async () => {
+    const { rules } = await compile([ "max-h-[90%]" ]);
+
+    expect(JSON.stringify(rules?.[ "max-h-[90%]" ])).toContain("\"maxHeight\":\"90%\"");
+  });
+
+  // The rest countdown keeps an inline fontVariant style for this reason; if
+  // this starts failing, switch it to the class.
+  it("has no native style for tabular-nums", async () => {
+    const { rules } = await compile([ "tabular-nums" ]);
+
+    expect(JSON.stringify(rules?.[ "tabular-nums" ])).not.toContain("fontVariant");
+  });
 });

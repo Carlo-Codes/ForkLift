@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
-  formatCountdown, formatDuration, formatEntrySummary
+  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatSessionWhen
 } from "../format";
 
 describe("formatCountdown", () => {
@@ -30,6 +30,18 @@ describe("formatDuration", () => {
 
   it("rounds to the nearest minute, never below one", () => {
     expect(formatDuration(start, new Date(start.getTime() + 20_000))).toBe("1 min");
+  });
+});
+
+describe("formatSessionWhen", () => {
+  it("shows the date a Session started and how long it took", () => {
+    const startedAt = new Date(2026, 9, 25, 14, 0);
+    const finishedAt = new Date(2026, 9, 25, 15, 15);
+
+    expect(formatSessionWhen({
+      startedAt,
+      finishedAt
+    })).toBe(`${formatDate(startedAt)} · 1 h 15 min`);
   });
 });
 

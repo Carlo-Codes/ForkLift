@@ -14,9 +14,7 @@ import { AppText } from "@/components/AppText";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
-import {
-  formatDate, formatDuration, formatSet
-} from "@/format";
+import { formatSessionWhen, formatSet } from "@/format";
 
 function loadDetail(id: string): SessionDetail | undefined {
   try {
@@ -63,7 +61,7 @@ function EntrySets({
 }
 
 // One past Session: every Logged Set, by Block and Exercise Entry. A Superset
-// is a bordered group, as in the Plan editor.
+// is a bordered group, as in the Workout editor's SupersetGroup.
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ detail ] = useState(() => loadDetail(id));
@@ -84,10 +82,10 @@ export default function SessionDetailScreen() {
       <ScrollView contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="gap-4 p-4">
         <AppText className="text-muted">
-          {formatDate(detail.startedAt)} · {formatDuration(detail.startedAt, detail.finishedAt)}
+          {formatSessionWhen(detail)}
         </AppText>
         {detail.blocks.map((entries, b) => {
-          const sets = entries.map((entry, e) => (
+          const rows = entries.map((entry, e) => (
             <EntrySets key={entry.exerciseEntryId}
               entry={entry}
               unit={unit}
@@ -102,10 +100,10 @@ export default function SessionDetailScreen() {
                   className="bg-accent-soft px-4 py-2 text-accent">
                   Superset
                 </AppText>
-                {sets}
+                {rows}
               </View>
             ) :
-              <Card key={b}>{sets}</Card>;
+              <Card key={b}>{rows}</Card>;
         })}
       </ScrollView>
     </Screen>

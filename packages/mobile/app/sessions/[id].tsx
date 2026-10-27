@@ -105,8 +105,7 @@ function WorkoutMenu({
         accessibilityRole="button"
         accessibilityLabel="Close workout options"
         onPress={onClose} />
-      <Card className="w-80 max-w-full"
-        style={{ maxHeight: "90%" }}
+      <Card className="max-h-[90%] w-80 max-w-full"
         accessibilityViewIsModal>
         <ScrollView>
           {children}
@@ -328,6 +327,7 @@ export default function WorkoutModeScreen() {
             className="text-sm uppercase text-muted">
             Rest
           </AppText>
+          {/* Inline: NativeWind's tabular-nums has no native style. */}
           <AppText weight="semibold"
             className="text-7xl text-ink"
             style={{ fontVariant: [ "tabular-nums" ] }}
@@ -399,18 +399,19 @@ export default function WorkoutModeScreen() {
           </Card>
         ) :
         (
-          <AppButton className="rounded-2xl bg-surface px-4 py-6"
-            accessibilityRole="button"
+          <AppButton accessibilityRole="button"
             accessibilityHint="Change the weight or reps you actually did"
             onPress={() => setActual({
               reps: String(current.targetReps),
               weight: String(current.targetWeight)
             })}>
-            <AppText weight="semibold"
-              className="text-center text-5xl text-ink">
-              {formatSet(current.targetReps, current.targetWeight, unit)}
-            </AppText>
-            <AppText className="text-center text-sm text-muted">Tap to change</AppText>
+            <Card className="px-4 py-6">
+              <AppText weight="semibold"
+                className="text-center text-5xl text-ink">
+                {formatSet(current.targetReps, current.targetWeight, unit)}
+              </AppText>
+              <AppText className="text-center text-sm text-muted">Tap to change</AppText>
+            </Card>
           </AppButton>
         )}
       <View className="gap-4">

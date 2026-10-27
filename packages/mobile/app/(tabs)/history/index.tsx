@@ -7,7 +7,7 @@ import { listSessionHistory } from "@forklift/core";
 import { EmptyState } from "@/components/EmptyState";
 import { ListRow, rowPosition } from "@/components/ListRow";
 import { Screen } from "@/components/Screen";
-import { formatDate, formatDuration } from "@/format";
+import { formatSessionWhen } from "@/format";
 
 // Past Sessions, newest first, by Workout name, date and how long they took.
 export default function HistoryScreen() {
@@ -28,7 +28,7 @@ export default function HistoryScreen() {
         )}
         renderItem={({ item, index }) => (
           <ListRow title={item.workoutName}
-            subtitle={`${formatDate(item.startedAt)} · ${formatDuration(item.startedAt, item.finishedAt)}`}
+            subtitle={formatSessionWhen(item)}
             onPress={() => router.push({
               pathname: "/history/sessions/[id]",
               params: { id: item.id }

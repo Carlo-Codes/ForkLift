@@ -1,5 +1,5 @@
 import type {
-  HistorySet, HomeEntry, SupersetPosition
+  HistorySet, HomeEntry, SessionSummary, SupersetPosition
 } from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
@@ -52,13 +52,18 @@ export function formatCountdown(ms: number): string {
 export function formatDuration(from: Date, to: Date): string {
   const minutes = Math.max(1, Math.round((to.getTime() - from.getTime()) / 60_000));
   const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
+  const mins = minutes % 60;
 
   if (hours === 0) {
-    return `${rest} min`;
+    return `${mins} min`;
   }
 
-  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+  return mins === 0 ? `${hours} h` : `${hours} h ${mins} min`;
+}
+
+// When a past Session happened, e.g. "Sun 25 Oct 2026 · 1 h 15 min".
+export function formatSessionWhen({ startedAt, finishedAt }: Pick<SessionSummary, "startedAt" | "finishedAt">): string {
+  return `${formatDate(startedAt)} · ${formatDuration(startedAt, finishedAt)}`;
 }
 
 // Text fields hold what the lifter types; an empty or non-numeric field becomes
