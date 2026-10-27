@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   DEFAULT_REST_SECONDS,
   DEFAULT_TARGET_REPS,
@@ -41,6 +43,7 @@ import {
 } from "./exerciseEntryDb";
 
 const debug = createDebugger("exerciseEntryService");
+const removedIdsSchema = z.array(z.uuid()).min(1, "Tick an Exercise Entry to remove");
 
 const rangeOf = ({ minValue, maxValue }: { minValue: number | null; maxValue: number | null }) => ({
   min: minValue ?? 0,
@@ -317,6 +320,26 @@ export function restoreExerciseEntry(
 
     return updateExerciseEntryDb(id, { deletedAt: null }, t);
   });
+}
+
+// The lifter's Remove (a row's, or Select mode's for several): removes every
+// named entry, or none of them. Returns what restoreExerciseEntries needs to
+// undo them all at once.
+export function deleteExerciseEntries(ids: string[], tx?: TransactionType): ExerciseEntryRemoval[] {
+  const entryIds = parseOrThrow(removedIdsSchema, ids);
+
+  return inTransaction(tx, t => entryIds.map(id => deleteExerciseEntry(id, "lifter", t)));
+}
+
+// Undo of deleteExerciseEntries: every entry goes back in its place (see
+// restoreExerciseEntry), or none does. They go back last-removed first, so a
+// Block the last of its entries took with it is back before the others return.
+export function restoreExerciseEntries(
+  removals: ExerciseEntryRemoval[],
+  tx?: TransactionType
+): ExerciseEntryAttributes[] {
+  return inTransaction(tx, t => removals.toReversed().map(removal => restoreExerciseEntry(removal, t))
+    .reverse());
 }
 
 // orderedIds lists every live entry in the Block, first to last.

@@ -14,7 +14,7 @@ import type { Actor } from "#aiChange/aiChangeRecorder";
 import { write } from "#aiChange/aiChangeRecorder";
 import { getWorkout } from "#workout/workoutService";
 import { updateExerciseEntryDb } from "#exerciseEntry/exerciseEntryDb";
-import { createExerciseEntry } from "#exerciseEntry/exerciseEntryService";
+import { createExerciseEntry, roundRest } from "#exerciseEntry/exerciseEntryService";
 
 import type { BlockWithEntries } from "./blockDb";
 import {
@@ -27,6 +27,7 @@ import {
 
 const debug = createDebugger("blockService");
 const groupedIdsSchema = z.array(z.uuid()).min(2, "A Superset needs at least two Blocks");
+const ungroupedIdsSchema = z.array(z.uuid()).min(1, "Tick an Exercise Entry to ungroup");
 
 export function listBlocks(workoutId: string, tx?: TransactionType): BlockWithEntries[] {
   getWorkout(workoutId, tx);
@@ -139,9 +140,133 @@ export function reorderBlocks(
   }, (_, t) => `Reordered ${workoutName(workoutId, t)}`);
 }
 
-// Merges the named Blocks, which must sit next to each other in the Workout,
-// into a Superset in the place of the first. Their entries keep their ids and
-// their order, Block by Block; the other Blocks are deleted.
+// The rows ticked in Select mode: whole Blocks, single Exercise Entries, or both.
+const selectionSchema = z.object({
+  blockIds: z.array(z.uuid()).default([]),
+  exerciseEntryIds: z.array(z.uuid()).default([])
+});
+
+export type RowSelection = z.input<typeof selectionSchema>;
+
+const unique = (ids: string[]) => new Set(ids).size === ids.length;
+
+// The ids of the ticked Exercise Entries, a ticked Block standing for all of
+// its own. Each row must be one of these Blocks' and ticked once.
+function tickedEntryIds(
+  blocks: BlockWithEntries[],
+  { blockIds, exerciseEntryIds }: { blockIds: string[]; exerciseEntryIds: string[] }
+): Set<string> {
+  const byId = new Map(blocks.map(b => [ b.id, b ]));
+  const entryIds = new Set(blocks.flatMap(b => b.exerciseEntries.map(e => e.id)));
+
+  if (!unique(blockIds) || !unique(exerciseEntryIds) || !blockIds.every(id => byId.has(id)) || !exerciseEntryIds.every(id => entryIds.has(id))) {
+    throw new ApiError(400, "Only rows of this Workout can be ticked, each once", "ValidationError");
+  }
+
+  return new Set([ ...exerciseEntryIds, ...blockIds.flatMap(id => byId.get(id)!.exerciseEntries.map(e => e.id)) ]);
+}
+
+// Numbers the Workout's Blocks in orderedIds' order, writing only the ones
+// whose position changes.
+function placeBlocks(blocks: BlockWithEntries[], orderedIds: string[], tx: TransactionType): void {
+  const positions = new Map(blocks.map(b => [ b.id, b.position ]));
+
+  orderedIds.forEach((id, position) => {
+    if (positions.get(id) !== position) {
+      updateBlockDb(id, { position }, tx);
+    }
+  });
+}
+
+// Numbers entries 0..n-1 in their order, writing only the ones whose position
+// changes, so a Superset that lost entries has no gaps.
+function renumberEntries(entries: { id: string; position: number }[], tx: TransactionType): void {
+  entries.forEach(({ id, position: was }, position) => {
+    if (was !== position) {
+      updateExerciseEntryDb(id, { position }, tx);
+    }
+  });
+}
+
+// Where the new Superset goes among the Blocks that stay (those not wholly
+// ticked): in the place of the top-most ticked Block, or just after it when
+// part of it stays.
+function supersetIndex(blocks: BlockWithEntries[], topIndex: number, whole: (block: BlockWithEntries) => boolean): number {
+  const staying = blocks.slice(0, topIndex).filter(b => !whole(b)).length;
+
+  return whole(blocks[ topIndex ]!) ? staying : staying + 1;
+}
+
+// Create Superset in Select mode: the ticked rows become one Superset at the
+// place of the top-most one, in their order in the Workout, wherever they
+// were. A ticked Superset takes in the other rows and keeps its id, and the
+// rows it takes in get its Round Rest; otherwise the top-most Block survives
+// if it's wholly ticked, and every entry keeps its own rest. Entries ticked
+// out of a Superset leave the rest of it where it was, with the new Superset
+// just after it when it's the top-most. The entries keep their ids.
+export function createSuperset(
+  workoutId: string,
+  selection: RowSelection,
+  actor: Actor = "lifter",
+  tx?: TransactionType
+): BlockWithEntries {
+  const ticks = parseOrThrow(selectionSchema, selection);
+
+  return write(actor, tx, t => {
+    const blocks = listBlocks(workoutId, t);
+    const ticked = tickedEntryIds(blocks, ticks);
+    const entries = blocks.flatMap(b => b.exerciseEntries.filter(e => ticked.has(e.id)));
+
+    if (entries.length < 2) {
+      throw new ApiError(400, "A Superset needs at least two Exercise Entries", "ValidationError");
+    }
+
+    const whole = (block: BlockWithEntries) => block.exerciseEntries.every(e => ticked.has(e.id));
+    const topIndex = blocks.findIndex(b => b.exerciseEntries.some(e => ticked.has(e.id)));
+    const top = blocks[ topIndex ]!;
+    const superset = blocks.find(b => whole(b) && b.exerciseEntries.length > 1);
+    const kept = superset ?? (whole(top) ? top : undefined);
+    const rest = superset && roundRest(superset.exerciseEntries);
+
+    // Placed below.
+    const targetId = kept?.id ?? createBlockDb({
+      workoutId,
+      position: 0
+    }, t).id;
+
+    debug.info("grouping exercise entries %o into superset %s", entries.map(e => e.id), targetId);
+
+    entries.forEach((entry, position) => {
+      updateExerciseEntryDb(entry.id, {
+        blockId: targetId,
+        position,
+        ...(rest !== undefined && entry.blockId !== targetId && { restSeconds: rest })
+      }, t);
+    });
+
+    for (const block of blocks.filter(b => b.id !== targetId)) {
+      if (whole(block)) {
+        // Emptied by the move, so their entries stay live.
+        deleteBlockDb(block.id, t);
+      } else {
+        renumberEntries(block.exerciseEntries.filter(e => !ticked.has(e.id)), t);
+      }
+    }
+
+    const order = blocks.filter(b => !whole(b)).map(b => b.id);
+
+    order.splice(supersetIndex(blocks, topIndex, whole), 0, targetId);
+    placeBlocks(blocks, order, t);
+
+    return getBlock(targetId, t);
+  }, (block, t) => `Made a Superset of ${namesOf(block)} in ${workoutName(workoutId, t)}`);
+}
+
+// AI Access: merges the named Blocks, which must sit next to each other in the
+// Workout, into a Superset in the place of the first. Their entries keep their
+// ids, their rest and their order, Block by Block; the other Blocks are
+// deleted. Select mode's createSuperset does more; this keeps the contract
+// the AI's tool has always had.
 export function groupBlocks(
   workoutId: string,
   blockIds: string[],
@@ -155,7 +280,7 @@ export function groupBlocks(
     const start = blocks.findIndex(b => ids.includes(b.id));
     const group = blocks.slice(start, start + ids.length);
 
-    if (new Set(ids).size !== ids.length || group.length !== ids.length || !group.every(b => ids.includes(b.id))) {
+    if (!unique(ids) || group.length !== ids.length || !group.every(b => ids.includes(b.id))) {
       throw new ApiError(400, "Only Blocks next to each other in this Workout can be grouped", "ValidationError");
     }
 
@@ -200,44 +325,104 @@ export function setRoundRest(
   }, (block, t) => `Set the Round Rest of ${namesOf(block)} in ${workoutName(block.workoutId, t)} to ${rest}s`);
 }
 
-// Splits a Superset into Blocks of straight sets, one per entry, in its place.
-// The first entry stays in this Block and the entries keep their ids. Returns
-// the resulting Blocks in order.
-export function ungroupBlock(id: string, actor: Actor = "lifter", tx?: TransactionType): BlockWithEntries[] {
+// The ticked entries that leave a Block when it's ungrouped: none from
+// straight sets, and all but the first when a whole Superset is ticked.
+function leavingEntries(block: BlockWithEntries, ticked: Set<string>): BlockWithEntries["exerciseEntries"] {
+  const leaving = block.exerciseEntries.filter(e => ticked.has(e.id));
+
+  if (block.exerciseEntries.length < 2) {
+    return [];
+  }
+
+  return leaving.length === block.exerciseEntries.length ? leaving.slice(1) : leaving;
+}
+
+// Ungroup in Select mode: each ticked Exercise Entry in a Superset becomes a
+// Block of straight sets just after it, in order, and the rest of the
+// Superset stays, renumbered. With all of a Superset's entries ticked, the
+// first stays in its Block. Ticked straight sets are already ungrouped, and
+// writing nothing records nothing. The entries keep their ids. Returns the
+// Workout's Blocks as they are now.
+export function ungroupExerciseEntries(
+  workoutId: string,
+  exerciseEntryIds: string[],
+  actor: Actor = "lifter",
+  tx?: TransactionType
+): BlockWithEntries[] {
+  const ids = parseOrThrow(ungroupedIdsSchema, exerciseEntryIds);
+  const moved: string[] = [];
+
   return write(actor, tx, t => {
-    const block = getBlock(id, t);
-    const [ first, ...rest ] = block.exerciseEntries;
+    const blocks = listBlocks(workoutId, t);
 
-    if (!first || rest.length === 0) {
-      return [ block ];
-    }
+    const ticked = tickedEntryIds(blocks, {
+      blockIds: [],
+      exerciseEntryIds: ids
+    });
 
-    debug.info("splitting superset %s", id);
+    const order: string[] = [];
 
-    const splitIds = [
-      id,
-      ...rest.map(entry => {
-        // Placed by the reorder below.
-        const { id: newId } = createBlockDb({
-          workoutId: block.workoutId,
+    for (const block of blocks) {
+      const leaving = leavingEntries(block, ticked);
+
+      order.push(block.id);
+
+      if (leaving.length === 0) {
+        continue;
+      }
+
+      debug.info("taking %d exercise entries out of superset %s", leaving.length, block.id);
+
+      for (const entry of leaving) {
+        // Placed below.
+        const { id } = createBlockDb({
+          workoutId,
           position: 0
         }, t);
 
         updateExerciseEntryDb(entry.id, {
-          blockId: newId,
+          blockId: id,
           position: 0
         }, t);
+        moved.push(entry.exercise.name);
+        order.push(id);
+      }
 
-        return newId;
-      })
-    ];
+      const staying = block.exerciseEntries.filter(e => !leaving.includes(e));
 
-    // The new Blocks sit right after this one.
-    reorderBlocks(block.workoutId, listBlocks(block.workoutId, t)
-      .map(b => b.id)
-      .filter(blockId => blockId === id || !splitIds.includes(blockId))
-      .flatMap(blockId => (blockId === id ? splitIds : [ blockId ])), actor, t);
+      // Still a Superset; a lone entry's position doesn't matter.
+      if (staying.length > 1) {
+        renumberEntries(staying, t);
+      }
+    }
 
-    return splitIds.map(blockId => getBlock(blockId, t));
+    if (moved.length === 0) {
+      return blocks;
+    }
+
+    placeBlocks(blocks, order, t);
+
+    return listBlocks(workoutId, t);
+  }, (_, t) => `Took ${moved.join(" + ")} out of a Superset in ${workoutName(workoutId, t)}`);
+}
+
+// AI Access: splits a Superset into Blocks of straight sets, one per entry, in
+// its place. The first entry stays in this Block and the entries keep their
+// ids. Returns the resulting Blocks in order; a Block of straight sets is
+// already split, so nothing changes.
+export function ungroupBlock(id: string, actor: Actor = "lifter", tx?: TransactionType): BlockWithEntries[] {
+  return write(actor, tx, t => {
+    const block = getBlock(id, t);
+
+    if (block.exerciseEntries.length < 2) {
+      return [ block ];
+    }
+
+    const entryIds = new Set(block.exerciseEntries.map(e => e.id));
+
+    debug.info("splitting superset %s", id);
+
+    return ungroupExerciseEntries(block.workoutId, [ ...entryIds ], actor, t)
+      .filter(b => b.exerciseEntries.some(e => entryIds.has(e.id)));
   }, (blocks, t) => `Split the Superset of ${blocks.map(namesOf).join(" + ")} in ${workoutName(blocks[ 0 ]!.workoutId, t)}`);
 }
