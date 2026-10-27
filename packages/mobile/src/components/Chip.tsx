@@ -63,12 +63,11 @@ export function Chip({
   );
 }
 
-// A small label that isn't tappable, e.g. "Active" next to a Plan's name. A
-// muted one is grey, for a state that's past rather than current ("Ended").
-export function Badge({ muted, children }: { muted?: boolean; children: string }) {
+// A small label that isn't tappable, e.g. "Active" next to a Plan's name.
+export function Badge({ children }: { children: string }) {
   return (
     <AppText weight="semibold"
-      className={`overflow-hidden rounded-full px-2 py-0.5 text-xs ${muted ? "bg-fill text-muted" : "bg-accent-soft text-accent"}`}>
+      className="overflow-hidden rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent">
       {children}
     </AppText>
   );

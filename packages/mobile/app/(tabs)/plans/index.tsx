@@ -11,6 +11,7 @@ import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Chip";
+import { PlanProgressBar } from "@/components/PlanProgressBar";
 import { Screen } from "@/components/Screen";
 import { confirmDeletePlan } from "@/confirmDeletePlan";
 import { formatPlanDates } from "@/format";
@@ -39,7 +40,8 @@ const showActions = (plan: PlanListItem, onChanged: () => void) => Alert.alert(p
   }
 ]);
 
-// A Plan at a glance: its name, dates, Workouts, and whether it's Active or Ended.
+// A Plan at a glance: its name, dates, Workouts, whether it's Active, and how
+// far through it the lifter is, which reads "Ended" once To has passed.
 function PlanCard({
   plan, onPress, onLongPress
 }: { plan: PlanListItem; onPress: () => void; onLongPress: () => void }) {
@@ -57,13 +59,14 @@ function PlanCard({
             {plan.name}
           </AppText>
           {plan.isActive && <Badge>Active</Badge>}
-          {plan.ended && <Badge muted>Ended</Badge>}
         </View>
         <AppText className="text-sm text-muted">{formatPlanDates(plan)}</AppText>
         <AppText numberOfLines={2}
           className="text-sm text-ink">
           {plan.workoutNames.length > 0 ? plan.workoutNames.join(" · ") : "No workouts yet"}
         </AppText>
+        <PlanProgressBar planWeek={plan.progress.planWeek}
+          className="mt-2" />
       </Card>
     </Pressable>
   );

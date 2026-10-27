@@ -17,6 +17,7 @@ import {
   deleteExerciseEntries,
   deleteWorkout,
   getPlan,
+  getPlanProgress,
   getSettings,
   listBlocks,
   listWorkouts,
@@ -32,7 +33,9 @@ import {
   updatePlan,
   updateWorkout
 } from "@forklift/core";
-import type { BlockWithEntries, ExerciseEntryRemoval } from "@forklift/core";
+import type {
+  BlockWithEntries, ExerciseEntryRemoval, PlanProgress
+} from "@forklift/core";
 import type {
   PlanAttributes, Unit, WorkoutAttributes
 } from "@forklift/db/client";
@@ -60,11 +63,12 @@ import { WorkoutTabs } from "./WorkoutTabs";
 
 import { confirmDeletePlan } from "@/confirmDeletePlan";
 import { errorMessage } from "@/errorMessage";
-import { formatList } from "@/format";
+import { formatList, formatPlanProgress } from "@/format";
 import { useThemeColors } from "@/theme";
 
 interface EditorState {
   plan: PlanAttributes;
+  progress: PlanProgress;
   workouts: WorkoutAttributes[];
   // The selected Workout: the first while none is chosen or once it's deleted.
   workout: WorkoutAttributes | undefined;
@@ -80,6 +84,7 @@ function loadEditor(planId: string, workoutId: string | undefined): EditorState 
 
     return {
       plan,
+      progress: getPlanProgress(planId),
       workouts,
       workout,
       blocks: workout ? listBlocks(workout.id) : [],
@@ -447,6 +452,9 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
     }
   });
 
+  // e.g. "Week 3 of 6 · 7 sessions done", under the title.
+  const progressLine = state && formatPlanProgress(state.progress);
+
   // The title stays at the same place in the tree as the draft is saved, so
   // the field keeps focus and the keyboard while the lifter types on.
   const listHeader = (
@@ -457,6 +465,7 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
           onChangeText={changeName}
           onEndEditing={endNameEditing} />
         {nameError && <AppText className="text-danger">{nameError}</AppText>}
+        {progressLine && <AppText className="text-muted">{progressLine}</AppText>}
       </View>
       {state ?
         (

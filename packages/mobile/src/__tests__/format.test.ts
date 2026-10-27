@@ -1,7 +1,17 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
-  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatList, formatPlanDates, formatSessionWhen, stepValue
+  formatCountdown,
+  formatDate,
+  formatDuration,
+  formatEntrySummary,
+  formatList,
+  formatPlanDates,
+  formatPlanProgress,
+  formatPlanWeek,
+  formatSessionWhen,
+  planWeekFraction,
+  stepValue
 } from "../format";
 
 describe("formatList", () => {
@@ -112,6 +122,113 @@ describe("formatPlanDates", () => {
       startDate: null,
       endDate: "2026-12-20"
     })).toBe("Until 20 Dec 2026");
+  });
+});
+
+describe("formatPlanWeek", () => {
+  it("reads the Plan Week out of the total, or alone without a To date", () => {
+    expect(formatPlanWeek({
+      status: "running",
+      week: 3,
+      totalWeeks: 6
+    })).toBe("Week 3 of 6");
+    expect(formatPlanWeek({
+      status: "running",
+      week: 3,
+      totalWeeks: null
+    })).toBe("Week 3");
+  });
+
+  it("counts the days to the start", () => {
+    expect(formatPlanWeek({
+      status: "upcoming",
+      daysUntilStart: 5,
+      totalWeeks: 6
+    })).toBe("Starts in 5 days");
+    expect(formatPlanWeek({
+      status: "upcoming",
+      daysUntilStart: 1,
+      totalWeeks: 6
+    })).toBe("Starts tomorrow");
+  });
+
+  it("reads Ended after the end", () => {
+    expect(formatPlanWeek({
+      status: "ended",
+      totalWeeks: 6
+    })).toBe("Ended");
+  });
+});
+
+describe("planWeekFraction", () => {
+  it("fills the bar by Plan Week, empty before the start and full after the end", () => {
+    expect(([
+      {
+        status: "upcoming",
+        daysUntilStart: 5,
+        totalWeeks: 6
+      },
+      {
+        status: "running",
+        week: 3,
+        totalWeeks: 6
+      },
+      {
+        status: "ended",
+        totalWeeks: null
+      }
+    ] as const).map(planWeekFraction)).toEqual([
+      0,
+      0.5,
+      1
+    ]);
+  });
+
+  it("has no bar while a Plan with no To date runs", () => {
+    expect(planWeekFraction({
+      status: "running",
+      week: 3,
+      totalWeeks: null
+    })).toBeNull();
+  });
+});
+
+describe("formatPlanProgress", () => {
+  it("reads the Plan Week and the Sessions done", () => {
+    expect(formatPlanProgress({
+      planWeek: {
+        status: "running",
+        week: 3,
+        totalWeeks: 6
+      },
+      sessionsDone: 7
+    })).toBe("Week 3 of 6 · 7 sessions done");
+    expect(formatPlanProgress({
+      planWeek: {
+        status: "ended",
+        totalWeeks: 6
+      },
+      sessionsDone: 1
+    })).toBe("Ended · 1 session done");
+  });
+
+  it("leaves out no Sessions done before the start, and the week without dates", () => {
+    expect(formatPlanProgress({
+      planWeek: {
+        status: "upcoming",
+        daysUntilStart: 5,
+        totalWeeks: 6
+      },
+      sessionsDone: 0
+    })).toBe("Starts in 5 days");
+    expect(formatPlanProgress({
+      planWeek: null,
+      sessionsDone: 2
+    })).toBe("2 sessions done");
+    expect(formatPlanProgress({
+      planWeek: null,
+      sessionsDone: 0
+    })).toBeUndefined();
   });
 });
 
