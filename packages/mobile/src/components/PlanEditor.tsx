@@ -15,6 +15,7 @@ import {
   deleteExerciseEntries,
   deleteWorkout,
   getPlan,
+  getPlanProgress,
   getSettings,
   listBlocks,
   listWorkouts,
@@ -30,7 +31,9 @@ import {
   updatePlan,
   updateWorkout
 } from "@forklift/core";
-import type { BlockWithEntries, ExerciseEntryRemoval } from "@forklift/core";
+import type {
+  BlockWithEntries, ExerciseEntryRemoval, PlanProgress
+} from "@forklift/core";
 import type {
   PlanAttributes, Unit, WorkoutAttributes
 } from "@forklift/db/client";
@@ -58,11 +61,13 @@ import { WorkoutTabs } from "./WorkoutTabs";
 
 import { confirmDeletePlan } from "@/confirmDeletePlan";
 import { errorMessage } from "@/errorMessage";
+import { formatPlanProgress } from "@/format";
 import { openRowAfterTap } from "@/openRow";
 import { useThemeColors } from "@/theme";
 
 interface EditorState {
   plan: PlanAttributes;
+  progress: PlanProgress;
   workouts: WorkoutAttributes[];
   // The selected Workout: the first while none is chosen or once it's deleted.
   workout: WorkoutAttributes | undefined;
@@ -78,6 +83,7 @@ function loadEditor(planId: string, workoutId: string | undefined): EditorState 
 
     return {
       plan,
+      progress: getPlanProgress(planId),
       workouts,
       workout,
       blocks: workout ? listBlocks(workout.id) : [],
@@ -429,6 +435,9 @@ export function PlanEditor({ planId }: { planId: string }) {
     }
   });
 
+  // e.g. "Week 3 of 6 · 7 sessions done", under the title.
+  const progressLine = formatPlanProgress(state.progress);
+
   const listHeader = (
     <View className="gap-4 py-4">
       <View className="gap-1">
@@ -436,6 +445,7 @@ export function PlanEditor({ planId }: { planId: string }) {
           onChangeText={changeName}
           onEndEditing={endNameEditing} />
         {nameError && <AppText className="text-danger">{nameError}</AppText>}
+        {progressLine && <AppText className="text-muted">{progressLine}</AppText>}
       </View>
       <PlanSettings state={state}
         dateError={dateError}
