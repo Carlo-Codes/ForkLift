@@ -5,7 +5,9 @@ import type { ExerciseEntryUpdatePayload } from "@forklift/db/client";
 
 import { AppButton } from "./AppButton";
 import { AppText } from "./AppText";
-import { DragHandle } from "./DragList";
+import {
+  DragArea, DragHandle, useDragActions
+} from "./DragList";
 import { errorOn, useEntryList } from "./EntryListContext";
 import type { Entry } from "./EntryListContext";
 import { ListRow, rowSurfaceClass } from "./ListRow";
@@ -19,11 +21,11 @@ interface ExerciseEntryRowProps {
   last?: boolean;
 }
 
-// An Exercise Entry in the Plan editor, an item of a DragList: its handle
-// drags it (its Block, or the entry within its Superset). A long-press, on the
-// row or its handle, opens its sets, reps, weight, Weight Step and rest
-// steppers and Remove below it; each change saves straight away. In Select
-// mode a tap ticks it instead, and it has no handle.
+// An Exercise Entry in the Plan editor, an item of a DragList. A tap opens its
+// sets, reps, weight, Weight Step and rest steppers and Remove below it (and
+// closes them again); each change saves straight away. Held, it lifts to drag
+// (its Block, or the entry within its Superset); its handle is only a hint.
+// In Select mode a tap ticks it instead, and it has no handle.
 export function ExerciseEntryRow({
   entry, first, last
 }: ExerciseEntryRowProps) {
@@ -31,6 +33,7 @@ export function ExerciseEntryRow({
     unit, editing, selecting
   } = useEntryList();
 
+  const drag = useDragActions();
   const open = editing.editingId === entry.id;
   const change = (changes: ExerciseEntryUpdatePayload) => editing.onChange(entry, changes);
   const error = errorOn(editing.error, "entry", entry.id);
@@ -48,17 +51,18 @@ export function ExerciseEntryRow({
   }
 
   return (
-    <View onTouchStart={open ? editing.onTouchInside : undefined}>
-      <ListRow title={entry.exercise.name}
-        subtitle={subtitle}
-        onLongPress={() => editing.onEdit(entry)}
-        accessibilityHint="Long-press to edit"
-        first={first}
-        last={last && !open}
-        accessory={(
-          <DragHandle label={entry.exercise.name}
-            onLongPress={() => editing.onEdit(entry)} />
-        )} />
+    <View onTouchStart={editing.onTouchInside}>
+      <DragArea>
+        <ListRow title={entry.exercise.name}
+          subtitle={subtitle}
+          onPress={() => editing.onTap(entry)}
+          accessibilityHint={open ? "Tap to close, hold to drag" : "Tap to edit, hold to drag"}
+          accessibilityActions={drag?.actions}
+          onAccessibilityAction={drag?.onAction}
+          first={first}
+          last={last && !open}
+          accessory={<DragHandle />} />
+      </DragArea>
       {open && (
         <View className={`gap-3 px-4 pb-2 pt-3 ${rowSurfaceClass({ last })}`}>
           <View className="flex-row gap-3">

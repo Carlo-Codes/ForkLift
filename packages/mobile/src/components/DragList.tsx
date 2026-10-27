@@ -6,9 +6,7 @@ import { View } from "react-native";
 import type {
   AccessibilityActionEvent, AccessibilityActionInfo, LayoutChangeEvent
 } from "react-native";
-import {
-  GestureDetector, useCompetingGestures, useLongPressGesture, usePanGesture
-} from "react-native-gesture-handler";
+import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import type { PanGesture } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle, useSharedValue, withTiming
@@ -19,20 +17,16 @@ import { scheduleOnRN } from "react-native-worklets";
 import { AppIcon } from "./AppIcon";
 
 import {
-  dropIndex, moveItem, settleOffset, shiftOf
+  dragEnd, dropIndex, moveItem, settleOffset, shiftOf
 } from "@/dragOrder";
 
-// How a drag and a press share a row (all in points and milliseconds):
-// - A drag handle starts a drag once the finger moves DRAG_SLOP, well inside
-//   the ~10pt a scroll view waits before it scrolls, so the handle wins.
-// - A handle held still for LONG_PRESS_MS is a long-press instead (React
-//   Native's own long-press delay), as on the rest of the row.
-// - A tab row scrolls sideways, the way its tabs are dragged, so a tab lifts
-//   for dragging only once held still for HOLD_TO_DRAG_MS; moving sooner
-//   scrolls. Let go without moving TAP_SLOP and it's a long-press.
+// How a drag, a scroll and a tap share an item (in points and milliseconds):
+// - Lists scroll the same way their items are dragged, so an item lifts for
+//   dragging only once held still for HOLD_TO_DRAG_MS; moving sooner scrolls,
+//   and letting go sooner is a tap.
+// - Let a lifted item go without moving TAP_SLOP and it's a hold release (the
+//   list's onHoldRelease, if any), not a drop.
 // - A finger that moves less than TAP_SLOP still counts as a tap.
-export const DRAG_SLOP = 4;
-export const LONG_PRESS_MS = 500;
 export const HOLD_TO_DRAG_MS = 300;
 export const TAP_SLOP = 10;
 
@@ -44,7 +38,7 @@ const MOVE_MS = 150;
 // Plan editor) tells the outer one too.
 export const DragScrollContext = createContext<(dragging: boolean) => void>(() => undefined);
 
-// The item a DragHandle drags, and its moves for screen readers.
+// The item a DragArea drags, and its moves for screen readers.
 interface DragItemValue {
   gesture: PanGesture;
   actions: AccessibilityActionInfo[];
@@ -84,18 +78,17 @@ interface DragListProps<T> {
   horizontal?: boolean;
   // Between items, in points.
   gap?: number;
-  // "move": a DragHandle in each item drags it straight away. "hold": the
-  // whole item drags once held still (for a list that scrolls the same way).
-  startOn?: "move" | "hold";
-  // An item held and let go without moving ("hold" lists): its long-press.
+  // An item held and let go without moving: its long-press, if it has one.
   onHoldRelease?: (item: T) => void;
   enabled?: boolean;
 }
 
-// A list whose items are dragged into a new order: the others make way while
-// an item is dragged, and onReorder saves the order it's dropped in.
+// A list whose items are held and dragged into a new order: the others make
+// way while an item is dragged, and onReorder saves the order it's dropped in.
+// Each item is held from the DragArea it renders: the whole row, say, or only
+// a Superset's header.
 export function DragList<T>({
-  data, keyOf, renderItem, onReorder, horizontal = false, gap = 0, startOn = "move", onHoldRelease, enabled = true
+  data, keyOf, renderItem, onReorder, horizontal = false, gap = 0, onHoldRelease, enabled = true
 }: DragListProps<T>) {
   const notifyScroll = use(DragScrollContext);
 
@@ -259,7 +252,6 @@ export function DragList<T>({
           handlers={handlers}
           horizontal={horizontal}
           gap={gap}
-          startOn={startOn}
           enabled={enabled}>
           {renderItem(item, index)}
         </DragItem>
@@ -289,13 +281,12 @@ interface DragItemProps {
   handlers: DragHandlers;
   horizontal: boolean;
   gap: number;
-  startOn: "move" | "hold";
   enabled: boolean;
   children: ReactNode;
 }
 
 function DragItem({
-  itemKey, index, count, shared, handlers, horizontal, gap, startOn, enabled, children
+  itemKey, index, count, shared, handlers, horizontal, gap, enabled, children
 }: DragItemProps) {
   const {
     from, to, offset, sizes, wandered, token
@@ -310,14 +301,9 @@ function DragItem({
   // end the drag and let the scroll view move again.
   useEffect(() => () => lost(itemKey), [ lost, itemKey ]);
 
-  const hold = startOn === "hold";
-
-  // The worklets plugin can't take a spread in a gesture's config, so both
-  // activation settings are always given, one of them undefined.
   const pan = usePanGesture({
     enabled,
-    activateAfterLongPress: hold ? HOLD_TO_DRAG_MS : undefined,
-    minDistance: hold ? undefined : DRAG_SLOP,
+    activateAfterLongPress: HOLD_TO_DRAG_MS,
     onActivate: () => {
       "worklet";
 
@@ -345,8 +331,13 @@ function DragItem({
 
       const current = token.get();
 
+      const end = dragEnd({
+        canceled: event.canceled,
+        wandered: wandered.get()
+      });
+
       // Interrupted (e.g. by the system): back to where it was, unchanged.
-      if (event.canceled) {
+      if (end === "cancel") {
         offset.set(withTiming(0, { duration: MOVE_MS }, finished => {
           if (finished && token.get() === current) {
             scheduleOnRN(cancel, current);
@@ -356,7 +347,7 @@ function DragItem({
         return;
       }
 
-      if (hold && !wandered.get()) {
+      if (end === "holdRelease") {
         scheduleOnRN(holdRelease, index, current);
 
         return;
@@ -428,13 +419,7 @@ function DragItem({
     <DragItemContext value={item}>
       <Animated.View style={style}
         onLayout={onLayout}>
-        {startOn === "hold" ?
-          (
-            <GestureDetector gesture={pan}>
-              <View>{children}</View>
-            </GestureDetector>
-          ) :
-          children}
+        {children}
       </Animated.View>
     </DragItemContext>
   );
@@ -446,37 +431,33 @@ export function useDragActions(): Pick<DragItemValue, "actions" | "onAction"> | 
   return use(DragItemContext);
 }
 
-// The grip that drags the item around it in a "move" list. Held still, it's
-// a long-press instead (e.g. opening the row's editor).
-export function DragHandle({ label, onLongPress }: { label: string; onLongPress?: () => void }) {
+// Where the item around it is held to drag: all of it, or a part (a
+// Superset's header). Taps inside still work, and moving before the hold
+// scrolls the list. Screen readers move the item with useDragActions instead.
+export function DragArea({ children }: { children: ReactNode }) {
   const item = use(DragItemContext);
 
   if (!item) {
-    throw new Error("DragHandle must be used inside a DragList item");
+    throw new Error("DragArea must be used inside a DragList item");
   }
 
-  const longPress = useLongPressGesture({
-    enabled: Boolean(onLongPress),
-    minDuration: LONG_PRESS_MS,
-    maxDistance: DRAG_SLOP,
-    runOnJS: true,
-    onActivate: () => onLongPress?.()
-  });
-
-  const gesture = useCompetingGestures(item.gesture, longPress);
-
   return (
-    <GestureDetector gesture={gesture}>
-      <View className="min-h-touch min-w-touch items-center justify-center"
-        accessible
-        accessibilityLabel={`Reorder ${label}`}
-        accessibilityHint="Drag to move"
-        accessibilityActions={item.actions}
-        onAccessibilityAction={item.onAction}>
-        <AppIcon name="reorder-three"
-          color="faint"
-          size={22} />
-      </View>
+    <GestureDetector gesture={item.gesture}>
+      <View>{children}</View>
     </GestureDetector>
+  );
+}
+
+// The grip drawn on an item that's held to drag. It's a hint only: the hold
+// starts anywhere on the item's DragArea. Screen readers skip it.
+export function DragHandle() {
+  return (
+    <View className="min-h-touch min-w-touch items-center justify-center"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants">
+      <AppIcon name="reorder-three"
+        color="faint"
+        size={22} />
+    </View>
   );
 }

@@ -13,7 +13,7 @@ interface BlockItemProps {
 
 // One Block of the selected Workout in the Plan editor, an item of its
 // DragList: a single Exercise Entry as a row, or a Superset as a bordered
-// group. Either's drag handle moves the whole Block.
+// group. Holding the row, or the Superset's header, moves the whole Block.
 export function BlockItem({
   block, onSetRoundRest, onReorderEntries, onAddToSuperset
 }: BlockItemProps) {
