@@ -5,7 +5,7 @@ import {
   getActivePlan, getNextWorkout, listWorkouts
 } from "@forklift/core";
 
-import { AppText } from "@/components/AppText";
+import { EmptyState } from "@/components/EmptyState";
 import { ListRow, rowPosition } from "@/components/ListRow";
 import { Screen } from "@/components/Screen";
 import { startWorkout } from "@/startWorkout";
@@ -25,9 +25,11 @@ export default function ChooseWorkoutScreen() {
       <FlatList
         data={workouts}
         keyExtractor={w => w.id}
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="p-4"
         ListEmptyComponent={(
-          <AppText className="text-muted">The Active Plan has no workouts yet.</AppText>
+          <EmptyState icon="calendar-outline"
+            message="The Active Plan has no workouts yet." />
         )}
         renderItem={({ item, index }) => (
           <ListRow title={item.name}

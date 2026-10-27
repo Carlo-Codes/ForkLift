@@ -1,15 +1,22 @@
-import { router, useLocalSearchParams } from "expo-router";
+import {
+  router, Stack, useLocalSearchParams
+} from "expo-router";
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { getSessionDetail, getSettings } from "@forklift/core";
-import type { SessionDetail } from "@forklift/core";
+import type { SessionDetail, SessionDetailEntry } from "@forklift/core";
+import type { Unit } from "@forklift/db/client";
 
 import { AppButton } from "@/components/AppButton";
+import { AppIcon } from "@/components/AppIcon";
 import { AppText } from "@/components/AppText";
 import { Card } from "@/components/Card";
+import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
-import { formatDate, formatSet } from "@/format";
+import {
+  formatDate, formatDuration, formatSet
+} from "@/format";
 
 function loadDetail(id: string): SessionDetail | undefined {
   try {
@@ -19,7 +26,44 @@ function loadDetail(id: string): SessionDetail | undefined {
   }
 }
 
-// One past Session: every Logged Set, by Block and Exercise Entry.
+// One Exercise Entry's Logged Sets; its name opens the Exercise's history.
+function EntrySets({
+  entry, unit, first
+}: { entry: SessionDetailEntry; unit: Unit; first: boolean }) {
+  return (
+    <View className={first ? undefined : "border-t border-separator"}>
+      <AppButton className="min-h-touch flex-row items-center gap-2 pl-4 pr-2"
+        accessibilityRole="link"
+        accessibilityHint="Show this exercise's history"
+        onPress={() => router.push({
+          pathname: "/history/exercises/[id]",
+          params: { id: entry.exerciseId }
+        })}>
+        <AppText weight="semibold"
+          className="flex-1 text-base text-ink">
+          {entry.exerciseName}
+        </AppText>
+        <AppIcon name="chevron-forward"
+          color="faint"
+          size={18} />
+      </AppButton>
+      <View className="gap-1 px-4 pb-3">
+        {entry.sets.map(set => (
+          <View key={set.round}
+            className="flex-row gap-3">
+            <AppText className="w-12 text-sm text-muted">Set {set.round}</AppText>
+            <AppText className={set.skipped ? "text-faint" : "text-ink"}>
+              {set.skipped ? "Skipped" : formatSet(set.reps, set.weight, unit)}
+            </AppText>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// One past Session: every Logged Set, by Block and Exercise Entry. A Superset
+// is a bordered group, as in the Plan editor.
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ detail ] = useState(() => loadDetail(id));
@@ -27,47 +71,42 @@ export default function SessionDetailScreen() {
 
   if (!detail) {
     return (
-      <Screen className="items-center justify-center p-6">
-        <AppText className="text-muted">This session no longer exists.</AppText>
+      <Screen className="justify-center">
+        <EmptyState icon="alert-circle-outline"
+          message="This session no longer exists." />
       </Screen>
     );
   }
 
   return (
     <Screen>
-      <ScrollView contentContainerClassName="gap-4 p-4">
-        <AppText weight="semibold"
-          className="text-xl text-ink">
-          {detail.workoutName} · {formatDate(detail.startedAt)}
+      <Stack.Screen options={{ title: detail.workoutName }} />
+      <ScrollView contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-4 p-4">
+        <AppText className="text-muted">
+          {formatDate(detail.startedAt)} · {formatDuration(detail.startedAt, detail.finishedAt)}
         </AppText>
-        {detail.blocks.map((entries, b) => (
-          <Card key={b}
-            className="gap-3 p-4">
-            {entries.length > 1 && <AppText className="text-sm text-accent">Superset</AppText>}
-            {entries.map(entry => (
-              <View key={entry.exerciseEntryId}
-                className="gap-1">
-                <AppButton accessibilityRole="link"
-                  accessibilityHint="Show this exercise's history"
-                  onPress={() => router.push({
-                    pathname: "/history/exercises/[id]",
-                    params: { id: entry.exerciseId }
-                  })}>
-                  <AppText weight="semibold"
-                    className="text-ink">
-                    {entry.exerciseName}
-                  </AppText>
-                </AppButton>
-                {entry.sets.map(set => (
-                  <AppText key={set.round}
-                    className={set.skipped ? "text-faint" : "text-muted"}>
-                    Set {set.round}: {set.skipped ? "skipped" : formatSet(set.reps, set.weight, unit)}
-                  </AppText>
-                ))}
+        {detail.blocks.map((entries, b) => {
+          const sets = entries.map((entry, e) => (
+            <EntrySets key={entry.exerciseEntryId}
+              entry={entry}
+              unit={unit}
+              first={e === 0} />
+          ));
+
+          return entries.length > 1 ?
+            (
+              <View key={b}
+                className="overflow-hidden rounded-2xl border-2 border-accent-soft bg-surface">
+                <AppText weight="semibold"
+                  className="bg-accent-soft px-4 py-2 text-accent">
+                  Superset
+                </AppText>
+                {sets}
               </View>
-            ))}
-          </Card>
-        ))}
+            ) :
+              <Card key={b}>{sets}</Card>;
+        })}
       </ScrollView>
     </Screen>
   );

@@ -1,10 +1,12 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
-import { router, useLocalSearchParams } from "expo-router";
+import {
+  router, Stack, useLocalSearchParams
+} from "expo-router";
 import {
   useEffect, useRef, useState
 } from "react";
 import {
-  Alert, Switch, Vibration, View
+  Alert, Pressable, ScrollView, Switch, Vibration, View
 } from "react-native";
 
 import {
@@ -15,11 +17,15 @@ import type { Unit } from "@forklift/db/client";
 
 import { AppButton } from "@/components/AppButton";
 import { AppIcon } from "@/components/AppIcon";
+import type { IconName } from "@/components/AppIcon";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
+import { Card } from "@/components/Card";
+import { Badge } from "@/components/Chip";
+import { EmptyState } from "@/components/EmptyState";
 import { Screen } from "@/components/Screen";
 import {
-  formatSet, formatSets, formatSupersetPosition, toNumber
+  formatCountdown, formatSet, formatSets, formatSupersetPosition, toNumber
 } from "@/format";
 import { useThemeColors } from "@/theme";
 
@@ -34,30 +40,24 @@ function loadStep(id: string): SessionStep | undefined {
   }
 }
 
-function formatCountdown(ms: number): string {
-  const seconds = Math.max(0, Math.ceil(ms / 1000));
-
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
 function NextUp({ set, unit }: { set?: SessionSet; unit: Unit }) {
   return (
-    <AppText className="text-center text-lg text-muted">
+    <AppText className="text-center text-muted">
       {set ? `Next: ${set.exerciseName} ${formatSet(set.targetReps, set.targetWeight, unit)}` : "Last set"}
     </AppText>
   );
 }
 
 // Increase Next Time for one Exercise Entry: raises its target weight by its
-// Weight Step when the Session ends.
+// Weight Step when the Session ends. One row of a card.
 function IncreaseToggle({
-  label, on, onChange
-}: { label: string; on: boolean; onChange: (on: boolean) => void }) {
+  label, on, onChange, first = true
+}: { label: string; on: boolean; onChange: (on: boolean) => void; first?: boolean }) {
   const colors = useThemeColors();
 
   return (
-    <View className="flex-row items-center justify-center gap-3">
-      <AppText className="text-lg text-muted">{label}</AppText>
+    <View className={`min-h-touch flex-row items-center gap-3 px-4 py-1${first ? "" : " border-t border-separator"}`}>
+      <AppText className="flex-1 text-ink">{label}</AppText>
       <Switch value={on}
         trackColor={{ true: colors.accent }}
         accessibilityLabel={label}
@@ -66,50 +66,68 @@ function IncreaseToggle({
   );
 }
 
-// The ⋯ menu: skip this set, skip the rest of this exercise, or finish early,
-// with children (every entry's Increase Next Time toggle) shown above.
-function WorkoutMenu({
-  onSkipSet, onSkipExercise, onFinish, children
-}: { onSkipSet: () => void; onSkipExercise: () => void; onFinish: () => void; children?: React.ReactNode }) {
-  const [ open, setOpen ] = useState(false);
+// One action in the ⋯ menu.
+function MenuItem({
+  icon, label, onPress
+}: { icon: IconName; label: string; onPress: () => void }) {
+  return (
+    <AppButton className="min-h-touch flex-row items-center gap-3 border-t border-separator px-4"
+      accessibilityRole="menuitem"
+      onPress={onPress}>
+      <AppIcon name={icon}
+        color="accent"
+        size={20} />
+      <AppText className="text-ink">{label}</AppText>
+    </AppButton>
+  );
+}
 
+// The ⋯ menu, opened from the header: skip this set, skip the rest of this
+// exercise, or finish early, with children (every entry's Increase Next Time
+// toggle) above. A card over the screen; tapping outside it closes it.
+function WorkoutMenu({
+  onClose, onSkipSet, onSkipExercise, onFinish, children
+}: {
+  onClose: () => void;
+  onSkipSet: () => void;
+  onSkipExercise: () => void;
+  onFinish: () => void;
+  children?: React.ReactNode;
+}) {
   const choose = (action: () => void) => () => {
-    setOpen(false);
+    onClose();
     action();
   };
 
   return (
-    <View className="items-end gap-2">
-      <AppButton className="min-h-touch min-w-touch items-center justify-center"
+    <View className="absolute inset-0 items-end p-4">
+      <Pressable className="absolute inset-0"
         accessibilityRole="button"
-        accessibilityLabel="Workout options"
-        onPress={() => setOpen(o => !o)}>
-        <AppIcon name="ellipsis-horizontal"
-          size={26} />
-      </AppButton>
-      {open && (
-        <View className="gap-2">
+        accessibilityLabel="Close workout options"
+        onPress={onClose} />
+      <Card className="w-80 max-w-full"
+        style={{ maxHeight: "90%" }}
+        accessibilityViewIsModal>
+        <ScrollView>
           {children}
-          <AppButton variant="secondary"
-            onPress={choose(onSkipSet)}>
-            Skip set
-          </AppButton>
-          <AppButton variant="secondary"
-            onPress={choose(onSkipExercise)}>
-            Skip exercise
-          </AppButton>
-          <AppButton variant="secondary"
-            onPress={choose(onFinish)}>
-            Finish workout
-          </AppButton>
-        </View>
-      )}
+          <MenuItem icon="play-skip-forward-outline"
+            label="Skip set"
+            onPress={choose(onSkipSet)} />
+          <MenuItem icon="play-forward-outline"
+            label="Skip exercise"
+            onPress={choose(onSkipExercise)} />
+          <MenuItem icon="flag-outline"
+            label="Finish workout"
+            onPress={choose(onFinish)} />
+        </ScrollView>
+      </Card>
     </View>
   );
 }
 
 // Workout Mode: the current set, Done, the rest countdown and what's next. The
-// order of sets and the rest due all come from @forklift/core.
+// order of sets and the rest due all come from @forklift/core. It sits on the
+// root stack, so it has no tab bar, only a small header with Back.
 export default function WorkoutModeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ step, setStep ] = useState(() => loadStep(id));
@@ -120,6 +138,7 @@ export default function WorkoutModeScreen() {
   // What the lifter actually did, while they're adjusting the numbers.
   const [ actual, setActual ] = useState<{ reps: string; weight: string }>();
   const [ error, setError ] = useState<string>();
+  const [ menuOpen, setMenuOpen ] = useState(false);
   const restEndsAt = step?.rest?.endsAt.getTime();
   const resting = restEndsAt !== undefined && restEndsAt > now;
   const setsLeft = step?.current !== undefined;
@@ -170,8 +189,9 @@ export default function WorkoutModeScreen() {
 
   if (!step) {
     return (
-      <Screen className="items-center justify-center p-6">
-        <AppText className="text-muted">This session no longer exists.</AppText>
+      <Screen className="justify-center">
+        <EmptyState icon="alert-circle-outline"
+          message="This session no longer exists." />
       </Screen>
     );
   }
@@ -239,19 +259,37 @@ export default function WorkoutModeScreen() {
 
   // Every entry's toggle, so any of them can be flipped at any time, also
   // before finishing early.
-  const increaseToggles = (
-    <View className="gap-2">
-      {step.session.blocks.flat().map(entry => (
-        <IncreaseToggle key={entry.exerciseEntryId}
-          label={`Increase ${entry.exerciseName} next time`}
-          on={increaseOn(entry.exerciseEntryId)}
-          onChange={toggleIncrease(entry.exerciseEntryId)} />
-      ))}
-    </View>
+  const increaseToggles = step.session.blocks.flat().map((entry, i) => (
+    <IncreaseToggle key={entry.exerciseEntryId}
+      label={`Increase ${entry.exerciseName} next time`}
+      on={increaseOn(entry.exerciseEntryId)}
+      onChange={toggleIncrease(entry.exerciseEntryId)}
+      first={i === 0} />
+  ));
+
+  // The small header keeps Back; while there are sets left it also has the ⋯
+  // button, whose menu sits over the screen.
+  const header = (
+    <Stack.Screen options={{
+      headerRight: current ?
+        () => (
+          <AppButton className="min-h-touch min-w-touch items-center justify-center"
+            accessibilityRole="button"
+            accessibilityLabel="Workout options"
+            accessibilityState={{ expanded: menuOpen }}
+            onPress={() => setMenuOpen(open => !open)}>
+            <AppIcon name="ellipsis-horizontal-circle"
+              color="accent"
+              size={26} />
+          </AppButton>
+        ) :
+        undefined
+    }} />
   );
 
-  const menu = (
-    <WorkoutMenu onSkipSet={advance(() => skipSet(id))}
+  const menu = menuOpen && current && (
+    <WorkoutMenu onClose={() => setMenuOpen(false)}
+      onSkipSet={advance(() => skipSet(id))}
       onSkipExercise={advance(() => skipExercise(id))}
       onFinish={finishEarly}>
       {increaseToggles}
@@ -260,15 +298,20 @@ export default function WorkoutModeScreen() {
 
   if (!current) {
     return (
-      <Screen className="justify-center gap-6 p-6">
-        <AppText weight="semibold"
-          className="text-center text-2xl text-ink">
-          All sets done
-        </AppText>
-        {increaseToggles}
+      <Screen className="justify-center gap-6 p-4">
+        {header}
+        <View className="items-center gap-2">
+          <AppIcon name="checkmark-circle"
+            color="accent"
+            size={56} />
+          <AppText weight="semibold"
+            className="text-center text-3xl text-ink">
+            All sets done
+          </AppText>
+        </View>
+        <Card>{increaseToggles}</Card>
         {error && <AppText className="text-center text-danger">{error}</AppText>}
         <AppButton variant="primary"
-          className="py-6"
           onPress={finish}>
           Finish workout
         </AppButton>
@@ -278,21 +321,28 @@ export default function WorkoutModeScreen() {
 
   if (resting) {
     return (
-      <Screen className="justify-center gap-6 p-6">
-        {menu}
-        <AppText className="text-center text-lg text-muted">Rest</AppText>
-        <AppText weight="semibold"
-          className="text-center text-7xl text-ink"
-          accessibilityLiveRegion="polite">
-          {formatCountdown(restEndsAt - now)}
-        </AppText>
-        <NextUp set={current}
-          unit={unit} />
+      <Screen className="justify-center gap-6 p-4">
+        {header}
+        <Card className="items-center gap-2 px-4 py-8">
+          <AppText weight="semibold"
+            className="text-sm uppercase text-muted">
+            Rest
+          </AppText>
+          <AppText weight="semibold"
+            className="text-7xl text-ink"
+            style={{ fontVariant: [ "tabular-nums" ] }}
+            accessibilityLiveRegion="polite">
+            {formatCountdown(restEndsAt - now)}
+          </AppText>
+          <NextUp set={current}
+            unit={unit} />
+        </Card>
         <AppButton variant="secondary"
           className="self-center"
           onPress={advance(() => skipRest(id))}>
           Skip rest
         </AppButton>
+        {menu}
       </Screen>
     );
   }
@@ -306,34 +356,35 @@ export default function WorkoutModeScreen() {
   });
 
   return (
-    <Screen className="justify-between gap-6 p-6">
-      <View className="gap-2">
-        {menu}
-        {current.superset && (
+    <Screen className="justify-between gap-6 p-4">
+      {header}
+      <View className="gap-4">
+        <View className="items-center gap-1">
+          {current.superset && (
+            <Badge>{formatSupersetPosition(current.setNumber, current.superset)}</Badge>
+          )}
           <AppText weight="semibold"
-            className="text-center text-lg text-accent">
-            {formatSupersetPosition(current.setNumber, current.superset)}
+            className="text-center text-3xl text-ink">
+            {current.exerciseName}
           </AppText>
-        )}
-        <AppText weight="semibold"
-          className="text-center text-2xl text-ink">
-          {current.exerciseName}
-        </AppText>
-        <AppText className="text-center text-lg text-muted">
-          Set {current.setNumber} of {current.totalSets}
-        </AppText>
-        {step.lastTime && (
-          <AppText className="text-center text-muted">
-            Last time: {formatSets(step.lastTime.sets, unit)}
+          <AppText className="text-center text-lg text-muted">
+            Set {current.setNumber} of {current.totalSets}
           </AppText>
-        )}
-        <IncreaseToggle label="Increase next time"
-          on={increaseOn(current.exerciseEntryId)}
-          onChange={toggleIncrease(current.exerciseEntryId)} />
+          {step.lastTime && (
+            <AppText className="text-center text-muted">
+              Last time: {formatSets(step.lastTime.sets, unit)}
+            </AppText>
+          )}
+        </View>
+        <Card>
+          <IncreaseToggle label="Increase next time"
+            on={increaseOn(current.exerciseEntryId)}
+            onChange={toggleIncrease(current.exerciseEntryId)} />
+        </Card>
       </View>
       {actual ?
         (
-          <View className="flex-row items-center justify-center gap-3">
+          <Card className="flex-row items-center justify-center gap-3 px-4 py-6">
             <AppTextInput className={INPUT_CLASS}
               keyboardType="decimal-pad"
               accessibilityLabel={`Weight (${unit})`}
@@ -345,10 +396,11 @@ export default function WorkoutModeScreen() {
               accessibilityLabel="Reps"
               selectTextOnFocus
               {...field("reps")} />
-          </View>
+          </Card>
         ) :
         (
-          <AppButton accessibilityRole="button"
+          <AppButton className="rounded-2xl bg-surface px-4 py-6"
+            accessibilityRole="button"
             accessibilityHint="Change the weight or reps you actually did"
             onPress={() => setActual({
               reps: String(current.targetReps),
@@ -364,16 +416,16 @@ export default function WorkoutModeScreen() {
       <View className="gap-4">
         {error && <AppText className="text-center text-danger">{error}</AppText>}
         <AppButton variant="primary"
-          className="py-6"
           onPress={done}>
           <AppText weight="semibold"
-            className="text-2xl text-on-accent">
+            className="text-lg text-on-accent">
             Done
           </AppText>
         </AppButton>
         <NextUp set={next}
           unit={unit} />
       </View>
+      {menu}
     </Screen>
   );
 }

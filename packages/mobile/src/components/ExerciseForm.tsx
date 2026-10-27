@@ -9,6 +9,7 @@ import type {
 import { AppButton } from "./AppButton";
 import { AppText } from "./AppText";
 import { AppTextInput } from "./AppTextInput";
+import { Card } from "./Card";
 import { Chip } from "./Chip";
 import { Screen } from "./Screen";
 
@@ -21,14 +22,15 @@ interface ExerciseFormProps {
   children?: React.ReactNode;
 }
 
+// A labelled group of the form on its own card.
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View className="gap-1">
+    <View className="gap-2">
       <AppText weight="semibold"
-        className="text-ink">
+        className="px-1 text-sm text-muted">
         {label}
       </AppText>
-      {children}
+      <Card className="p-3">{children}</Card>
     </View>
   );
 }
@@ -64,8 +66,10 @@ export function ExerciseForm({
 
   return (
     <Screen>
-      <ScrollView contentContainerClassName="gap-4 p-4"
-        keyboardShouldPersistTaps="handled">
+      <ScrollView contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="gap-5 p-4"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         <Field label="Name">
           <AppTextInput
             value={name}
