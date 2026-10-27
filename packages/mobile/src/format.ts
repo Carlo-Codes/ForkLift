@@ -30,6 +30,11 @@ export function formatSets(sets: Pick<HistorySet, "reps" | "weight">[], unit: Un
   }).join(", ") + (sets.at(-1)?.weight === 0 ? " reps" : "");
 }
 
+// e.g. "Push, Pull and Legs".
+export function formatList(names: readonly string[]): string {
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names.join("");
+}
+
 // e.g. "Sun 25 Oct 2026".
 export function formatDate(date: Date): string {
   return date.toLocaleDateString(undefined, {
@@ -105,7 +110,7 @@ const MONTHS = [
 
 // A YYYY-MM-DD calendar day as "5 Jan 2026", or "5 Jan" without its year. Read
 // from the text, not a Date, so no time zone can shift it (ADR-0006).
-function formatCalendarDay(day: string, withYear = true): string {
+export function formatCalendarDay(day: string, withYear = true): string {
   const [
     year,
     month,

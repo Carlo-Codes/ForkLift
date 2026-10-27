@@ -13,7 +13,9 @@ import {
   setActivePlan,
   updatePlan
 } from "..";
-import { createWorkout, deleteWorkout } from "#workout";
+import {
+  createPlanWithDefaultWorkouts, createWorkout, deleteWorkout, listWorkouts
+} from "#workout";
 
 const validationError = expect.objectContaining({
   statusCode: 400,
@@ -66,6 +68,36 @@ describe("plans", () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  describe("a Plan made in the Plan editor", () => {
+    it("starts with empty Push, Pull and Legs Workouts", () => {
+      const plan = createPlanWithDefaultWorkouts({ name: "PPL" });
+
+      expect(plan).toEqual(expect.objectContaining({
+        name: "PPL",
+        isActive: false
+      }));
+      expect(listWorkouts(plan.id).map(w => w.name)).toEqual([
+        "Push",
+        "Pull",
+        "Legs"
+      ]);
+    });
+
+    it("adds neither the Plan nor its Workouts without a name", () => {
+      expect(() => createPlanWithDefaultWorkouts({ name: " " })).toThrow(validationError);
+      expect(listPlans()).toEqual([]);
+    });
+
+    it("adds neither when the dates are out of order", () => {
+      expect(() => createPlanWithDefaultWorkouts({
+        name: "PPL",
+        startDate: "2026-11-02",
+        endDate: "2026-11-01"
+      })).toThrow(validationError);
+      expect(listPlans()).toEqual([]);
+    });
   });
 
   it("rejects a Plan without a name and adds nothing", () => {

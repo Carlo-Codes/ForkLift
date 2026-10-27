@@ -9,8 +9,7 @@ import { AppText } from "@/components/AppText";
 import { rowPosition, rowSurfaceClass } from "@/components/ListRow";
 import { Screen } from "@/components/Screen";
 import { formatDateTime } from "@/format";
-
-const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+import { errorMessage } from "@/errorMessage";
 
 // Changes by AI: every change the lifter's AI made through AI Access, newest
 // first, each with Undo.

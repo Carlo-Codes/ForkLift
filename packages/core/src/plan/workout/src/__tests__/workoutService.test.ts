@@ -2,6 +2,7 @@ import { setupTestDb } from "@forklift/db/server";
 import type { ApiError } from "@forklift/debug";
 
 import {
+  createNextDayWorkout,
   createWorkout,
   deleteWorkout,
   getWorkout,
@@ -40,6 +41,34 @@ describe("workouts", () => {
     createWorkout(createPlan({ name: "Other" }).id, { name: "Full Body" });
 
     expect(listWorkouts(planId).map(w => w.name)).toEqual([ "Push", "Pull" ]);
+  });
+
+  it("names a Workout added with \"+\" after its place in the Plan", () => {
+    createWorkout(planId, { name: "Push" });
+    createWorkout(planId, { name: "Pull" });
+
+    expect(createNextDayWorkout(planId).name).toBe("Day 3");
+    expect(createNextDayWorkout(planId).name).toBe("Day 4");
+    expect(listWorkouts(planId).map(w => w.name)).toEqual([
+      "Push",
+      "Pull",
+      "Day 3",
+      "Day 4"
+    ]);
+  });
+
+  it("counts every Workout for \"Day N\", even ones sharing a name", () => {
+    createWorkout(planId, { name: "Push" });
+    createWorkout(planId, { name: "Push" });
+
+    expect(createNextDayWorkout(planId).name).toBe("Day 3");
+  });
+
+  it("skips a \"Day N\" name the Plan already has", () => {
+    createWorkout(planId, { name: "Day 2" });
+
+    expect(createNextDayWorkout(planId).name).toBe("Day 3");
+    expect(createNextDayWorkout(planId).name).toBe("Day 4");
   });
 
   it("renames a Workout and rejects an empty name", () => {

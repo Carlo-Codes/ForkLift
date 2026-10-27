@@ -14,6 +14,7 @@ import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
 import { Screen } from "@/components/Screen";
 import { toNumber } from "@/format";
+import { errorMessage } from "@/errorMessage";
 
 type Targets = Pick<
   ExerciseEntryAttributes,
@@ -96,7 +97,7 @@ export default function ExerciseEntryScreen() {
       });
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     }
   };
 

@@ -2,7 +2,9 @@ import { setupTestDb } from "@forklift/db/server";
 import type { ApiError } from "@forklift/debug";
 
 import {
+  addExerciseToWorkout,
   createBlock,
+  createExerciseInWorkout,
   deleteBlock,
   getBlock,
   groupBlocks,
@@ -10,7 +12,9 @@ import {
   reorderBlocks,
   ungroupBlock
 } from "..";
-import { createExercise, deleteExercise } from "#exercise";
+import {
+  createExercise, deleteExercise, searchExercises
+} from "#exercise";
 import { setUnit } from "#setting";
 import { createPlan, deletePlan } from "#plan";
 import { createWorkout, deleteWorkout } from "#workout";
@@ -52,6 +56,68 @@ describe("blocks and exercise entries", () => {
   });
 
   afterEach(() => teardown());
+
+  describe("Add exercise in the Plan editor", () => {
+    it("adds the Exercise as a new Block at the end, with default targets", () => {
+      createBlock(workoutId, { exerciseId: rowId });
+      addExerciseToWorkout({ workoutId }, benchId);
+
+      expect(listBlocks(workoutId).map(b => b.exerciseEntries.map(e => [
+        e.exercise.name,
+        e.targetSets,
+        e.targetReps,
+        e.restSeconds
+      ]))).toEqual([
+        [
+          [
+            "Barbell Row",
+            3,
+            10,
+            90
+          ]
+        ],
+        [
+          [
+            "Bench Press",
+            3,
+            10,
+            90
+          ]
+        ]
+      ]);
+    });
+
+    it("adds the Exercise to the Superset it names", () => {
+      const block = createBlock(workoutId, { exerciseId: rowId });
+
+      addExerciseToWorkout({
+        workoutId,
+        blockId: block.id
+      }, benchId);
+
+      expect(getBlock(block.id).exerciseEntries.map(e => e.exercise.name)).toEqual([ "Barbell Row", "Bench Press" ]);
+    });
+
+    it("creates a new Exercise and adds it in one go", () => {
+      const block = createExerciseInWorkout({ workoutId }, {
+        name: "Landmine Press",
+        muscleGroups: [ "shoulders" ]
+      });
+
+      expect(block.exerciseEntries.map(e => e.exercise.name)).toEqual([ "Landmine Press" ]);
+      expect(searchExercises("Landmine").map(e => e.name)).toEqual([ "Landmine Press" ]);
+    });
+
+    it("adds neither the Exercise nor the Block when adding to the Workout fails", () => {
+      deleteWorkout(workoutId);
+
+      expect(() => createExerciseInWorkout({ workoutId }, {
+        name: "Landmine Press",
+        muscleGroups: [ "shoulders" ]
+      })).toThrow(notFoundError);
+      expect(searchExercises("Landmine")).toEqual([]);
+    });
+  });
 
   it("fills a Block's Exercise Entry with default targets", () => {
     const block = createBlock(workoutId, { exerciseId: benchId });

@@ -61,7 +61,7 @@ function EntrySets({
 }
 
 // One past Session: every Logged Set, by Block and Exercise Entry. A Superset
-// is a bordered group, as in the Workout editor's SupersetGroup.
+// is a bordered group, as in the Plan editor's SupersetGroup.
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ detail ] = useState(() => loadDetail(id));
