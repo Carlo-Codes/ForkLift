@@ -105,7 +105,7 @@ const MONTHS = [
 
 // A YYYY-MM-DD calendar day as "5 Jan 2026", or "5 Jan" without its year. Read
 // from the text, not a Date, so no time zone can shift it (ADR-0006).
-function formatCalendarDay(day: string, withYear = true): string {
+export function formatCalendarDay(day: string, withYear = true): string {
   const [
     year,
     month,

@@ -24,7 +24,7 @@ interface SupersetGroupProps {
   onMoveDown?: () => void;
 }
 
-// A Superset in the Workout editor: its entries shown as one group, reordered
+// A Superset in the Plan editor: its entries shown as one bordered group, reordered
 // within it, with the group itself moved like any other Block.
 export function SupersetGroup({
   block, unit, onPressEntry, onMoveEntry, onAddEntry, onUngroup, onMoveUp, onMoveDown

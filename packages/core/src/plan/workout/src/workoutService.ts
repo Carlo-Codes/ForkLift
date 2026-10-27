@@ -8,6 +8,7 @@ import type {
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { nextPosition, orderOrThrow } from "#utils/position";
+import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 import type { Actor } from "#aiChange/aiChangeRecorder";
 import { write } from "#aiChange/aiChangeRecorder";
@@ -66,6 +67,21 @@ export function createWorkout(
       position: nextPosition(listWorkouts(planId, t))
     }, t);
   }, (workout, t) => `Added Workout "${workout.name}" to Plan "${getPlan(planId, t).name}"`);
+}
+
+// The Workout "+" adds in the Plan editor, named "Day N" for the place it takes,
+// or the next N free when the Plan already has a Workout of that name.
+export function createNextDayWorkout(planId: string, tx?: TransactionType): WorkoutAttributes {
+  return inTransaction(tx, t => {
+    const names = new Set(listWorkouts(planId, t).map(w => w.name));
+    let day = names.size + 1;
+
+    while (names.has(`Day ${day}`)) {
+      day++;
+    }
+
+    return createWorkout(planId, { name: `Day ${day}` }, "lifter", t);
+  });
 }
 
 export function updateWorkout(

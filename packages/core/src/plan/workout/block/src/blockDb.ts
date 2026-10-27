@@ -12,7 +12,7 @@ import type {
 
 import { deleteExerciseEntryDb, getAllExerciseEntryByQuery } from "#exerciseEntry/exerciseEntryDb";
 
-// A Block as the Workout editor shows it: its live Exercise Entries in order,
+// A Block as the Plan editor shows it: its live Exercise Entries in order,
 // each with its Exercise (even a soft-deleted one, so the entry still has a name).
 export type BlockWithEntries = BlockAttributes & {
   exerciseEntries: (ExerciseEntryAttributes & { exercise: ExerciseAttributes })[];

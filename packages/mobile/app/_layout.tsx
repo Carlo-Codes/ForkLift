@@ -23,6 +23,12 @@ void SplashScreen.preventAutoHideAsync();
 // A screen opened by a link still has the tabs under it to go back to.
 export const unstable_settings = { initialRouteName: "(tabs)" };
 
+const planEditorOptions = {
+  title: "",
+  headerLargeTitle: false,
+  headerBackTitle: "Plans"
+};
+
 const ALL_EDGES = [
   "top",
   "bottom",
@@ -101,12 +107,11 @@ export default function RootLayout() {
           options={{ title: "Add Exercise" }} />
         <Stack.Screen name="exercises/[id]"
           options={{ title: "Exercise" }} />
+        {/* The Plan editor: its name is the large title, edited in place. */}
         <Stack.Screen name="plans/new"
-          options={{ title: "New Plan" }} />
+          options={planEditorOptions} />
         <Stack.Screen name="plans/[id]"
-          options={{ title: "Plan" }} />
-        <Stack.Screen name="workouts/[id]"
-          options={{ title: "Workout" }} />
+          options={planEditorOptions} />
         <Stack.Screen name="workouts/add-exercise"
           options={{ title: "Add Exercise" }} />
         <Stack.Screen name="entries/[id]"
