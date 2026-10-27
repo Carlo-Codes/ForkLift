@@ -12,7 +12,7 @@ import { ApiError, createDebugger } from "@forklift/debug";
 
 import { toCalendarDay } from "#utils/calendarDay";
 import {
-  DEFAULT_PLAN_WEEKS, planToDate, planWeeks, planWeeksSchema
+  DEFAULT_PLAN_WEEKS, MAX_PLAN_WEEKS, planToDate, planWeeks, planWeeksSchema
 } from "#utils/planWeeks";
 import { nextPosition } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
@@ -237,12 +237,14 @@ export function setPlanStart(id: string, day: string | null, tx?: TransactionTyp
 }
 
 // A new length in weeks moves To; the start date stays. A Plan needs a start
-// date to count weeks from.
+// date to count weeks from. Weeks go up to MAX_PLAN_WEEKS, or to the Plan's
+// current weeks when the AI made it longer.
 export function setPlanWeeks(id: string, weeks: number, tx?: TransactionType): PlanAttributes {
-  const valid = parseOrThrow(planWeeksSchema, weeks);
-
   return inTransaction(tx, t => {
-    const { startDate } = getPlan(id, t);
+    const plan = getPlan(id, t);
+    const current = planDateRow(plan).weeks ?? 0;
+    const valid = parseOrThrow(planWeeksSchema(Math.max(MAX_PLAN_WEEKS, current)), weeks);
+    const { startDate } = plan;
 
     if (!startDate) {
       throw new ApiError(400, "Pick a start date first", "ValidationError");

@@ -377,6 +377,19 @@ describe("plans", () => {
       expect(getPlan(undated.id).endDate).toBeNull();
     });
 
+    it("lets the lifter shorten a Plan the AI made longer than 52 weeks a week at a time", () => {
+      const { id } = createPlan({
+        name: "PPL",
+        startDate: "2026-10-27",
+        endDate: "2027-12-20"
+      }, "ai");
+
+      expect(planDateRow(getPlan(id)).weeks).toBe(60);
+      expect(() => setPlanWeeks(id, 61)).toThrow(validationError);
+      expect(setPlanWeeks(id, 59).endDate).toBe("2027-12-13");
+      expect(() => setPlanWeeks(id, 60)).toThrow(validationError);
+    });
+
     it("rejects a start date that isn't a calendar day", () => {
       const { id } = dated();
 

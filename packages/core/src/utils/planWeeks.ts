@@ -10,10 +10,14 @@ export const MAX_PLAN_WEEKS = 52;
 // date in the Plan editor without one.
 export const DEFAULT_PLAN_WEEKS = 8;
 
-// A Plan's length as the lifter picks it.
-export const planWeeksSchema = z.number().int("Weeks must be a whole number")
-  .min(1, "A plan lasts at least 1 week")
-  .max(MAX_PLAN_WEEKS, `A plan lasts at most ${MAX_PLAN_WEEKS} weeks`);
+// A Plan's length as the lifter picks it, at most maxWeeks: MAX_PLAN_WEEKS, or
+// the longer length the AI gave a Plan, so the lifter can shorten it a week at
+// a time.
+export function planWeeksSchema(maxWeeks = MAX_PLAN_WEEKS) {
+  return z.number().int("Weeks must be a whole number")
+    .min(1, "A plan lasts at least 1 week")
+    .max(maxWeeks, `A plan lasts at most ${maxWeeks} weeks`);
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dayNumber = (day: string) => Date.parse(`${day}T00:00:00Z`) / DAY_MS;
