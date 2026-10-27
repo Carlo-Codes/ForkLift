@@ -20,6 +20,7 @@ import { parseOrThrow } from "#utils/validation";
 import type { Actor } from "#aiChange/aiChangeRecorder";
 import { refuseAi, write } from "#aiChange/aiChangeRecorder";
 import { getAllWorkoutByQuery, getWorkoutByQuery } from "#workout/workoutDb";
+import { getAllSessionByQuery } from "#session/sessionDb";
 
 import {
   createPlanDb,
@@ -28,6 +29,8 @@ import {
   getPlanByQuery,
   updatePlanDb
 } from "./planDb";
+import { getPlanWeek } from "./planWeek";
+import type { PlanWeek } from "./planWeek";
 
 const debug = createDebugger("planService");
 
@@ -36,12 +39,12 @@ export function listPlans(tx?: TransactionType): PlanAttributes[] {
   return getAllPlanByQuery({ where: { deletedAt: { isNull: true } } }, tx);
 }
 
-// A Plan as the Plans list shows it. ended is true once its To date has
-// passed; the Plan keeps its place in the list (ADR-0006).
+// A Plan as the Plans list shows it, with its progress. An Ended Plan keeps
+// its place in the list (ADR-0006).
 export type PlanListItem = Pick<PlanAttributes, "id" | "name" | "isActive"> & {
   startDate: string | null;
   endDate: string | null;
-  ended: boolean;
+  progress: PlanProgress;
   workoutNames: string[];
 };
 
@@ -53,8 +56,7 @@ export function listPlanCards(today = toCalendarDay(new Date()), tx?: Transactio
     startDate: plan.startDate ?? null,
     endDate: plan.endDate ?? null,
     isActive: plan.isActive,
-    // YYYY-MM-DD strings compare in calendar order.
-    ended: !!plan.endDate && plan.endDate < today,
+    progress: progressOf(plan, today, tx),
     workoutNames: listLiveWorkouts(plan.id, tx).map(w => w.name)
   }));
 }
@@ -73,6 +75,48 @@ export function getPlan(id: string, tx?: TransactionType): PlanAttributes {
   }
 
   return plan;
+}
+
+// How far through a Plan the lifter is: its Plan Week on the day (null with
+// nothing to show), and how many Sessions of its Workouts they've finished.
+// Never Sessions out of a planned total: the Plan is a rotation, not a
+// schedule (ADR-0007).
+export interface PlanProgress {
+  planWeek: PlanWeek | null;
+  sessionsDone: number;
+}
+
+// today is a YYYY-MM-DD calendar day. Sessions of Workouts deleted since still
+// count: they're history and belong to the Plan.
+export function getPlanProgress(
+  id: string,
+  today = toCalendarDay(new Date()),
+  tx?: TransactionType
+): PlanProgress {
+  return progressOf(getPlan(id, tx), today, tx);
+}
+
+function progressOf(plan: PlanAttributes, today: string, tx?: TransactionType): PlanProgress {
+  return {
+    planWeek: getPlanWeek(plan, today),
+    sessionsDone: countFinishedSessions(plan.id, tx)
+  };
+}
+
+function countFinishedSessions(planId: string, tx?: TransactionType): number {
+  const workoutIds = getAllWorkoutByQuery({ where: { planId } }, tx).map(w => w.id);
+
+  if (workoutIds.length === 0) {
+    return 0;
+  }
+
+  return getAllSessionByQuery({
+    where: {
+      workoutId: { in: workoutIds },
+      status: "finished",
+      deletedAt: { isNull: true }
+    }
+  }, tx).length;
 }
 
 type PlanDates = Partial<Pick<PlanAttributes, "startDate" | "endDate">>;

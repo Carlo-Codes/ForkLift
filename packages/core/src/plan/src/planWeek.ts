@@ -1,0 +1,48 @@
+import type { PlanAttributes } from "@forklift/db/client";
+
+import { daysBetween, planWeeks } from "#utils/planWeeks";
+
+// Where a Plan stands on a given day, by its Plan Weeks (GLOSSARY): Week N
+// counts in 7-day steps from From, and To gives the total weeks, rounded up.
+// totalWeeks is null without both dates. It is shown only: it never chooses or
+// ends the Active Plan (ADR-0006).
+export type PlanWeek =
+  | { status: "upcoming"; daysUntilStart: number; totalWeeks: number | null }
+  | { status: "running"; week: number; totalWeeks: number | null }
+  | { status: "ended"; totalWeeks: number | null };
+
+type PlanDates = { [K in "startDate" | "endDate"]?: PlanAttributes[K] };
+
+// The Plan's week on today, a YYYY-MM-DD calendar day. Null when there's
+// nothing to show: no dates, or only a To date that hasn't passed yet.
+export function getPlanWeek({ startDate, endDate }: PlanDates, today: string): PlanWeek | null {
+  const totalWeeks = startDate && endDate ? planWeeks(startDate, endDate) : null;
+
+  // YYYY-MM-DD strings compare in calendar order.
+  if (endDate && endDate < today) {
+    return {
+      status: "ended",
+      totalWeeks
+    };
+  }
+
+  if (!startDate) {
+    return null;
+  }
+
+  const daysIn = daysBetween(startDate, today);
+
+  if (daysIn < 0) {
+    return {
+      status: "upcoming",
+      daysUntilStart: -daysIn,
+      totalWeeks
+    };
+  }
+
+  return {
+    status: "running",
+    week: Math.floor(daysIn / 7) + 1,
+    totalWeeks
+  };
+}

@@ -1,5 +1,5 @@
 import type {
-  HistorySet, HomeEntry, PlanListItem, SessionSet, SessionSummary, SupersetPosition
+  HistorySet, HomeEntry, PlanListItem, PlanProgress, PlanWeek, SessionSet, SessionSummary, SupersetPosition
 } from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
@@ -153,6 +153,44 @@ export function formatPlanDates({ startDate, endDate }: Pick<PlanListItem, "star
   }
 
   return endDate ? `Until ${formatCalendarDay(endDate)}` : "No dates";
+}
+
+// Where a Plan stands, e.g. "Week 3 of 6", "Week 3" with no To date,
+// "Starts in 5 days" or "Ended".
+export function formatPlanWeek(planWeek: PlanWeek): string {
+  switch (planWeek.status) {
+    case "upcoming":
+      return planWeek.daysUntilStart === 1 ? "Starts tomorrow" : `Starts in ${planWeek.daysUntilStart} days`;
+    case "running":
+      return `Week ${planWeek.week}${planWeek.totalWeeks === null ? "" : ` of ${planWeek.totalWeeks}`}`;
+    case "ended":
+      return "Ended";
+  }
+}
+
+// How full a Plan's progress bar is, from 0 to 1, by Plan Week: empty before
+// the start and full once Ended. Null, for no bar, while a Plan with no To
+// date runs, as it has no total to fill towards.
+export function planWeekFraction(planWeek: PlanWeek): number | null {
+  switch (planWeek.status) {
+    case "upcoming":
+      return 0;
+    case "running":
+      return planWeek.totalWeeks === null ? null : planWeek.week / planWeek.totalWeeks;
+    case "ended":
+      return 1;
+  }
+}
+
+// A Plan's progress as one line, e.g. "Week 3 of 6 · 7 sessions done". Sessions
+// done are a count, never out of a planned total (ADR-0007), and are left out
+// while there are none and the Plan hasn't started. Undefined with nothing to say.
+export function formatPlanProgress({ planWeek, sessionsDone }: PlanProgress): string | undefined {
+  const started = planWeek !== null && planWeek.status !== "upcoming";
+  const sessions = sessionsDone > 0 || started ? `${sessionsDone} ${sessionsDone === 1 ? "session" : "sessions"} done` : undefined;
+  const parts = [ planWeek && formatPlanWeek(planWeek), sessions ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" · ") : undefined;
 }
 
 // e.g. "Sun 25 Oct 2026, 14:05".
