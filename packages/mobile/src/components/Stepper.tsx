@@ -18,6 +18,8 @@ interface StepperProps {
   max: number;
   // Weights take decimals; counts and seconds don't.
   decimal?: boolean;
+  // Shows the value without letting it change, e.g. in Select mode.
+  disabled?: boolean;
   // Saved straight away on each tap of − / +, and once typing ends.
   onChange: (value: number) => void;
 }
@@ -27,7 +29,7 @@ interface StepperProps {
 // editor closing), and a field left empty goes back to the saved value. Core
 // checks what's typed, so an out-of-range number shows its error.
 export function Stepper({
-  label, value, step, min, max, decimal, onChange
+  label, value, step, min, max, decimal, disabled = false, onChange
 }: StepperProps) {
   // What the lifter is typing, while they are.
   const [ text, setText ] = useState<string>();
@@ -68,7 +70,7 @@ export function Stepper({
       <AppText className="text-sm text-muted">{label}</AppText>
       <View className="flex-row items-center gap-1">
         <AppButton variant="secondary"
-          disabled={value <= min}
+          disabled={disabled || value <= min}
           accessibilityLabel={`Decrease ${label}`}
           onPress={() => stepBy(-step)}>
           <AppIcon name="remove"
@@ -84,9 +86,10 @@ export function Stepper({
           onEndEditing={commit}
           keyboardType={decimal ? "decimal-pad" : "number-pad"}
           accessibilityLabel={label}
+          editable={!disabled}
           selectTextOnFocus />
         <AppButton variant="secondary"
-          disabled={value >= max}
+          disabled={disabled || value >= max}
           accessibilityLabel={`Increase ${label}`}
           onPress={() => stepBy(step)}>
           <AppIcon name="add"

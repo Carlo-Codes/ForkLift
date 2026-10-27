@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   DEFAULT_REST_SECONDS,
   DEFAULT_TARGET_REPS,
@@ -41,6 +43,7 @@ import {
 } from "./exerciseEntryDb";
 
 const debug = createDebugger("exerciseEntryService");
+const removedIdsSchema = z.array(z.uuid()).min(1, "Tick an Exercise Entry to remove");
 
 const rangeOf = ({ minValue, maxValue }: { minValue: number | null; maxValue: number | null }) => ({
   min: minValue ?? 0,
@@ -323,7 +326,9 @@ export function restoreExerciseEntry(
 // named entry, or none of them. Returns what restoreExerciseEntries needs to
 // undo them all at once.
 export function deleteExerciseEntries(ids: string[], tx?: TransactionType): ExerciseEntryRemoval[] {
-  return inTransaction(tx, t => ids.map(id => deleteExerciseEntry(id, "lifter", t)));
+  const entryIds = parseOrThrow(removedIdsSchema, ids);
+
+  return inTransaction(tx, t => entryIds.map(id => deleteExerciseEntry(id, "lifter", t)));
 }
 
 // Undo of deleteExerciseEntries: every entry goes back in its place (see

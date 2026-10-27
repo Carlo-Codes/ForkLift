@@ -7,6 +7,7 @@ import {
   getBlock,
   groupBlocks,
   listBlocks,
+  ungroupBlock,
   ungroupExerciseEntries
 } from "..";
 import { createExercise } from "#exercise";
@@ -112,7 +113,7 @@ describe("Select mode", () => {
       expect(layout()).toEqual([ [ "Squat", "Bench", "Row", "Curl" ], [ "Dip" ] ]);
     });
 
-    it("takes ticked entries out of a Superset, leaving the rest of it in place", () => {
+    it("takes ticked entries out of a Superset, leaving the rest of it in place and renumbered", () => {
       add("Squat");
 
       const superset = groupBlocks(workoutId, [ add("Bench").id, add("Row").id, add("Dip").id ]);
@@ -121,6 +122,32 @@ describe("Select mode", () => {
       createSuperset(workoutId, { exerciseEntryIds: [ entryOf(superset, 1), entryOf(curl) ] });
 
       expect(layout()).toEqual([ [ "Squat" ], [ "Bench", "Dip" ], [ "Row", "Curl" ] ]);
+      expect(getBlock(superset.id).exerciseEntries.map(e => e.position)).toEqual([ 0, 1 ]);
+    });
+
+    it("gives the rows a ticked Superset takes in its Round Rest", () => {
+      const squat = add("Squat", 30);
+      const superset = groupBlocks(workoutId, [ add("Bench", 60).id, add("Row", 120).id ]);
+
+      const grown = createSuperset(workoutId, {
+        blockIds: [ superset.id ],
+        exerciseEntryIds: [ entryOf(squat) ]
+      });
+
+      expect(grown.exerciseEntries.map(e => [ e.exercise.name, e.restSeconds ])).toEqual([
+        [ "Squat", 120 ],
+        [ "Bench", 60 ],
+        [ "Row", 120 ]
+      ]);
+    });
+
+    it("keeps each entry's own rest in a new Superset", () => {
+      const squat = add("Squat", 30);
+      const bench = add("Bench", 90);
+
+      const superset = createSuperset(workoutId, { blockIds: [ squat.id, bench.id ] });
+
+      expect(superset.exerciseEntries.map(e => e.restSeconds)).toEqual([ 30, 90 ]);
     });
 
     it("needs two or more rows from this Workout", () => {
@@ -155,7 +182,14 @@ describe("Select mode", () => {
       ungroupExerciseEntries(workoutId, [ entryOf(superset, 1) ]);
 
       expect(layout()).toEqual([ [ "Squat", "Row" ], [ "Bench" ], [ "Dip" ] ]);
-      expect(getBlock(superset.id).exerciseEntries.map(e => e.exercise.name)).toEqual([ "Squat", "Row" ]);
+      expect(getBlock(superset.id).exerciseEntries.map(e => [ e.exercise.name, e.position ])).toEqual([ [ "Squat", 0 ], [ "Row", 1 ] ]);
+    });
+
+    it("changes nothing when no ticked entry is in a Superset", () => {
+      const squat = add("Squat");
+
+      expect(ungroupExerciseEntries(workoutId, [ entryOf(squat) ], "ai").map(b => b.id)).toEqual([ squat.id ]);
+      expect(listAiChanges()).toEqual([]);
     });
 
     it("splits a Superset whose entries are all ticked, leaving straight sets alone", () => {
@@ -209,6 +243,8 @@ describe("Select mode", () => {
       const squat = add("Squat");
 
       expect(() => deleteExerciseEntries([ entryOf(squat), crypto.randomUUID() ])).toThrow(notFoundError);
+      expect(() => deleteExerciseEntries([])).toThrow(validationError);
+      expect(() => deleteExerciseEntries([ "not-a-uuid" ])).toThrow(validationError);
       expect(getExerciseEntry(entryOf(squat)).deletedAt).toBeNull();
     });
 
@@ -248,6 +284,41 @@ describe("Select mode", () => {
       undoAiChange(change!.id);
 
       expect(layout()).toEqual([ [ "Squat" ], [ "Bench" ], [ "Row" ] ]);
+    });
+
+    it("keeps the first Block when groupBlocks adds a single Block to a Superset, and Undo puts both back", () => {
+      const squat = add("Squat", 30);
+      const superset = groupBlocks(workoutId, [ add("Bench", 60).id, add("Row", 120).id ]);
+      const positions = () => listBlocks(workoutId).map(b => [ b.id, b.position, b.exerciseEntries.map(e => [ e.id, e.position, e.restSeconds ]) ]);
+      const before = positions();
+
+      const grouped = groupBlocks(workoutId, [ squat.id, superset.id ], "ai");
+
+      expect(grouped.id).toBe(squat.id);
+      expect(grouped.exerciseEntries.map(e => [ e.exercise.name, e.restSeconds ])).toEqual([
+        [ "Squat", 30 ],
+        [ "Bench", 60 ],
+        [ "Row", 120 ]
+      ]);
+      expect(() => getBlock(superset.id)).toThrow(notFoundError);
+
+      undoAiChange(listAiChanges()[ 0 ]!.id);
+
+      expect(positions()).toEqual(before);
+    });
+
+    it("records no Change by AI for ungroup_block on a Block of straight sets", () => {
+      const squat = add("Squat");
+      const bench = add("Bench");
+      const row = add("Row");
+
+      // Leaves a gap in the Blocks' positions.
+      deleteExerciseEntries([ entryOf(bench) ]);
+
+      expect(ungroupBlock(row.id, "ai").map(b => b.id)).toEqual([ row.id ]);
+      expect(ungroupBlock(squat.id, "ai").map(b => b.id)).toEqual([ squat.id ]);
+      expect(listAiChanges()).toEqual([]);
+      expect(listBlocks(workoutId).map(b => b.position)).toEqual([ 0, 2 ]);
     });
   });
 });

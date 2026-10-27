@@ -8,9 +8,9 @@ import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
 import { errorOn, useEntryList } from "./EntryListContext";
 import { ExerciseEntryRow } from "./ExerciseEntryRow";
-import { TickBox } from "./ListRow";
 import { MoveButtons } from "./OrderedRow";
 import { Stepper } from "./Stepper";
+import { TickButton } from "./TickButton";
 
 interface SupersetGroupProps {
   block: BlockWithEntries;
@@ -41,17 +41,14 @@ export function SupersetGroup({
         <View className="min-h-touch flex-row items-center">
           {selecting ?
             (
-              <AppButton className="min-h-touch flex-1 flex-row items-center gap-2"
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: ticked }}
-                accessibilityLabel="Superset"
+              <TickButton className="flex-1"
+                ticked={Boolean(ticked)}
                 onPress={() => selecting.onToggle(entryIds)}>
-                <TickBox ticked={Boolean(ticked)} />
                 <AppText weight="semibold"
                   className="text-accent">
                   Superset
                 </AppText>
-              </AppButton>
+              </TickButton>
             ) :
             (
               <>
@@ -69,6 +66,7 @@ export function SupersetGroup({
           <Stepper label="Round Rest (s)"
             value={roundRest(entries)!}
             {...EXERCISE_ENTRY_BOUNDS.restSeconds}
+            disabled={Boolean(selecting)}
             onChange={onSetRoundRest} />
         </View>
         {error && <AppText className="text-danger">{error}</AppText>}
