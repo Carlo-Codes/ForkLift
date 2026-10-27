@@ -2,18 +2,21 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
 
+import { getHomeCard } from "@forklift/core";
+import type { HomeEntry } from "@forklift/core";
+
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Chip";
 import { Screen } from "@/components/Screen";
-import { loadHomeCard } from "@/home";
+import { formatEntrySummary } from "@/format";
 import { startWorkout } from "@/startWorkout";
 
 // A Workout at a glance: its name, its Plan and its Exercise Entries.
 function WorkoutCard({
   badge, workoutName, planName, entries
-}: { badge?: string; workoutName: string; planName?: string; entries: string }) {
+}: { badge?: string; workoutName: string; planName?: string; entries: HomeEntry[] }) {
   return (
     <Card className="gap-1 p-5">
       {badge && (
@@ -21,14 +24,16 @@ function WorkoutCard({
           <Badge>{badge}</Badge>
         </View>
       )}
-      <AppText weight="semibold"
-        className="text-2xl text-ink">
-        {workoutName}
-      </AppText>
+      {workoutName !== "" && (
+        <AppText weight="semibold"
+          className="text-2xl text-ink">
+          {workoutName}
+        </AppText>
+      )}
       {planName && <AppText className="text-muted">{planName}</AppText>}
       <AppText numberOfLines={2}
         className="mt-2 text-sm text-ink">
-        {entries || "No exercises yet"}
+        {entries.length > 0 ? formatEntrySummary(entries) : "No exercises yet"}
       </AppText>
     </Card>
   );
@@ -50,10 +55,10 @@ function PromptCard({
 }
 
 export default function HomeScreen() {
-  const [ card, setCard ] = useState(loadHomeCard);
+  const [ card, setCard ] = useState(getHomeCard);
 
   // Re-read on focus: a finished Session, a new Active Plan or edited Workout.
-  useFocusEffect(useCallback(() => setCard(loadHomeCard()), []));
+  useFocusEffect(useCallback(() => setCard(getHomeCard()), []));
 
   return (
     <Screen>

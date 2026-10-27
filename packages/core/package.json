@@ -21,6 +21,8 @@
     "#exerciseEntry": "./src/plan/workout/block/exerciseEntry/src/index.ts",
     "#exerciseEntry/*": "./src/plan/workout/block/exerciseEntry/src/*.ts",
     "#history": "./src/history/src/index.ts",
+    "#home": "./src/home/src/index.ts",
+    "#home/*": "./src/home/src/*.ts",
     "#history/*": "./src/history/src/*.ts",
     "#loggedSet": "./src/session/loggedSet/src/index.ts",
     "#loggedSet/*": "./src/session/loggedSet/src/*.ts",

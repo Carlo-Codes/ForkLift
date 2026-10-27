@@ -168,12 +168,26 @@ function getInProgressSession(tx?: TransactionType): SessionAttributes | undefin
   }, tx)[ 0 ];
 }
 
-// The step of the Session in progress, if there is one, for "Resume workout".
+// The step of the Session in progress, if there is one, for Home's Resume.
 // Every tap is saved as it happens, so this is the exact set the lifter was on.
 export function resumeSession(tx?: TransactionType): SessionStep | undefined {
   const session = getInProgressSession(tx);
 
   return session && getCurrentStep(session.id, tx);
+}
+
+// The Workout's Blocks as a Session would snapshot them at Start: each its
+// Exercise Entries in order, named and with their targets as they are now.
+export function snapshotWorkout(workoutId: string, tx?: TransactionType): SessionEntrySnapshot[][] {
+  return listBlocks(workoutId, tx).map(block => block.exerciseEntries.map(entry => ({
+    exerciseEntryId: entry.id,
+    exerciseId: entry.exerciseId,
+    exerciseName: entry.exercise.name,
+    targetSets: entry.targetSets,
+    targetReps: entry.targetReps,
+    targetWeight: entry.targetWeight,
+    restSeconds: entry.restSeconds
+  })));
 }
 
 // Starts a Session of the Workout with its targets snapshotted, so edits to the
@@ -182,15 +196,7 @@ export function startSession(workoutId: string, actor: Actor = "lifter", tx?: Tr
   refuseAiSessionWrite(actor);
 
   return inTransaction(tx, t => {
-    const blocks = listBlocks(workoutId, t).map(block => block.exerciseEntries.map(entry => ({
-      exerciseEntryId: entry.id,
-      exerciseId: entry.exerciseId,
-      exerciseName: entry.exercise.name,
-      targetSets: entry.targetSets,
-      targetReps: entry.targetReps,
-      targetWeight: entry.targetWeight,
-      restSeconds: entry.restSeconds
-    })));
+    const blocks = snapshotWorkout(workoutId, t);
 
     if (blocks.length === 0) {
       throw new ApiError(400, "Add an exercise to this Workout before starting it", "ValidationError");

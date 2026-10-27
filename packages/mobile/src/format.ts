@@ -1,4 +1,6 @@
-import type { HistorySet, SupersetPosition } from "@forklift/core";
+import type {
+  HistorySet, HomeEntry, SupersetPosition
+} from "@forklift/core";
 import type { ExerciseEntryAttributes, Unit } from "@forklift/db/client";
 
 // e.g. "3 × 10 @ 60kg · rest 90s"; weight is left out for 0 (bodyweight).
@@ -54,10 +56,7 @@ export function formatSupersetPosition(setNumber: number, {
 
 // A Workout's Exercise Entries at a glance, e.g. "Bench Press 3×8 · Row 3×10 · …",
 // naming at most limit of them.
-export function formatEntrySummary(
-  entries: { exerciseName: string; targetSets: number; targetReps: number }[],
-  limit = 4
-): string {
+export function formatEntrySummary(entries: HomeEntry[], limit = 4): string {
   const named = entries.slice(0, limit).map(e => `${e.exerciseName} ${e.targetSets}×${e.targetReps}`);
 
   return [ ...named, ...(entries.length > limit ? [ "…" ] : []) ].join(" · ");
