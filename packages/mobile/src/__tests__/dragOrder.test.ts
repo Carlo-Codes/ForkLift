@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
-  dropIndex, moveItem, settleOffset, shiftOf
+  dragEnd, dropIndex, moveItem, settleOffset, shiftOf
 } from "../dragOrder";
 
 // Four rows 50pt tall with a 10pt gap: each takes a 60pt slot, starting at
@@ -60,5 +60,32 @@ describe("moveItem", () => {
     expect(moveItem([ "a", "b", "c", "d" ], 0, 2)).toEqual([ "b", "c", "a", "d" ]);
     expect(moveItem([ "a", "b", "c", "d" ], 3, 1)).toEqual([ "a", "d", "b", "c" ]);
     expect(moveItem([ "a", "b" ], 1, 1)).toEqual([ "a", "b" ]);
+  });
+});
+
+describe("dragEnd", () => {
+  it("drops an item that was held and moved", () => {
+    expect(dragEnd({
+      canceled: false,
+      wandered: true
+    })).toBe("drop");
+  });
+
+  it("is a hold release when let go without moving, so nothing is reordered", () => {
+    expect(dragEnd({
+      canceled: false,
+      wandered: false
+    })).toBe("holdRelease");
+  });
+
+  it("puts the item back when the system interrupts the drag", () => {
+    expect(dragEnd({
+      canceled: true,
+      wandered: true
+    })).toBe("cancel");
+    expect(dragEnd({
+      canceled: true,
+      wandered: false
+    })).toBe("cancel");
   });
 });
