@@ -1,4 +1,14 @@
-import { planToDate, planWeeks } from "../planWeeks";
+import {
+  addDays, planToDate, planWeeks
+} from "../planWeeks";
+
+describe("addDays", () => {
+  it("moves across months, years and leap days, either way", () => {
+    expect(addDays("2026-12-30", 3)).toBe("2027-01-02");
+    expect(addDays("2028-03-01", -1)).toBe("2028-02-29");
+    expect(addDays("2026-11-02", 0)).toBe("2026-11-02");
+  });
+});
 
 describe("Plan weeks", () => {
   describe("the To date for a start date and a number of weeks", () => {

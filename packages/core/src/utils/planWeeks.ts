@@ -24,3 +24,9 @@ export function planToDate(startDate: string, weeks: number): string {
 export function planWeeks(startDate: string, endDate: string): number {
   return Math.ceil((daysBetween(startDate, endDate) + 1) / 7);
 }
+
+// The YYYY-MM-DD calendar day days after day, or before it when negative.
+export function addDays(day: string, days: number): string {
+  return new Date((dayNumber(day) + days) * DAY_MS).toISOString()
+    .slice(0, 10);
+}
