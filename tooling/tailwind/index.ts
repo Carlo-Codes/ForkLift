@@ -1,16 +1,24 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
-export enum ColorKey {
-  PRIMARY = "primary",
-  PRIMARY_DARK = "primaryDark",
-  PRIMARY_LIGHT = "primaryLight",
-  WHITE = "white",
-  BLACK = "black",
-  LIGHTER_GRAY = "lighterGray",
-  LIGHT_GRAY = "lightGray",
-  MEDIUM_GRAY = "mediumGray",
-  DARK_GRAY = "darkGray",
-  ERROR = "error"
+import { themeColors } from "./colors";
+import type { ColorScheme, ThemeColor } from "./colors";
+
+const tokens = Object.keys(themeColors.light) as ThemeColor[];
+// accentSoft → accent-soft, the class and variable name.
+const kebab = (token: string) => token.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`);
+
+// "#E8590C" → "232 89 12", so a utility can add its opacity.
+function rgbChannels(hex: string) {
+  return [
+    1,
+    3,
+    5
+  ].map(i => parseInt(hex.slice(i, i + 2), 16)).join(" ");
+}
+
+function cssVariables(scheme: ColorScheme) {
+  return Object.fromEntries(tokens.map(token => [ `--color-${kebab(token)}`, rgbChannels(themeColors[ scheme ][ token ]) ]));
 }
 
 export default {
@@ -34,21 +42,20 @@ export default {
           "sans-serif"
         ]
       },
-      colors: {
-        brand: {
-          [ ColorKey.PRIMARY ]: "#E8590C",
-          [ ColorKey.PRIMARY_DARK ]: "#C2410C",
-          [ ColorKey.PRIMARY_LIGHT ]: "#FFF4E6",
-          [ ColorKey.WHITE ]: "#FFF",
-          [ ColorKey.BLACK ]: "#000",
-          [ ColorKey.LIGHTER_GRAY ]: "#F5F5F5",
-          [ ColorKey.LIGHT_GRAY ]: "#E0E0E0",
-          [ ColorKey.MEDIUM_GRAY ]: "#8A8A8A",
-          [ ColorKey.DARK_GRAY ]: "#2E2E2E",
-          [ ColorKey.ERROR ]: "#E03131"
-        }
-      }
+      // The smallest touch target: compact, but never under 44pt.
+      minHeight: { touch: "44px" },
+      minWidth: { touch: "44px" },
+      colors: Object.fromEntries(tokens.map(token => [ kebab(token), `rgb(var(--color-${kebab(token)}) / <alpha-value>)` ]))
     }
   },
-  plugins: []
+  plugins: [
+    // Light values on :root, dark ones when the system is in dark mode.
+    // NativeWind reads both and switches with the phone's appearance.
+    plugin(api => {
+      api.addBase({
+        ":root": cssVariables("light"),
+        "@media (prefers-color-scheme: dark)": { ":root": cssVariables("dark") }
+      });
+    })
+  ]
 } satisfies Config;

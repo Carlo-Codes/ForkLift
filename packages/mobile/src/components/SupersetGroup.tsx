@@ -4,8 +4,9 @@ import type { BlockWithEntries } from "@forklift/core";
 import type { Unit } from "@forklift/db/client";
 
 import { AppButton } from "./AppButton";
+import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
-import { OrderedRow } from "./OrderedRow";
+import { MoveButtons, OrderedRow } from "./OrderedRow";
 
 import { formatTargets } from "@/format";
 
@@ -31,29 +32,20 @@ export function SupersetGroup({
   const entries = block.exerciseEntries;
 
   return (
-    <View className="mx-4 my-2 overflow-hidden rounded-lg border border-brand-primary">
-      <View className="flex-row items-center bg-brand-primaryLight">
+    <View className="overflow-hidden rounded-2xl border-2 border-accent-soft bg-surface">
+      <View className="flex-row items-center bg-accent-soft pl-4">
         <AppText weight="semibold"
-          className="flex-1 px-4 py-2 text-brand-primary">
+          className="flex-1 text-accent">
           Superset
         </AppText>
-        <AppButton className="px-3 py-2"
+        <AppButton variant="link"
           accessibilityLabel="Ungroup superset"
           onPress={onUngroup}>
-          <AppText className="text-brand-primary">Ungroup</AppText>
+          Ungroup
         </AppButton>
-        <AppButton className="px-3 py-2 disabled:opacity-30"
-          disabled={!onMoveUp}
-          accessibilityLabel="Move superset up"
-          onPress={onMoveUp}>
-          ▲
-        </AppButton>
-        <AppButton className="px-3 py-2 disabled:opacity-30"
-          disabled={!onMoveDown}
-          accessibilityLabel="Move superset down"
-          onPress={onMoveDown}>
-          ▼
-        </AppButton>
+        <MoveButtons label="superset"
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown} />
       </View>
       {entries.map((entry, index) => (
         <OrderedRow
@@ -65,9 +57,15 @@ export function SupersetGroup({
           onMoveDown={index < entries.length - 1 ? () => onMoveEntry(index, 1) : undefined}
         />
       ))}
-      <AppButton className="px-4 py-3"
+      <AppButton className="min-h-touch flex-row items-center gap-2 border-t border-separator px-4"
         onPress={onAddEntry}>
-        <AppText className="text-brand-primary">+ Add exercise to superset</AppText>
+        <AppIcon name="add"
+          color="accent"
+          size={20} />
+        <AppText weight="semibold"
+          className="text-accent">
+          Add exercise to superset
+        </AppText>
       </AppButton>
     </View>
   );

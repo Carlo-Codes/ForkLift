@@ -1,7 +1,7 @@
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 
-import { AppButton } from "./AppButton";
-import { AppText } from "./AppText";
+import { AppIcon } from "./AppIcon";
+import { ListRow } from "./ListRow";
 
 interface OrderedRowProps {
   title: string;
@@ -11,42 +11,54 @@ interface OrderedRowProps {
   // Omitted at the top / bottom of the list.
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  first?: boolean;
+  last?: boolean;
+}
+
+export function MoveButtons({
+  label, onMoveUp, onMoveDown
+}: { label: string; onMoveUp?: () => void; onMoveDown?: () => void }) {
+  return (
+    <View className="flex-row pr-1">
+      <Pressable className="min-h-touch min-w-touch items-center justify-center active:opacity-60 disabled:opacity-30"
+        disabled={!onMoveUp}
+        accessibilityRole="button"
+        accessibilityLabel={`Move ${label} up`}
+        onPress={onMoveUp}>
+        <AppIcon name="chevron-up"
+          color="muted"
+          size={20} />
+      </Pressable>
+      <Pressable className="min-h-touch min-w-touch items-center justify-center active:opacity-60 disabled:opacity-30"
+        disabled={!onMoveDown}
+        accessibilityRole="button"
+        accessibilityLabel={`Move ${label} down`}
+        onPress={onMoveDown}>
+        <AppIcon name="chevron-down"
+          color="muted"
+          size={20} />
+      </Pressable>
+    </View>
+  );
 }
 
 // A row in an ordered list (Plans, Workouts, Blocks) with up/down buttons for
 // reordering.
 export function OrderedRow({
-  title, subtitle, badge, onPress, onMoveUp, onMoveDown
+  title, subtitle, badge, onPress, onMoveUp, onMoveDown, first, last
 }: OrderedRowProps) {
   return (
-    <View className="flex-row items-center border-b border-brand-lighterGray">
-      <AppButton className="flex-1 px-4 py-3"
-        accessibilityRole="button"
-        onPress={onPress}>
-        <View className="flex-row items-center gap-2">
-          <AppText className="text-brand-darkGray">{title}</AppText>
-          {badge && (
-            <AppText weight="semibold"
-              className="rounded-full bg-brand-primaryLight px-2 text-xs text-brand-primary">
-              {badge}
-            </AppText>
-          )}
-        </View>
-        {subtitle && <AppText className="text-sm text-brand-mediumGray">{subtitle}</AppText>}
-      </AppButton>
-      <AppButton className="px-3 py-3 disabled:opacity-30"
-        disabled={!onMoveUp}
-        accessibilityLabel={`Move ${title} up`}
-        onPress={onMoveUp}>
-        ▲
-      </AppButton>
-      <AppButton className="px-3 py-3 disabled:opacity-30"
-        disabled={!onMoveDown}
-        accessibilityLabel={`Move ${title} down`}
-        onPress={onMoveDown}>
-        ▼
-      </AppButton>
-    </View>
+    <ListRow title={title}
+      subtitle={subtitle}
+      badge={badge}
+      onPress={onPress}
+      first={first}
+      last={last}
+      accessory={(
+        <MoveButtons label={title}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown} />
+      )} />
   );
 }
 

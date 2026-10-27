@@ -6,6 +6,8 @@ import { getExerciseHistory, getSettings } from "@forklift/core";
 import type { ExerciseHistory } from "@forklift/core";
 
 import { AppText } from "@/components/AppText";
+import { Card } from "@/components/Card";
+import { Screen } from "@/components/Screen";
 import {
   formatDate, formatSet, formatSets
 } from "@/format";
@@ -26,45 +28,47 @@ export default function ExerciseHistoryScreen() {
 
   if (!history) {
     return (
-      <View className="flex-1 items-center justify-center bg-brand-white p-6">
-        <AppText className="text-brand-mediumGray">This exercise has no history.</AppText>
-      </View>
+      <Screen className="items-center justify-center p-6">
+        <AppText className="text-muted">This exercise has no history.</AppText>
+      </Screen>
     );
   }
 
   return (
-    <FlatList
-      className="flex-1 bg-brand-white"
-      data={history.sessions}
-      keyExtractor={s => s.id}
-      ListHeaderComponent={(
-        <View className="gap-1 border-b border-brand-lighterGray p-4">
-          <AppText weight="semibold"
-            className="text-xl text-brand-darkGray">
-            {history.exercise.name}
-          </AppText>
-          {history.bestSet && (
-            <AppText className="text-brand-primary">
-              Best set: {formatSet(history.bestSet.reps, history.bestSet.weight, unit)}
+    <Screen>
+      <FlatList
+        data={history.sessions}
+        keyExtractor={s => s.id}
+        contentContainerClassName="gap-3 px-4 pb-4"
+        ListHeaderComponent={(
+          <View className="gap-1 pt-4">
+            <AppText weight="semibold"
+              className="text-xl text-ink">
+              {history.exercise.name}
             </AppText>
-          )}
-        </View>
-      )}
-      ListEmptyComponent={(
-        <AppText className="p-4 text-brand-mediumGray">No sets done yet.</AppText>
-      )}
-      renderItem={({ item }) => (
-        <View className="gap-1 border-b border-brand-lighterGray px-4 py-3">
-          <AppText className="text-brand-darkGray">
-            {formatDate(item.startedAt)}
-            <AppText className="text-brand-mediumGray"> · {item.workoutName}</AppText>
-          </AppText>
-          <AppText className="text-brand-mediumGray">{formatSets(item.sets, unit)}</AppText>
-          <AppText className="text-sm text-brand-mediumGray">
-            Best: {formatSet(item.bestSet.reps, item.bestSet.weight, unit)}
-          </AppText>
-        </View>
-      )}
+            {history.bestSet && (
+              <AppText className="text-accent">
+                Best set: {formatSet(history.bestSet.reps, history.bestSet.weight, unit)}
+              </AppText>
+            )}
+          </View>
+        )}
+        ListEmptyComponent={(
+          <AppText className="text-muted">No sets done yet.</AppText>
+        )}
+        renderItem={({ item }) => (
+          <Card className="gap-1 px-4 py-3">
+            <AppText className="text-ink">
+              {formatDate(item.startedAt)}
+              <AppText className="text-muted"> · {item.workoutName}</AppText>
+            </AppText>
+            <AppText className="text-muted">{formatSets(item.sets, unit)}</AppText>
+            <AppText className="text-sm text-muted">
+              Best: {formatSet(item.bestSet.reps, item.bestSet.weight, unit)}
+            </AppText>
+          </Card>
+        )}
     />
+    </Screen>
   );
 }

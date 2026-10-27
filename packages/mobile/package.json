@@ -17,6 +17,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/dom-webview": "~58.0.2",
     "@expo/metro-runtime": "~58.0.15",
+    "@expo/vector-icons": "^15.1.1",
     "@forklift/core": "workspace:*",
     "@forklift/db": "workspace:*",
     "@forklift/debug": "workspace:*",
@@ -39,6 +40,7 @@
     "expo-splash-screen": "~58.0.11",
     "expo-sqlite": "~58.0.14",
     "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.6",
     "nativewind": "4.2.7",
     "react": "19.3.0",
     "react-native": "0.88.0",
@@ -66,6 +68,7 @@
     "babel-preset-expo": "~58.0.20",
     "eslint": "^9",
     "jest": "~30.5.2",
+    "postcss": "8.4.30",
     "prettier": "^3",
     "ts-jest": "^29.4.15",
     "typescript": "~6.0.3"

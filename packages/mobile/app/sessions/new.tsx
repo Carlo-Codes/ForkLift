@@ -5,8 +5,9 @@ import {
   getActivePlan, getNextWorkout, listWorkouts
 } from "@forklift/core";
 
-import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
+import { ListRow, rowPosition } from "@/components/ListRow";
+import { Screen } from "@/components/Screen";
 import { startWorkout } from "@/startWorkout";
 
 // Lets the lifter Start a Workout of the Active Plan out of turn.
@@ -20,23 +21,21 @@ export default function ChooseWorkoutScreen() {
   const [ nextId ] = useState(() => getNextWorkout()?.id);
 
   return (
-    <FlatList
-      className="flex-1 bg-brand-white"
-      data={workouts}
-      keyExtractor={w => w.id}
-      ListEmptyComponent={(
-        <AppText className="p-4 text-brand-mediumGray">The Active Plan has no workouts yet.</AppText>
-      )}
-      renderItem={({ item }) => (
-        <AppButton className="border-b border-brand-lighterGray px-4 py-4"
-          accessibilityRole="button"
-          onPress={() => startWorkout(item.id, "replace")}>
-          <AppText className="text-brand-darkGray">
-            {item.name}
-            {item.id === nextId && <AppText className="text-brand-mediumGray"> · next</AppText>}
-          </AppText>
-        </AppButton>
-      )}
-    />
+    <Screen>
+      <FlatList
+        data={workouts}
+        keyExtractor={w => w.id}
+        contentContainerClassName="p-4"
+        ListEmptyComponent={(
+          <AppText className="text-muted">The Active Plan has no workouts yet.</AppText>
+        )}
+        renderItem={({ item, index }) => (
+          <ListRow title={item.name}
+            badge={item.id === nextId ? "Next" : undefined}
+            onPress={() => startWorkout(item.id, "replace")}
+            {...rowPosition(index, workouts.length)} />
+        )}
+      />
+    </Screen>
   );
 }

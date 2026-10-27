@@ -7,8 +7,35 @@ import { View } from "react-native";
 import { getNextWorkout, resumeSession } from "@forklift/core";
 
 import { AppButton } from "@/components/AppButton";
+import { AppIcon } from "@/components/AppIcon";
+import type { IconName } from "@/components/AppIcon";
 import { AppText } from "@/components/AppText";
+import { Card } from "@/components/Card";
+import { Screen } from "@/components/Screen";
 import { startWorkout } from "@/startWorkout";
+
+const SECTIONS: { href: "/plans" | "/history" | "/exercises" | "/settings"; label: string; icon: IconName }[] = [
+  {
+    href: "/plans",
+    label: "Plans",
+    icon: "calendar-outline"
+  },
+  {
+    href: "/history",
+    label: "History",
+    icon: "time-outline"
+  },
+  {
+    href: "/exercises",
+    label: "Exercise Library",
+    icon: "barbell-outline"
+  },
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: "settings-outline"
+  }
+];
 
 export default function HomeScreen() {
   const [ next, setNext ] = useState(() => getNextWorkout());
@@ -21,65 +48,58 @@ export default function HomeScreen() {
   }, []));
 
   return (
-    <View className="flex-1 justify-between bg-brand-white p-6">
-      <View className="flex-1 justify-center gap-3">
+    <Screen className="justify-between gap-6 p-4">
+      <Card className="flex-1 justify-center gap-3 p-6">
         {inProgress ?
           (
             <AppButton variant="primary"
-              className="py-8"
               onPress={() => router.push({
                 pathname: "/sessions/[id]",
                 params: { id: inProgress.id }
               })}>
-              <AppText weight="semibold"
-                className="text-2xl text-brand-white">
-                Resume workout
-              </AppText>
+              Resume workout
             </AppButton>
           ) :
           next ?
             (
               <>
+                <AppText weight="semibold"
+                  className="text-center text-2xl text-ink">
+                  {next.name}
+                </AppText>
                 <AppButton variant="primary"
-                  className="py-8"
                   onPress={() => startWorkout(next.id)}>
-                  <AppText weight="semibold"
-                    className="text-2xl text-brand-white">
-                    Start {next.name}
-                  </AppText>
+                  Start
                 </AppButton>
                 <Link href="/sessions/new"
                   asChild>
-                  <AppButton className="items-center p-2">
-                    <AppText className="text-brand-primary">Choose a different workout</AppText>
-                  </AppButton>
+                  <AppButton variant="link">Choose a different workout</AppButton>
                 </Link>
               </>
             ) :
             (
-              <AppText className="text-center text-brand-mediumGray">
+              <AppText className="text-center text-muted">
                 Make a Plan Active and add a Workout to it to start training.
               </AppText>
             )}
+      </Card>
+      <View className="flex-row flex-wrap gap-3">
+        {SECTIONS.map(section => (
+          <Link key={section.href}
+            href={section.href}
+            asChild>
+            <AppButton className="min-h-touch min-w-[45%] flex-1 flex-row items-center gap-2 rounded-2xl bg-surface px-4 py-3">
+              <AppIcon name={section.icon}
+                color="accent"
+                size={20} />
+              <AppText weight="semibold"
+                className="text-ink">
+                {section.label}
+              </AppText>
+            </AppButton>
+          </Link>
+        ))}
       </View>
-      <View className="gap-3">
-        <Link href="/plans"
-          asChild>
-          <AppButton variant="outline">Plans</AppButton>
-        </Link>
-        <Link href="/history"
-          asChild>
-          <AppButton variant="outline">History</AppButton>
-        </Link>
-        <Link href="/exercises"
-          asChild>
-          <AppButton variant="outline">Exercise Library</AppButton>
-        </Link>
-        <Link href="/settings"
-          asChild>
-          <AppButton variant="outline">Settings</AppButton>
-        </Link>
-      </View>
-    </View>
+    </Screen>
   );
 }

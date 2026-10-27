@@ -16,6 +16,7 @@ import {
   stopAiAccess,
   subscribeAiAccess
 } from "@/aiAccess/aiAccess";
+import { useThemeColors } from "@/theme";
 
 const BACKGROUND_LIMIT = Platform.OS === "android" ?
   "It keeps running while ForkLift is in the background, with a notification." :
@@ -27,15 +28,15 @@ function CopyableValue({
   return (
     <View className="gap-1">
       <AppText weight="semibold"
-        className="text-brand-darkGray">
+        className="text-ink">
         {label}
       </AppText>
       <AppText selectable
-        className="text-brand-darkGray">
+        className="text-ink">
         {value}
       </AppText>
       <View className="flex-row gap-3">
-        <AppButton variant="outline"
+        <AppButton variant="secondary"
           accessibilityLabel={`Copy ${label.toLowerCase()}`}
           onPress={() => void Clipboard.setStringAsync(value)}>
           Copy
@@ -48,6 +49,7 @@ function CopyableValue({
 
 export function AiAccessSettings() {
   const state = useSyncExternalStore(subscribeAiAccess, getAiAccessState);
+  const colors = useThemeColors();
   const toggle = (on: boolean) => void (on ? startAiAccess() : stopAiAccess());
 
   const regenerate = () => Alert.alert(
@@ -70,18 +72,18 @@ export function AiAccessSettings() {
     <View className="gap-3">
       <View className="flex-row items-center justify-between">
         <AppText weight="semibold"
-          className="text-lg text-brand-darkGray">
+          className="text-lg text-ink">
           AI Access
         </AppText>
         <Switch
           accessibilityLabel="AI Access"
           value={state.status === "on" || state.status === "starting"}
           disabled={state.status === "starting"}
-          trackColor={{ true: "#E8590C" }}
+          trackColor={{ true: colors.accent }}
           onValueChange={toggle}
         />
       </View>
-      <AppText className="text-brand-mediumGray">
+      <AppText className="text-muted">
         Lets an AI assistant on a computer on the same Wi-Fi read your Plans, Exercise Library and
         history, and change your Plans, Workouts and Exercises. It can never change a Session, in
         progress or finished, and everything it changes can be undone. Paste the address and pairing token into a desktop AI app that supports MCP.
@@ -91,7 +93,7 @@ export function AiAccessSettings() {
       {state.status === "on" && (
         <>
           {!state.onWifi && (
-            <AppText className="text-brand-error">
+            <AppText className="text-danger">
               Your phone isn&apos;t on Wi-Fi, so an AI app on your computer may not reach it.
             </AppText>
           )}
@@ -99,7 +101,7 @@ export function AiAccessSettings() {
             <CopyableValue label="Address"
               value={state.address} /> :
             (
-              <AppText className="text-brand-error">
+              <AppText className="text-danger">
                 ForkLift couldn&apos;t find your phone&apos;s address on the network.
               </AppText>
             )}
@@ -107,7 +109,7 @@ export function AiAccessSettings() {
             label="Pairing token"
             value={state.token}
             action={(
-              <AppButton variant="outline"
+              <AppButton variant="secondary"
                 onPress={regenerate}>
                 Regenerate
               </AppButton>
@@ -115,18 +117,18 @@ export function AiAccessSettings() {
           />
         </>
       )}
-      <AppButton variant="outline"
-        className="self-start py-2"
+      <AppButton variant="secondary"
+        className="self-start"
         onPress={() => router.push("/ai-changes")}>
         Changes by AI
       </AppButton>
       {state.status === "off" && state.switchedOffIdle && (
-        <AppText className="text-brand-mediumGray">
+        <AppText className="text-muted">
           AI Access switched itself off after {AI_ACCESS_IDLE_MINUTES} minutes without use.
         </AppText>
       )}
       {state.status === "error" && (
-        <AppText className="text-brand-error">
+        <AppText className="text-danger">
           AI Access couldn&apos;t start: {state.message}
         </AppText>
       )}
