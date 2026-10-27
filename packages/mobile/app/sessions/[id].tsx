@@ -14,14 +14,17 @@ import type { SessionSet, SessionStep } from "@forklift/core";
 import type { Unit } from "@forklift/db/client";
 
 import { AppButton } from "@/components/AppButton";
+import { AppIcon } from "@/components/AppIcon";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
+import { Screen } from "@/components/Screen";
 import {
   formatSet, formatSets, formatSupersetPosition, toNumber
 } from "@/format";
+import { useThemeColors } from "@/theme";
 
 const KEEP_AWAKE_TAG = "workout-mode";
-const INPUT_CLASS = "min-w-24 rounded-lg border border-brand-lightGray px-3 py-2 text-center text-3xl text-brand-darkGray";
+const INPUT_CLASS = "min-w-[96px] text-center text-3xl";
 
 function loadStep(id: string): SessionStep | undefined {
   try {
@@ -39,7 +42,7 @@ function formatCountdown(ms: number): string {
 
 function NextUp({ set, unit }: { set?: SessionSet; unit: Unit }) {
   return (
-    <AppText className="text-center text-lg text-brand-mediumGray">
+    <AppText className="text-center text-lg text-muted">
       {set ? `Next: ${set.exerciseName} ${formatSet(set.targetReps, set.targetWeight, unit)}` : "Last set"}
     </AppText>
   );
@@ -50,10 +53,13 @@ function NextUp({ set, unit }: { set?: SessionSet; unit: Unit }) {
 function IncreaseToggle({
   label, on, onChange
 }: { label: string; on: boolean; onChange: (on: boolean) => void }) {
+  const colors = useThemeColors();
+
   return (
     <View className="flex-row items-center justify-center gap-3">
-      <AppText className="text-lg text-brand-mediumGray">{label}</AppText>
+      <AppText className="text-lg text-muted">{label}</AppText>
       <Switch value={on}
+        trackColor={{ true: colors.accent }}
         accessibilityLabel={label}
         onValueChange={onChange} />
     </View>
@@ -74,30 +80,25 @@ function WorkoutMenu({
 
   return (
     <View className="items-end gap-2">
-      <AppButton className="px-3 py-1"
+      <AppButton className="min-h-touch min-w-touch items-center justify-center"
         accessibilityRole="button"
         accessibilityLabel="Workout options"
         onPress={() => setOpen(o => !o)}>
-        <AppText weight="semibold"
-          className="text-2xl text-brand-darkGray">
-          ⋯
-        </AppText>
+        <AppIcon name="ellipsis-horizontal"
+          size={26} />
       </AppButton>
       {open && (
         <View className="gap-2">
           {children}
-          <AppButton variant="outline"
-            className="py-2"
+          <AppButton variant="secondary"
             onPress={choose(onSkipSet)}>
             Skip set
           </AppButton>
-          <AppButton variant="outline"
-            className="py-2"
+          <AppButton variant="secondary"
             onPress={choose(onSkipExercise)}>
             Skip exercise
           </AppButton>
-          <AppButton variant="outline"
-            className="py-2"
+          <AppButton variant="secondary"
             onPress={choose(onFinish)}>
             Finish workout
           </AppButton>
@@ -169,9 +170,9 @@ export default function WorkoutModeScreen() {
 
   if (!step) {
     return (
-      <View className="flex-1 items-center justify-center bg-brand-white p-6">
-        <AppText className="text-brand-mediumGray">This session no longer exists.</AppText>
-      </View>
+      <Screen className="items-center justify-center p-6">
+        <AppText className="text-muted">This session no longer exists.</AppText>
+      </Screen>
     );
   }
 
@@ -259,40 +260,40 @@ export default function WorkoutModeScreen() {
 
   if (!current) {
     return (
-      <View className="flex-1 justify-center gap-6 bg-brand-white p-6">
+      <Screen className="justify-center gap-6 p-6">
         <AppText weight="semibold"
-          className="text-center text-2xl text-brand-darkGray">
+          className="text-center text-2xl text-ink">
           All sets done
         </AppText>
         {increaseToggles}
-        {error && <AppText className="text-center text-brand-error">{error}</AppText>}
+        {error && <AppText className="text-center text-danger">{error}</AppText>}
         <AppButton variant="primary"
           className="py-6"
           onPress={finish}>
           Finish workout
         </AppButton>
-      </View>
+      </Screen>
     );
   }
 
   if (resting) {
     return (
-      <View className="flex-1 justify-center gap-6 bg-brand-white p-6">
+      <Screen className="justify-center gap-6 p-6">
         {menu}
-        <AppText className="text-center text-lg text-brand-mediumGray">Rest</AppText>
+        <AppText className="text-center text-lg text-muted">Rest</AppText>
         <AppText weight="semibold"
-          className="text-center text-7xl text-brand-darkGray"
+          className="text-center text-7xl text-ink"
           accessibilityLiveRegion="polite">
           {formatCountdown(restEndsAt - now)}
         </AppText>
         <NextUp set={current}
           unit={unit} />
-        <AppButton variant="outline"
-          className="items-center self-center px-6 py-2"
+        <AppButton variant="secondary"
+          className="self-center"
           onPress={advance(() => skipRest(id))}>
           Skip rest
         </AppButton>
-      </View>
+      </Screen>
     );
   }
 
@@ -305,24 +306,24 @@ export default function WorkoutModeScreen() {
   });
 
   return (
-    <View className="flex-1 justify-between gap-6 bg-brand-white p-6">
+    <Screen className="justify-between gap-6 p-6">
       <View className="gap-2">
         {menu}
         {current.superset && (
           <AppText weight="semibold"
-            className="text-center text-lg text-brand-primary">
+            className="text-center text-lg text-accent">
             {formatSupersetPosition(current.setNumber, current.superset)}
           </AppText>
         )}
         <AppText weight="semibold"
-          className="text-center text-2xl text-brand-darkGray">
+          className="text-center text-2xl text-ink">
           {current.exerciseName}
         </AppText>
-        <AppText className="text-center text-lg text-brand-mediumGray">
+        <AppText className="text-center text-lg text-muted">
           Set {current.setNumber} of {current.totalSets}
         </AppText>
         {step.lastTime && (
-          <AppText className="text-center text-brand-mediumGray">
+          <AppText className="text-center text-muted">
             Last time: {formatSets(step.lastTime.sets, unit)}
           </AppText>
         )}
@@ -338,7 +339,7 @@ export default function WorkoutModeScreen() {
               accessibilityLabel={`Weight (${unit})`}
               selectTextOnFocus
               {...field("weight")} />
-            <AppText className="text-2xl text-brand-mediumGray">{unit} ×</AppText>
+            <AppText className="text-2xl text-muted">{unit} ×</AppText>
             <AppTextInput className={INPUT_CLASS}
               keyboardType="number-pad"
               accessibilityLabel="Reps"
@@ -354,25 +355,25 @@ export default function WorkoutModeScreen() {
               weight: String(current.targetWeight)
             })}>
             <AppText weight="semibold"
-              className="text-center text-5xl text-brand-darkGray">
+              className="text-center text-5xl text-ink">
               {formatSet(current.targetReps, current.targetWeight, unit)}
             </AppText>
-            <AppText className="text-center text-sm text-brand-mediumGray">Tap to change</AppText>
+            <AppText className="text-center text-sm text-muted">Tap to change</AppText>
           </AppButton>
         )}
       <View className="gap-4">
-        {error && <AppText className="text-center text-brand-error">{error}</AppText>}
+        {error && <AppText className="text-center text-danger">{error}</AppText>}
         <AppButton variant="primary"
           className="py-6"
           onPress={done}>
           <AppText weight="semibold"
-            className="text-2xl text-brand-white">
+            className="text-2xl text-on-accent">
             Done
           </AppText>
         </AppButton>
         <NextUp set={next}
           unit={unit} />
       </View>
-    </View>
+    </Screen>
   );
 }

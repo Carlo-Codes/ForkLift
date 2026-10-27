@@ -6,6 +6,7 @@
   "license": "AGPL-3.0-only",
   "files": [
     "index.ts",
+    "colors.ts",
     "postcss.js"
   ],
   "scripts": {
@@ -31,5 +32,9 @@
   "installConfig": {
     "hoistingLimits": "none"
   },
-  "prettier": "@forklift/prettier-config"
+  "prettier": "@forklift/prettier-config",
+  "exports": {
+    ".": "./index.ts",
+    "./colors": "./colors.ts"
+  }
 }

@@ -12,9 +12,8 @@ import type { ExerciseAttributes, ExerciseEntryAttributes } from "@forklift/db/c
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
+import { Screen } from "@/components/Screen";
 import { toNumber } from "@/format";
-
-const INPUT_CLASS = "rounded-lg border border-brand-lightGray px-3 py-2 text-brand-darkGray";
 
 type Targets = Pick<
   ExerciseEntryAttributes,
@@ -42,10 +41,10 @@ function TargetField({
   return (
     <View className="flex-1 gap-1">
       <AppText weight="semibold"
-        className="text-brand-darkGray">
+        className="text-ink">
         {label}
       </AppText>
-      <AppTextInput className={INPUT_CLASS}
+      <AppTextInput
         value={value}
         onChangeText={onChangeText}
         keyboardType={decimal ? "decimal-pad" : "number-pad"}
@@ -72,9 +71,9 @@ export default function ExerciseEntryScreen() {
 
   if (!entry) {
     return (
-      <View className="flex-1 items-center justify-center bg-brand-white p-6">
-        <AppText className="text-brand-mediumGray">This exercise is no longer in the workout.</AppText>
-      </View>
+      <Screen className="items-center justify-center p-6">
+        <AppText className="text-muted">This exercise is no longer in the workout.</AppText>
+      </Screen>
     );
   }
 
@@ -123,41 +122,42 @@ export default function ExerciseEntryScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-brand-white"
-      contentContainerClassName="gap-4 p-6"
-      keyboardShouldPersistTaps="handled">
-      <AppText weight="semibold"
-        className="text-lg text-brand-darkGray">
-        {entry.exercise.name}
-      </AppText>
-      <View className="flex-row gap-3">
-        <TargetField label="Sets"
-          {...field("targetSets")} />
-        <TargetField label="Reps"
-          {...field("targetReps")} />
-      </View>
-      <View className="flex-row gap-3">
-        <TargetField label={`Weight (${unit})`}
-          decimal
-          {...field("targetWeight")} />
-        <TargetField label={`Weight Step (${unit})`}
-          decimal
-          {...field("weightStep")} />
-      </View>
-      <View className="flex-row gap-3">
-        <TargetField label="Rest (seconds)"
-          {...field("restSeconds")} />
-        <View className="flex-1" />
-      </View>
-      {error && <AppText className="text-brand-error">{error}</AppText>}
-      <AppButton variant="primary"
-        onPress={save}>
-        Save
-      </AppButton>
-      <AppButton className="items-center p-4"
-        onPress={confirmRemove}>
-        <AppText className="text-brand-error">Remove from workout</AppText>
-      </AppButton>
-    </ScrollView>
+    <Screen>
+      <ScrollView contentContainerClassName="gap-4 p-4"
+        keyboardShouldPersistTaps="handled">
+        <AppText weight="semibold"
+          className="text-lg text-ink">
+          {entry.exercise.name}
+        </AppText>
+        <View className="flex-row gap-3">
+          <TargetField label="Sets"
+            {...field("targetSets")} />
+          <TargetField label="Reps"
+            {...field("targetReps")} />
+        </View>
+        <View className="flex-row gap-3">
+          <TargetField label={`Weight (${unit})`}
+            decimal
+            {...field("targetWeight")} />
+          <TargetField label={`Weight Step (${unit})`}
+            decimal
+            {...field("weightStep")} />
+        </View>
+        <View className="flex-row gap-3">
+          <TargetField label="Rest (seconds)"
+            {...field("restSeconds")} />
+          <View className="flex-1" />
+        </View>
+        {error && <AppText className="text-danger">{error}</AppText>}
+        <AppButton variant="primary"
+          onPress={save}>
+          Save
+        </AppButton>
+        <AppButton variant="destructive"
+          onPress={confirmRemove}>
+          Remove from workout
+        </AppButton>
+      </ScrollView>
+    </Screen>
   );
 }

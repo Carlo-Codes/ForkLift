@@ -9,6 +9,8 @@ import type {
 import { AppButton } from "./AppButton";
 import { AppText } from "./AppText";
 import { AppTextInput } from "./AppTextInput";
+import { Chip } from "./Chip";
+import { Screen } from "./Screen";
 
 interface ExerciseFormProps {
   initial?: ExerciseCreatePayload;
@@ -19,13 +21,11 @@ interface ExerciseFormProps {
   children?: React.ReactNode;
 }
 
-const INPUT_CLASS = "rounded-lg border border-brand-lightGray px-3 py-2 text-brand-darkGray";
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View className="gap-1">
       <AppText weight="semibold"
-        className="text-brand-darkGray">
+        className="text-ink">
         {label}
       </AppText>
       {children}
@@ -63,62 +63,61 @@ export function ExerciseForm({
   };
 
   return (
-    <ScrollView className="flex-1 bg-brand-white"
-      contentContainerClassName="gap-4 p-6"
-      keyboardShouldPersistTaps="handled">
-      <Field label="Name">
-        <AppTextInput className={INPUT_CLASS}
-          value={name}
-          onChangeText={setName}
-          placeholder="e.g. Barbell Bench Press" />
-      </Field>
-      <Field label="Muscle groups">
-        <View className="flex-row flex-wrap gap-2">
-          {muscleGroupValues.map(group => (
-            <AppButton
-              key={group}
-              variant="chip"
-              selected={muscleGroups.includes(group)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: muscleGroups.includes(group) }}
-              onPress={() => toggleMuscleGroup(group)}
+    <Screen>
+      <ScrollView contentContainerClassName="gap-4 p-4"
+        keyboardShouldPersistTaps="handled">
+        <Field label="Name">
+          <AppTextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Barbell Bench Press" />
+        </Field>
+        <Field label="Muscle groups">
+          <View className="flex-row flex-wrap gap-2">
+            {muscleGroupValues.map(group => (
+              <Chip
+                key={group}
+                selected={muscleGroups.includes(group)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: muscleGroups.includes(group) }}
+                onPress={() => toggleMuscleGroup(group)}
             >
-              {group}
-            </AppButton>
-          ))}
-        </View>
-      </Field>
-      <Field label="Equipment">
-        <View className="flex-row flex-wrap gap-2"
-          accessibilityRole="radiogroup">
-          {equipmentValues.map(value => (
-            <AppButton
-              key={value}
-              variant="chip"
-              selected={value === equipment}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: value === equipment }}
-              onPress={() => setEquipment(current => (current === value ? null : value))}
+                {group}
+              </Chip>
+            ))}
+          </View>
+        </Field>
+        <Field label="Equipment">
+          <View className="flex-row flex-wrap gap-2"
+            accessibilityRole="radiogroup">
+            {equipmentValues.map(value => (
+              <Chip
+                key={value}
+                selected={value === equipment}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: value === equipment }}
+                onPress={() => setEquipment(current => (current === value ? null : value))}
             >
-              {value}
-            </AppButton>
-          ))}
-        </View>
-      </Field>
-      <Field label="Notes">
-        <AppTextInput className={`${INPUT_CLASS} min-h-24`}
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          textAlignVertical="top"
-          placeholder="Setup cues, seat height…" />
-      </Field>
-      {error && <AppText className="text-brand-error">{error}</AppText>}
-      <AppButton variant="primary"
-        onPress={submit}>
-        {submitLabel}
-      </AppButton>
-      {children}
-    </ScrollView>
+                {value}
+              </Chip>
+            ))}
+          </View>
+        </Field>
+        <Field label="Notes">
+          <AppTextInput style={{ minHeight: 96 }}
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            textAlignVertical="top"
+            placeholder="Setup cues, seat height…" />
+        </Field>
+        {error && <AppText className="text-danger">{error}</AppText>}
+        <AppButton variant="primary"
+          onPress={submit}>
+          {submitLabel}
+        </AppButton>
+        {children}
+      </ScrollView>
+    </Screen>
   );
 }

@@ -4,6 +4,7 @@
     "slug": "forklift",
     "version": "0.1.0",
     "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
     "scheme": "forklift",
     "ios": {
       "bundleIdentifier": "app.forklift",

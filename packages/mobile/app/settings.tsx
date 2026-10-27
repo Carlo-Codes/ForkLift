@@ -12,6 +12,8 @@ import type { Unit } from "@forklift/db/client";
 import { AiAccessSettings } from "@/components/AiAccessSettings";
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
+import { Chip } from "@/components/Chip";
+import { Screen } from "@/components/Screen";
 import { pickBackupText, shareBackup } from "@/backupFile";
 
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -97,59 +99,57 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-brand-white"
-      contentContainerClassName="gap-3 p-6">
-      <AppText weight="semibold"
-        className="text-lg text-brand-darkGray">
-        Weight unit
-      </AppText>
-      <View className="flex-row gap-3"
-        accessibilityRole="radiogroup">
-        {unitValues.map(value => (
-          <AppButton
-            key={value}
-            variant="chip"
-            selected={value === unit}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: value === unit }}
-            onPress={() => chooseUnit(value)}
-          >
-            {value}
-          </AppButton>
-        ))}
-      </View>
-      <AppText className="text-brand-mediumGray">
-        Every weight in ForkLift uses this unit.
-      </AppText>
-      {error && <AppText className="text-brand-error">{error}</AppText>}
-      <AppText weight="semibold"
-        className="mt-6 text-lg text-brand-darkGray">
-        Backup
-      </AppText>
-      <AppText className="text-brand-mediumGray">
-        Export saves all your data to one file you can keep anywhere. Import restores a file,
-        replacing what&apos;s here, for example on a new phone.
-      </AppText>
-      <View className="flex-row gap-3">
-        <AppButton variant="outline"
-          className="py-2"
-          onPress={exportData}>
-          Export
-        </AppButton>
-        <AppButton variant="outline"
-          className="py-2"
-          onPress={() => void importData()}>
-          Import
-        </AppButton>
-      </View>
-      {backupMessage && (
-        <AppText className={backupMessage.isError ? "text-brand-error" : "text-brand-mediumGray"}>
-          {backupMessage.text}
+    <Screen>
+      <ScrollView contentContainerClassName="gap-3 p-6">
+        <AppText weight="semibold"
+          className="text-lg text-ink">
+          Weight unit
         </AppText>
-      )}
-      <View className="mt-6">
-        <AiAccessSettings />
-      </View>
-    </ScrollView>
+        <View className="flex-row gap-3"
+          accessibilityRole="radiogroup">
+          {unitValues.map(value => (
+            <Chip
+              key={value}
+              selected={value === unit}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: value === unit }}
+              onPress={() => chooseUnit(value)}
+          >
+              {value}
+            </Chip>
+          ))}
+        </View>
+        <AppText className="text-muted">
+          Every weight in ForkLift uses this unit.
+        </AppText>
+        {error && <AppText className="text-danger">{error}</AppText>}
+        <AppText weight="semibold"
+          className="mt-6 text-lg text-ink">
+          Backup
+        </AppText>
+        <AppText className="text-muted">
+          Export saves all your data to one file you can keep anywhere. Import restores a file,
+          replacing what&apos;s here, for example on a new phone.
+        </AppText>
+        <View className="flex-row gap-3">
+          <AppButton variant="secondary"
+            onPress={exportData}>
+            Export
+          </AppButton>
+          <AppButton variant="secondary"
+            onPress={() => void importData()}>
+            Import
+          </AppButton>
+        </View>
+        {backupMessage && (
+          <AppText className={backupMessage.isError ? "text-danger" : "text-muted"}>
+            {backupMessage.text}
+          </AppText>
+        )}
+        <View className="mt-6">
+          <AiAccessSettings />
+        </View>
+      </ScrollView>
+    </Screen>
   );
 }

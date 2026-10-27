@@ -20,7 +20,10 @@ import type { PlanAttributes, WorkoutAttributes } from "@forklift/db/client";
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { NameInput } from "@/components/NameInput";
+import { Chip } from "@/components/Chip";
+import { rowPosition } from "@/components/ListRow";
 import { moveId, OrderedRow } from "@/components/OrderedRow";
+import { Screen } from "@/components/Screen";
 
 interface PlanState {
   plan: PlanAttributes;
@@ -47,9 +50,9 @@ export default function PlanEditorScreen() {
 
   if (!state) {
     return (
-      <View className="flex-1 items-center justify-center bg-brand-white p-6">
-        <AppText className="text-brand-mediumGray">This plan no longer exists.</AppText>
-      </View>
+      <Screen className="items-center justify-center p-6">
+        <AppText className="text-muted">This plan no longer exists.</AppText>
+      </Screen>
     );
   }
 
@@ -82,73 +85,76 @@ export default function PlanEditorScreen() {
   };
 
   return (
-    <FlatList
-      className="flex-1 bg-brand-white"
-      data={workouts}
-      keyExtractor={w => w.id}
-      keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={(
-        <View className="gap-4 p-4">
-          <NameInput
-            key={plan.id}
-            initial={plan.name}
-            placeholder="Plan name"
-            submitLabel="Rename"
-            onSubmit={name => {
-              updatePlan(plan.id, { name });
-              refresh();
-            }}
+    <Screen>
+      <FlatList
+        data={workouts}
+        keyExtractor={w => w.id}
+        contentContainerClassName="px-4 pb-4"
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={(
+          <View className="gap-4 py-4">
+            <NameInput
+              key={plan.id}
+              initial={plan.name}
+              placeholder="Plan name"
+              submitLabel="Rename"
+              onSubmit={name => {
+                updatePlan(plan.id, { name });
+                refresh();
+              }}
           />
-          <AppButton
-            variant="chip"
-            className="self-start"
-            selected={plan.isActive}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: plan.isActive }}
-            onPress={() => {
-              setActivePlan(plan.isActive ? null : plan.id);
-              refresh();
-            }}
+            <Chip
+              className="self-start"
+              selected={plan.isActive}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: plan.isActive }}
+              onPress={() => {
+                setActivePlan(plan.isActive ? null : plan.id);
+                refresh();
+              }}
           >
-            {plan.isActive ? "Active Plan ✓" : "Make Active Plan"}
-          </AppButton>
-          <AppText weight="semibold"
-            className="text-lg text-brand-darkGray">
-            Workouts
-          </AppText>
-          <NameInput
-            placeholder="New workout name"
-            submitLabel="Add workout"
-            clearOnSubmit
-            onSubmit={name => {
-              createWorkout(plan.id, { name });
-              refresh();
-            }}
+              {plan.isActive ? "Active Plan ✓" : "Make Active Plan"}
+            </Chip>
+            <AppText weight="semibold"
+              className="text-lg text-ink">
+              Workouts
+            </AppText>
+            <NameInput
+              placeholder="New workout name"
+              submitLabel="Add workout"
+              clearOnSubmit
+              onSubmit={name => {
+                createWorkout(plan.id, { name });
+                refresh();
+              }}
           />
-        </View>
-      )}
-      ListEmptyComponent={(
-        <AppText className="px-4 text-brand-mediumGray">
-          No workouts yet. Add one, e.g. &quot;Push&quot;.
-        </AppText>
-      )}
-      renderItem={({ item, index }) => (
-        <OrderedRow
-          title={item.name}
-          onPress={() => router.push({
-            pathname: "/workouts/[id]",
-            params: { id: item.id }
-          })}
-          onMoveUp={index > 0 ? () => move(index, -1) : undefined}
-          onMoveDown={index < workouts.length - 1 ? () => move(index, 1) : undefined}
+          </View>
+        )}
+        ListEmptyComponent={(
+          <AppText className="text-muted">
+            No workouts yet. Add one, e.g. &quot;Push&quot;.
+          </AppText>
+        )}
+        renderItem={({ item, index }) => (
+          <OrderedRow
+            title={item.name}
+            onPress={() => router.push({
+              pathname: "/workouts/[id]",
+              params: { id: item.id }
+            })}
+            onMoveUp={index > 0 ? () => move(index, -1) : undefined}
+            onMoveDown={index < workouts.length - 1 ? () => move(index, 1) : undefined}
+            {...rowPosition(index, workouts.length)}
         />
-      )}
-      ListFooterComponent={(
-        <AppButton className="items-center p-4"
-          onPress={confirmDelete}>
-          <AppText className="text-brand-error">Delete plan</AppText>
-        </AppButton>
-      )}
+        )}
+        ListFooterComponent={(
+          <AppButton variant="destructive"
+            className="mt-4"
+            onPress={confirmDelete}>
+            Delete plan
+          </AppButton>
+        )}
     />
+    </Screen>
   );
 }

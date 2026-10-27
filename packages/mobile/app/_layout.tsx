@@ -6,15 +6,26 @@ import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Platform } from "react-native";
 
 import { loadBuiltInExercises } from "@forklift/core";
 
 import { AppText } from "@/components/AppText";
+import { Screen } from "@/components/Screen";
 import { openDb } from "@/db/client";
+import { useThemeColors } from "@/theme";
 
 void SplashScreen.preventAutoHideAsync();
+
+const ALL_EDGES = [
+  "top",
+  "bottom",
+  "left",
+  "right"
+] as const;
 
 export default function RootLayout() {
   const [ fontsLoaded, fontError ] = useFonts({
@@ -23,6 +34,7 @@ export default function RootLayout() {
     Inter_700Bold
   });
 
+  const colors = useThemeColors();
   const [ dbReady, setDbReady ] = useState(false);
   const [ dbError, setDbError ] = useState<Error>();
 
@@ -35,6 +47,12 @@ export default function RootLayout() {
       setDbError(error instanceof Error ? error : new Error(String(error)));
     }
   }, []);
+
+  // The window behind the screens, seen during transitions and behind the
+  // keyboard, follows the theme too.
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.background).catch(() => undefined);
+  }, [ colors.background ]);
 
   // A font that fails to load falls back to the system font rather than
   // keeping the splash screen up forever.
@@ -56,54 +74,83 @@ export default function RootLayout() {
 
   if (dbError) {
     return (
-      <View className="flex-1 items-center justify-center bg-brand-white px-6">
-        <AppText className="text-center text-brand-error">
+      <Screen edges={ALL_EDGES}
+        className="items-center justify-center px-6">
+        <StatusBar style="auto" />
+        <AppText className="text-center text-danger">
           ForkLift couldn&apos;t open its database: {dbError.message}
         </AppText>
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: "#E8590C" },
-        headerTintColor: "#fff",
-        headerTitleStyle: { fontFamily: "Inter_600SemiBold" }
-      }}
-    >
-      <Stack.Screen name="index"
-        options={{ title: "ForkLift" }} />
-      <Stack.Screen name="settings"
-        options={{ title: "Settings" }} />
-      <Stack.Screen name="ai-changes"
-        options={{ title: "Changes by AI" }} />
-      <Stack.Screen name="exercises/index"
-        options={{ title: "Exercise Library" }} />
-      <Stack.Screen name="exercises/new"
-        options={{ title: "Add Exercise" }} />
-      <Stack.Screen name="exercises/[id]"
-        options={{ title: "Exercise" }} />
-      <Stack.Screen name="plans/index"
-        options={{ title: "Plans" }} />
-      <Stack.Screen name="plans/[id]"
-        options={{ title: "Plan" }} />
-      <Stack.Screen name="workouts/[id]"
-        options={{ title: "Workout" }} />
-      <Stack.Screen name="workouts/add-exercise"
-        options={{ title: "Add Exercise" }} />
-      <Stack.Screen name="entries/[id]"
-        options={{ title: "Targets" }} />
-      <Stack.Screen name="sessions/new"
-        options={{ title: "Choose Workout" }} />
-      <Stack.Screen name="sessions/[id]"
-        options={{ title: "Workout Mode" }} />
-      <Stack.Screen name="history/index"
-        options={{ title: "History" }} />
-      <Stack.Screen name="history/sessions/[id]"
-        options={{ title: "Session" }} />
-      <Stack.Screen name="history/exercises/[id]"
-        options={{ title: "Exercise History" }} />
-    </Stack>
+    <>
+      <StatusBar style="auto" />
+      <Stack
+        screenOptions={{
+          // Large titles on the screen's own background, with no orange bar.
+          // iOS collapses them as the content scrolls; Android's native header
+          // has no large title, so its title is set bigger and bolder instead.
+          headerLargeTitle: true,
+          headerLargeTitleShadowVisible: false,
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.accent,
+          headerTitleStyle: Platform.OS === "android" ?
+            {
+              fontFamily: "Inter_700Bold",
+              fontSize: 26,
+              color: colors.ink
+            } :
+            {
+              fontFamily: "Inter_600SemiBold",
+              color: colors.ink
+            },
+          headerLargeTitleStyle: {
+            fontFamily: "Inter_700Bold",
+            color: colors.ink
+          },
+          contentStyle: { backgroundColor: colors.background }
+        }}
+      >
+        <Stack.Screen name="index"
+          options={{ title: "ForkLift" }} />
+        <Stack.Screen name="settings"
+          options={{ title: "Settings" }} />
+        <Stack.Screen name="ai-changes"
+          options={{ title: "Changes by AI" }} />
+        <Stack.Screen name="exercises/index"
+          options={{ title: "Exercise Library" }} />
+        <Stack.Screen name="exercises/new"
+          options={{ title: "Add Exercise" }} />
+        <Stack.Screen name="exercises/[id]"
+          options={{ title: "Exercise" }} />
+        <Stack.Screen name="plans/index"
+          options={{ title: "Plans" }} />
+        <Stack.Screen name="plans/[id]"
+          options={{ title: "Plan" }} />
+        <Stack.Screen name="workouts/[id]"
+          options={{ title: "Workout" }} />
+        <Stack.Screen name="workouts/add-exercise"
+          options={{ title: "Add Exercise" }} />
+        <Stack.Screen name="entries/[id]"
+          options={{ title: "Targets" }} />
+        <Stack.Screen name="sessions/new"
+          options={{ title: "Choose Workout" }} />
+        <Stack.Screen name="sessions/[id]"
+          options={{
+            title: "Workout Mode",
+            // The set and the Done button need the room.
+            headerLargeTitle: false
+          }} />
+        <Stack.Screen name="history/index"
+          options={{ title: "History" }} />
+        <Stack.Screen name="history/sessions/[id]"
+          options={{ title: "Session" }} />
+        <Stack.Screen name="history/exercises/[id]"
+          options={{ title: "Exercise History" }} />
+      </Stack>
+    </>
   );
 }

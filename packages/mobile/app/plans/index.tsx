@@ -9,7 +9,9 @@ import type { PlanAttributes } from "@forklift/db/client";
 
 import { AppText } from "@/components/AppText";
 import { NameInput } from "@/components/NameInput";
+import { rowPosition } from "@/components/ListRow";
 import { moveId, OrderedRow } from "@/components/OrderedRow";
+import { Screen } from "@/components/Screen";
 
 export default function PlansScreen() {
   const [ plans, setPlans ] = useState<PlanAttributes[]>([]);
@@ -24,7 +26,7 @@ export default function PlansScreen() {
   };
 
   return (
-    <View className="flex-1 bg-brand-white">
+    <Screen>
       <View className="p-4">
         <NameInput
           placeholder="New plan name"
@@ -39,9 +41,10 @@ export default function PlansScreen() {
       <FlatList
         data={plans}
         keyExtractor={p => p.id}
+        contentContainerClassName="px-4 pb-4"
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={(
-          <AppText className="px-4 text-brand-mediumGray">
+          <AppText className="text-muted">
             No plans yet. Add one, e.g. &quot;Push / Pull / Legs&quot;.
           </AppText>
         )}
@@ -55,9 +58,10 @@ export default function PlansScreen() {
             })}
             onMoveUp={index > 0 ? () => move(index, -1) : undefined}
             onMoveDown={index < plans.length - 1 ? () => move(index, 1) : undefined}
+            {...rowPosition(index, plans.length)}
           />
         )}
       />
-    </View>
+    </Screen>
   );
 }

@@ -39,7 +39,7 @@ export function NameInput({
     <View className="gap-1">
       <View className="flex-row items-center gap-2">
         <AppTextInput
-          className="flex-1 rounded-lg border border-brand-lightGray px-3 py-2 text-brand-darkGray"
+          className="flex-1"
           value={name}
           onChangeText={setName}
           onSubmitEditing={submit}
@@ -47,12 +47,12 @@ export function NameInput({
           accessibilityLabel={placeholder}
           returnKeyType="done"
         />
-        <AppButton variant="outline"
+        <AppButton variant="secondary"
           onPress={submit}>
           {submitLabel}
         </AppButton>
       </View>
-      {error && <AppText className="text-brand-error">{error}</AppText>}
+      {error && <AppText className="text-danger">{error}</AppText>}
     </View>
   );
 }

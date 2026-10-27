@@ -2,7 +2,7 @@ import {
   Link, router, useLocalSearchParams
 } from "expo-router";
 import { useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert } from "react-native";
 
 import {
   deleteExercise, getExercise, updateExercise
@@ -12,6 +12,7 @@ import type { ExerciseAttributes } from "@forklift/db/client";
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { ExerciseForm } from "@/components/ExerciseForm";
+import { Screen } from "@/components/Screen";
 
 function loadExercise(id: string): ExerciseAttributes | undefined {
   try {
@@ -27,9 +28,9 @@ export default function ExerciseDetailScreen() {
 
   if (!exercise) {
     return (
-      <View className="flex-1 items-center justify-center bg-brand-white p-6">
-        <AppText className="text-brand-mediumGray">This exercise no longer exists.</AppText>
-      </View>
+      <Screen className="items-center justify-center p-6">
+        <AppText className="text-muted">This exercise no longer exists.</AppText>
+      </Screen>
     );
   }
 
@@ -68,13 +69,11 @@ export default function ExerciseDetailScreen() {
         params: { id: exercise.id }
       }}
         asChild>
-        <AppButton className="items-center p-4">
-          <AppText className="text-brand-primary">History</AppText>
-        </AppButton>
+        <AppButton variant="link">History</AppButton>
       </Link>
-      <AppButton className="items-center p-4"
+      <AppButton variant="destructive"
         onPress={confirmDelete}>
-        <AppText className="text-brand-error">Delete exercise</AppText>
+        Delete exercise
       </AppButton>
     </ExerciseForm>
   );

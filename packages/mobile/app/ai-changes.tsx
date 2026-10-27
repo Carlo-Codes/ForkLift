@@ -6,6 +6,8 @@ import { listAiChanges, undoAiChange } from "@forklift/core";
 
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
+import { rowPosition, rowSurfaceClass } from "@/components/ListRow";
+import { Screen } from "@/components/Screen";
 import { formatDateTime } from "@/format";
 
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -30,36 +32,38 @@ export default function AiChangesScreen() {
   };
 
   return (
-    <FlatList
-      className="flex-1 bg-brand-white"
-      data={changes}
-      keyExtractor={c => c.id}
-      ListHeaderComponent={error ? <AppText className="px-4 pt-4 text-brand-error">{error}</AppText> : undefined}
-      ListEmptyComponent={(
-        <AppText className="p-4 text-brand-mediumGray">
-          Changes your AI makes through AI Access show up here, each one undoable.
-        </AppText>
-      )}
-      renderItem={({ item }) => (
-        <View className="flex-row items-center gap-3 border-b border-brand-lighterGray px-4 py-4">
-          <View className="flex-1 gap-1">
-            <AppText className={item.undoneAt ? "text-brand-mediumGray line-through" : "text-brand-darkGray"}>
-              {item.summary}
-            </AppText>
-            <AppText className="text-sm text-brand-mediumGray">
-              {item.createdAt && formatDateTime(item.createdAt)}
-              {item.undoneAt && ` · Undone ${formatDateTime(item.undoneAt)}`}
-            </AppText>
+    <Screen>
+      <FlatList
+        data={changes}
+        keyExtractor={c => c.id}
+        contentContainerClassName="p-4"
+        ListHeaderComponent={error ? <AppText className="pb-4 text-danger">{error}</AppText> : undefined}
+        ListEmptyComponent={(
+          <AppText className="text-muted">
+            Changes your AI makes through AI Access show up here, each one undoable.
+          </AppText>
+        )}
+        renderItem={({ item, index }) => (
+          <View className={`flex-row items-center gap-3 px-4 py-3 ${rowSurfaceClass(rowPosition(index, changes.length))}`}>
+            <View className="flex-1 gap-1">
+              <AppText className={item.undoneAt ? "text-muted line-through" : "text-ink"}>
+                {item.summary}
+              </AppText>
+              <AppText className="text-sm text-muted">
+                {item.createdAt && formatDateTime(item.createdAt)}
+                {item.undoneAt && ` · Undone ${formatDateTime(item.undoneAt)}`}
+              </AppText>
+            </View>
+            {!item.undoneAt && (
+              <AppButton variant="secondary"
+                accessibilityLabel={`Undo: ${item.summary}`}
+                onPress={() => undo(item.id)}>
+                Undo
+              </AppButton>
+            )}
           </View>
-          {!item.undoneAt && (
-            <AppButton variant="outline"
-              accessibilityLabel={`Undo: ${item.summary}`}
-              onPress={() => undo(item.id)}>
-              Undo
-            </AppButton>
-          )}
-        </View>
-      )}
+        )}
     />
+    </Screen>
   );
 }

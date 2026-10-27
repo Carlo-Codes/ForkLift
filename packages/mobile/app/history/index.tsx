@@ -4,8 +4,9 @@ import { FlatList } from "react-native";
 
 import { listSessionHistory } from "@forklift/core";
 
-import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
+import { ListRow, rowPosition } from "@/components/ListRow";
+import { Screen } from "@/components/Screen";
 import { formatDate } from "@/format";
 
 // Past Sessions, newest first, by date and Workout name.
@@ -15,26 +16,24 @@ export default function HistoryScreen() {
   useFocusEffect(useCallback(() => setSessions(listSessionHistory()), []));
 
   return (
-    <FlatList
-      className="flex-1 bg-brand-white"
-      data={sessions}
-      keyExtractor={s => s.id}
-      ListEmptyComponent={(
-        <AppText className="p-4 text-brand-mediumGray">Finished workouts show up here.</AppText>
-      )}
-      renderItem={({ item }) => (
-        <AppButton className="border-b border-brand-lighterGray px-4 py-4"
-          accessibilityRole="button"
-          onPress={() => router.push({
-            pathname: "/history/sessions/[id]",
-            params: { id: item.id }
-          })}>
-          <AppText className="text-brand-darkGray">
-            {item.workoutName}
-            <AppText className="text-brand-mediumGray"> · {formatDate(item.startedAt)}</AppText>
-          </AppText>
-        </AppButton>
-      )}
-    />
+    <Screen>
+      <FlatList
+        data={sessions}
+        keyExtractor={s => s.id}
+        contentContainerClassName="p-4"
+        ListEmptyComponent={(
+          <AppText className="text-muted">Finished workouts show up here.</AppText>
+        )}
+        renderItem={({ item, index }) => (
+          <ListRow title={item.workoutName}
+            subtitle={formatDate(item.startedAt)}
+            onPress={() => router.push({
+              pathname: "/history/sessions/[id]",
+              params: { id: item.id }
+            })}
+            {...rowPosition(index, sessions.length)} />
+        )}
+      />
+    </Screen>
   );
 }

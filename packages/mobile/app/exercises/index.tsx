@@ -1,4 +1,6 @@
-import { Link, useFocusEffect } from "expo-router";
+import {
+  Link, router, useFocusEffect
+} from "expo-router";
 import { useCallback, useState } from "react";
 import { FlatList, View } from "react-native";
 
@@ -8,6 +10,8 @@ import type { ExerciseAttributes } from "@forklift/db/client";
 import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
+import { ListRow, rowPosition } from "@/components/ListRow";
+import { Screen } from "@/components/Screen";
 
 export default function ExerciseLibraryScreen() {
   const [ query, setQuery ] = useState("");
@@ -19,10 +23,9 @@ export default function ExerciseLibraryScreen() {
   }, [ query ]));
 
   return (
-    <View className="flex-1 bg-brand-white">
+    <Screen>
       <View className="gap-3 p-4">
         <AppTextInput
-          className="rounded-lg border border-brand-lightGray px-3 py-2 text-brand-darkGray"
           value={query}
           onChangeText={setQuery}
           placeholder="Search exercises"
@@ -32,7 +35,7 @@ export default function ExerciseLibraryScreen() {
         />
         <Link href="/exercises/new"
           asChild>
-          <AppButton variant="outline"
+          <AppButton variant="secondary"
             className="self-start">
             Add exercise
           </AppButton>
@@ -41,29 +44,23 @@ export default function ExerciseLibraryScreen() {
       <FlatList
         data={exercises}
         keyExtractor={e => e.id}
+        contentContainerClassName="px-4 pb-4"
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={(
-          <AppText className="px-4 text-brand-mediumGray">
+          <AppText className="text-muted">
             {query.trim() ? `No exercises match "${query.trim()}".` : "No exercises yet."}
           </AppText>
         )}
-        renderItem={({ item }) => (
-          <Link href={{
-            pathname: "/exercises/[id]",
-            params: { id: item.id }
-          }}
-            asChild>
-            <AppButton className="border-b border-brand-lighterGray px-4 py-3">
-              <AppText className="text-brand-darkGray">{item.name}</AppText>
-              {(item.muscleGroups.length > 0 || item.equipment) && (
-                <AppText className="text-sm text-brand-mediumGray">
-                  {[ item.muscleGroups.join(", "), item.equipment ].filter(Boolean).join(" · ")}
-                </AppText>
-              )}
-            </AppButton>
-          </Link>
+        renderItem={({ item, index }) => (
+          <ListRow title={item.name}
+            subtitle={[ item.muscleGroups.join(", "), item.equipment ].filter(Boolean).join(" · ") || undefined}
+            onPress={() => router.push({
+              pathname: "/exercises/[id]",
+              params: { id: item.id }
+            })}
+            {...rowPosition(index, exercises.length)} />
         )}
       />
-    </View>
+    </Screen>
   );
 }

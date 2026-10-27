@@ -6,9 +6,10 @@ import {
   createBlock, createExerciseEntry, searchExercises
 } from "@forklift/core";
 
-import { AppButton } from "@/components/AppButton";
 import { AppText } from "@/components/AppText";
 import { AppTextInput } from "@/components/AppTextInput";
+import { ListRow, rowPosition } from "@/components/ListRow";
+import { Screen } from "@/components/Screen";
 
 // Picks an Exercise from the library and adds it to the Workout as a new Block
 // with default targets, or to the Superset blockId names, then opens those
@@ -35,10 +36,9 @@ export default function AddExerciseToWorkoutScreen() {
   };
 
   return (
-    <View className="flex-1 bg-brand-white">
+    <Screen>
       <View className="gap-2 p-4">
         <AppTextInput
-          className="rounded-lg border border-brand-lightGray px-3 py-2 text-brand-darkGray"
           value={query}
           onChangeText={setQuery}
           placeholder="Search exercises"
@@ -46,27 +46,25 @@ export default function AddExerciseToWorkoutScreen() {
           clearButtonMode="while-editing"
           accessibilityLabel="Search exercises"
         />
-        {error && <AppText className="text-brand-error">{error}</AppText>}
+        {error && <AppText className="text-danger">{error}</AppText>}
       </View>
       <FlatList
         data={exercises}
         keyExtractor={e => e.id}
+        contentContainerClassName="px-4 pb-4"
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={(
-          <AppText className="px-4 text-brand-mediumGray">
+          <AppText className="text-muted">
             {query.trim() ? `No exercises match "${query.trim()}".` : "The Exercise Library is empty."}
           </AppText>
         )}
-        renderItem={({ item }) => (
-          <AppButton className="border-b border-brand-lighterGray px-4 py-3"
-            onPress={() => pick(item.id)}>
-            <AppText className="text-brand-darkGray">{item.name}</AppText>
-            {item.muscleGroups.length > 0 && (
-              <AppText className="text-sm text-brand-mediumGray">{item.muscleGroups.join(", ")}</AppText>
-            )}
-          </AppButton>
+        renderItem={({ item, index }) => (
+          <ListRow title={item.name}
+            subtitle={item.muscleGroups.join(", ") || undefined}
+            onPress={() => pick(item.id)}
+            {...rowPosition(index, exercises.length)} />
         )}
       />
-    </View>
+    </Screen>
   );
 }

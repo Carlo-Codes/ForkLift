@@ -3,57 +3,50 @@ import type { PressableProps } from "react-native";
 
 import { AppText } from "./AppText";
 
+// Compact: at least the 44pt touch target, no taller.
+const SHAPE = "min-h-touch flex-row items-center justify-center gap-2 rounded-xl px-4 active:opacity-70 disabled:opacity-40";
+
 const VARIANT_BASE_CLASS = {
-  primary: "items-center rounded-lg bg-brand-primary p-4 active:opacity-80 disabled:opacity-50",
-  outline: "rounded-lg border border-brand-primary px-3 py-1 active:opacity-80",
-  chip: "rounded-full border px-3 py-1",
-  plain: ""
+  // The one main action on a screen.
+  primary: `${SHAPE} bg-accent`,
+  // Any other action: a soft fill rather than an outline.
+  secondary: `${SHAPE} bg-fill`,
+  // A text-only action, e.g. "Choose a different workout".
+  link: SHAPE,
+  // A text-only action that deletes or removes.
+  destructive: SHAPE,
+  // Unstyled: the caller lays out its own content (rows, big tap areas).
+  plain: "active:opacity-70 disabled:opacity-40"
 } as const;
 
 const VARIANT_TEXT_CLASS = {
-  primary: "text-brand-white",
-  outline: "text-brand-primary",
-  chip: "text-brand-darkGray",
-  plain: "text-brand-darkGray"
-} as const;
-
-const VARIANT_TEXT_WEIGHT = {
-  primary: "semibold",
-  outline: "regular",
-  chip: "regular",
-  plain: "regular"
+  primary: "text-on-accent",
+  secondary: "text-accent",
+  link: "text-accent",
+  destructive: "text-danger",
+  plain: "text-ink"
 } as const;
 
 type AppButtonVariant = keyof typeof VARIANT_BASE_CLASS;
 
 interface AppButtonProps extends Omit<PressableProps, "children"> {
   variant?: AppButtonVariant;
-  selected?: boolean;
   children?: React.ReactNode;
 }
 
 // React 19 passes `ref` as a regular prop (Link asChild relies on it), so it
 // arrives through PressableProps and is spread onto the Pressable.
 export function AppButton({
-  variant = "plain", selected, className, children, ...props
+  variant = "plain", className, children, ...props
 }: AppButtonProps) {
-  const selectedClass =
-    variant === "chip" ?
-      selected ? "border-brand-primary bg-brand-primaryLight" : "border-brand-lightGray" :
-      "";
-
   return (
     <Pressable
-      className={[
-        VARIANT_BASE_CLASS[ variant ],
-        selectedClass,
-        className
-      ].filter(Boolean).join(" ")}
+      className={[ VARIANT_BASE_CLASS[ variant ], className ].filter(Boolean).join(" ")}
       {...props}
     >
       {typeof children === "string" ?
         (
-          <AppText weight={VARIANT_TEXT_WEIGHT[ variant ]}
+          <AppText weight={variant === "plain" ? "regular" : "semibold"}
             className={VARIANT_TEXT_CLASS[ variant ]}>
             {children}
           </AppText>
