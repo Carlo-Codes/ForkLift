@@ -31,7 +31,7 @@ import {
   updatePlan,
   updateWorkout
 } from "@forklift/core";
-import type { BlockWithEntries } from "@forklift/core";
+import type { BlockWithEntries, ExerciseEntryRemoval } from "@forklift/core";
 import type {
   PlanAttributes, Unit, WorkoutAttributes
 } from "@forklift/db/client";
@@ -44,7 +44,7 @@ import { BlockItem } from "./BlockItem";
 import { Card } from "./Card";
 import { DateChip } from "./DateChip";
 import { EmptyState } from "./EmptyState";
-import type { EntryEditing } from "./ExerciseEntryRow";
+import type { EditError, EntryEditing } from "./ExerciseEntryRow";
 import { moveId } from "./OrderedRow";
 import { Screen } from "./Screen";
 import { Snackbar } from "./Snackbar";
@@ -242,9 +242,9 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   const [ dateError, setDateError ] = useState<string>();
   // The Exercise Entry whose editor is open, and the last edit that failed.
   const [ editingId, setEditingId ] = useState<string>();
-  const [ editError, setEditError ] = useState<EntryEditing["error"]>();
+  const [ editError, setEditError ] = useState<EditError>();
   // The Exercise Entry just removed, while its Undo shows.
-  const [ removed, setRemoved ] = useState<{ id: string; name: string }>();
+  const [ removed, setRemoved ] = useState<{ removal: ExerciseEntryRemoval; name: string }>();
   const tapOutside = useTapOutside(() => setEditingId(undefined));
   // Re-read on focus, coming back from the exercise picker, and
   // whenever the Plan is saved or another Workout is selected.
@@ -332,17 +332,22 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
 
   const moveBlock = (index: number, delta: -1 | 1) => writeThenRefresh(() => reorderBlocks(workout!.id, moveId(blocks.map(b => b.id), index, delta)));
 
-  // Saves an edit to an Exercise Entry or Superset (id), showing why it
-  // didn't save on it.
-  const edit = (id: string, write: () => void) => {
+  // Saves an edit to an Exercise Entry or Superset, showing why it didn't
+  // save on it.
+  const edit = (on: Omit<EditError, "message">, write: () => void) => {
     const message = errorFrom(write);
 
     setEditError(message === undefined ? undefined : {
-      id,
+      ...on,
       message
     });
     refresh();
   };
+
+  const onEntry = (entry: { id: string }) => ({
+    kind: "entry",
+    id: entry.id
+  }) as const;
 
   const editing: EntryEditing = {
     editingId,
@@ -352,23 +357,23 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
       setEditError(undefined);
       setEditingId(entry.id);
     },
-    onChange: (entry, changes) => edit(entry.id, () => updateExerciseEntry(entry.id, changes)),
+    onChange: (entry, changes) => edit(onEntry(entry), () => updateExerciseEntry(entry.id, changes)),
     // No confirmation: Undo shows instead.
-    onRemove: entry => {
-      deleteExerciseEntry(entry.id);
+    onRemove: entry => edit(onEntry(entry), () => {
+      const removal = deleteExerciseEntry(entry.id);
+
       setEditingId(undefined);
 
       setRemoved({
-        id: entry.id,
+        removal,
         name: entry.exercise.name
       });
-      refresh();
-    },
+    }),
     onTouchInside: tapOutside.markInside
   };
 
-  const undoRemove = (id: string) => {
-    const message = errorFrom(() => restoreExerciseEntry(id));
+  const undoRemove = (removal: ExerciseEntryRemoval) => {
+    const message = errorFrom(() => restoreExerciseEntry(removal));
 
     setRemoved(undefined);
     refresh();
@@ -436,7 +441,10 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
             <BlockItem block={item}
               unit={state!.unit}
               editing={editing}
-              onSetRoundRest={restSeconds => edit(item.id, () => setRoundRest(item.id, restSeconds))}
+              onSetRoundRest={restSeconds => edit({
+                kind: "superset",
+                id: item.id
+              }, () => setRoundRest(item.id, restSeconds))}
               onMoveEntry={(entryIndex, delta) => writeThenRefresh(() => reorderExerciseEntries(item.id, moveId(item.exerciseEntries.map(e => e.id), entryIndex, delta)))()}
               onAddToSuperset={() => addExercise(item.id)}
               onUngroup={writeThenRefresh(() => ungroupBlock(item.id))}
@@ -459,10 +467,10 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
           </AppButton>
         )} />
       {removed && (
-        <Snackbar key={removed.id}
+        <Snackbar key={removed.removal.exerciseEntryId}
           message={`Removed ${removed.name}`}
           actionLabel="Undo"
-          onAction={() => undoRemove(removed.id)}
+          onAction={() => undoRemove(removed.removal)}
           onHide={() => setRemoved(undefined)} />
       )}
     </Screen>

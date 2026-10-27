@@ -1,13 +1,13 @@
 import { View } from "react-native";
 
-import { roundRest } from "@forklift/core";
+import { EXERCISE_ENTRY_BOUNDS, roundRest } from "@forklift/core";
 import type { BlockWithEntries } from "@forklift/core";
 import type { Unit } from "@forklift/db/client";
 
 import { AppButton } from "./AppButton";
 import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
-import { ExerciseEntryRow, restStepper } from "./ExerciseEntryRow";
+import { errorOn, ExerciseEntryRow } from "./ExerciseEntryRow";
 import type { EntryEditing } from "./ExerciseEntryRow";
 import { MoveButtons } from "./OrderedRow";
 import { Stepper } from "./Stepper";
@@ -32,7 +32,7 @@ export function SupersetGroup({
   block, unit, editing, onSetRoundRest, onMoveEntry, onAddEntry, onUngroup, onMoveUp, onMoveDown
 }: SupersetGroupProps) {
   const entries = block.exerciseEntries;
-  const error = editing.error?.id === block.id ? editing.error.message : undefined;
+  const error = errorOn(editing.error, "superset", block.id);
 
   return (
     <View className="overflow-hidden rounded-2xl border-2 border-accent-soft bg-surface">
@@ -52,9 +52,9 @@ export function SupersetGroup({
             onMoveDown={onMoveDown} />
         </View>
         <View className="flex-row pr-4">
-          <Stepper {...restStepper}
-            label="Round Rest (s)"
-            value={roundRest(entries) ?? 0}
+          <Stepper label="Round Rest (s)"
+            value={roundRest(entries)!}
+            {...EXERCISE_ENTRY_BOUNDS.restSeconds}
             onChange={onSetRoundRest} />
         </View>
         {error && <AppText className="text-danger">{error}</AppText>}

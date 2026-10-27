@@ -1,4 +1,6 @@
-import { useState } from "react";
+import {
+  useEffect, useRef, useState
+} from "react";
 import { View } from "react-native";
 
 import { AppButton } from "./AppButton";
@@ -16,27 +18,49 @@ interface StepperProps {
   max: number;
   // Weights take decimals; counts and seconds don't.
   decimal?: boolean;
-  // Saved straight away, on each tap of − / + and on each number typed.
+  // Saved straight away on each tap of − / +, and once typing ends.
   onChange: (value: number) => void;
 }
 
 // A number with − and + either side, e.g. a target's sets or rest. The number
-// can be typed too: what's typed saves while it's a number in range, and the
-// field goes back to the saved value once editing ends.
+// can be typed too: it saves when editing ends, or when the Stepper goes (the
+// editor closing), and a field left empty goes back to the saved value. Core
+// checks what's typed, so an out-of-range number shows its error.
 export function Stepper({
   label, value, step, min, max, decimal, onChange
 }: StepperProps) {
   // What the lifter is typing, while they are.
   const [ text, setText ] = useState<string>();
+  // The same, for saving it as the Stepper unmounts.
+  const typed = useRef<string>(undefined);
+  const save = useRef(onChange);
 
-  const type = (typed: string) => {
-    setText(typed);
+  save.current = onChange;
 
-    const number = toNumber(typed);
+  const commit = () => {
+    const number = typed.current === undefined ? Number.NaN : toNumber(typed.current);
 
-    if (number >= min && number <= max && (decimal || Number.isInteger(number))) {
-      onChange(number);
+    typed.current = undefined;
+    setText(undefined);
+
+    if (!Number.isNaN(number) && number !== value) {
+      save.current(number);
     }
+  };
+
+  // Typing ends without editing ending when a tap elsewhere closes the editor.
+  useEffect(() => () => {
+    const number = typed.current === undefined ? Number.NaN : toNumber(typed.current);
+
+    if (!Number.isNaN(number)) {
+      save.current(number);
+    }
+  }, []);
+
+  const stepBy = (delta: number) => {
+    typed.current = undefined;
+    setText(undefined);
+    onChange(stepValue(value, delta, min, max));
   };
 
   return (
@@ -46,22 +70,25 @@ export function Stepper({
         <AppButton variant="secondary"
           disabled={value <= min}
           accessibilityLabel={`Decrease ${label}`}
-          onPress={() => onChange(stepValue(value, -step, min, max))}>
+          onPress={() => stepBy(-step)}>
           <AppIcon name="remove"
             color="accent"
             size={20} />
         </AppButton>
         <AppTextInput className="flex-1 text-center"
           value={text ?? String(value)}
-          onChangeText={type}
-          onEndEditing={() => setText(undefined)}
+          onChangeText={next => {
+            typed.current = next;
+            setText(next);
+          }}
+          onEndEditing={commit}
           keyboardType={decimal ? "decimal-pad" : "number-pad"}
           accessibilityLabel={label}
           selectTextOnFocus />
         <AppButton variant="secondary"
           disabled={value >= max}
           accessibilityLabel={`Increase ${label}`}
-          onPress={() => onChange(stepValue(value, step, min, max))}>
+          onPress={() => stepBy(step)}>
           <AppIcon name="add"
             color="accent"
             size={20} />

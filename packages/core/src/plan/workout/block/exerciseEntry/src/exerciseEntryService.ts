@@ -5,6 +5,7 @@ import {
   DEFAULT_TARGET_WEIGHT,
   DEFAULT_WEIGHT_STEP,
   exerciseEntryCreatePayloadSchema,
+  exerciseEntrySchema,
   exerciseEntryUpdatePayloadSchema,
   MAX_TARGET_WEIGHT
 } from "@forklift/db/client";
@@ -16,7 +17,9 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
-import { nextPosition, orderOrThrow } from "#utils/position";
+import {
+  nextPosition, orderOrThrow, slotIn
+} from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 import type { Actor } from "#aiChange/aiChangeRecorder";
@@ -26,7 +29,7 @@ import { getExercise } from "#exercise/exerciseService";
 import { getSettings } from "#setting/settingService";
 import { getWorkoutByQuery } from "#workout/workoutDb";
 import {
-  deleteBlockDb, getBlockByQuery, updateBlockDb
+  deleteBlockDb, getAllBlockByQuery, getBlockByQuery, updateBlockDb
 } from "#block/blockDb";
 
 import {
@@ -38,6 +41,45 @@ import {
 } from "./exerciseEntryDb";
 
 const debug = createDebugger("exerciseEntryService");
+
+const rangeOf = ({ minValue, maxValue }: { minValue: number | null; maxValue: number | null }) => ({
+  min: minValue ?? 0,
+  max: maxValue ?? Number.MAX_SAFE_INTEGER
+});
+
+const { shape } = exerciseEntrySchema;
+const WEIGHT_STEP_STEP = 0.25;
+
+// Each target's range, as core checks it, and how far a stepper moves it. The
+// target weight steps by the entry's own Weight Step. A Weight Step must be
+// above 0, so its range starts one step up.
+export const EXERCISE_ENTRY_BOUNDS = {
+  targetSets: {
+    ...rangeOf(shape.targetSets),
+    step: 1
+  },
+  targetReps: {
+    ...rangeOf(shape.targetReps),
+    step: 1
+  },
+  targetWeight: rangeOf(shape.targetWeight),
+  restSeconds: {
+    ...rangeOf(shape.restSeconds),
+    step: 15
+  },
+  weightStep: {
+    min: WEIGHT_STEP_STEP,
+    max: rangeOf(shape.weightStep).max,
+    step: WEIGHT_STEP_STEP
+  }
+} as const;
+
+// What Undo needs to put a removed entry back: whether removing it took its
+// Block too, so a Block deleted any other way stays deleted.
+export interface ExerciseEntryRemoval {
+  exerciseEntryId: string;
+  blockRemoved: boolean;
+}
 
 // Checked here rather than through getBlock so blockService can build on this
 // module without an import cycle.
@@ -189,25 +231,41 @@ export function raiseTargetWeight(id: string, tx?: TransactionType): ExerciseEnt
 }
 
 // A Block is made of its entries, so removing the last one removes the Block.
-export function deleteExerciseEntry(id: string, actor: Actor = "lifter", tx?: TransactionType): void {
-  write(actor, tx, t => {
-    const entry = getExerciseEntry(id, t);
+// Returns what restoreExerciseEntry needs to undo it.
+export function deleteExerciseEntry(id: string, actor: Actor = "lifter", tx?: TransactionType): ExerciseEntryRemoval {
+  const { entry, blockRemoved } = write(actor, tx, t => {
+    const removed = getExerciseEntry(id, t);
 
     debug.info("deleting exercise entry %s", id);
     deleteExerciseEntryDb(id, t);
 
-    if (getLiveBlockOrThrow(entry.blockId, t).exerciseEntries.length === 0) {
-      deleteBlockDb(entry.blockId, t);
+    const emptied = getLiveBlockOrThrow(removed.blockId, t).exerciseEntries.length === 0;
+
+    if (emptied) {
+      deleteBlockDb(removed.blockId, t);
     }
 
-    return entry;
-  }, (entry, t) => `Removed ${exerciseName(entry.exerciseId, t)} from ${workoutNameOf(entry.blockId, t)}`);
+    return {
+      entry: removed,
+      blockRemoved: emptied
+    };
+  }, (result, t) => `Removed ${exerciseName(result.entry.exerciseId, t)} from ${workoutNameOf(result.entry.blockId, t)}`);
+
+  return {
+    exerciseEntryId: entry.id,
+    blockRemoved
+  };
 }
 
 // Undo of the lifter removing an entry: it goes back in its place, along with
-// its Block if removing it took the Block too. Only while its Workout is still
-// there. The AI's removals are undone through Changes by AI instead.
-export function restoreExerciseEntry(id: string, tx?: TransactionType): ExerciseEntryAttributes {
+// its Block if removing it took the Block too, ahead of whatever has taken
+// that place since. Only while its Workout is still there, and its Block too
+// unless the removal took it. The AI's removals are undone through Changes by
+// AI instead.
+export function restoreExerciseEntry(
+  { exerciseEntryId: id, blockRemoved }: ExerciseEntryRemoval,
+  tx?: TransactionType
+): ExerciseEntryAttributes {
   return inTransaction(tx, t => {
     const entry = getExerciseEntryByQuery({ where: { id } }, t);
     const block = entry && getBlockByQuery({ where: { id: entry.blockId } }, t);
@@ -219,7 +277,9 @@ export function restoreExerciseEntry(id: string, tx?: TransactionType): Exercise
       }
     }, t);
 
-    if (!entry || !block || !workout) {
+    // A Block deleted some other way since (e.g. the AI's delete_block) stays
+    // deleted, and the entry with it.
+    if (!entry || !block || !workout || (block.deletedAt && !blockRemoved)) {
       throw new ApiError(404, `Exercise entry ${id} not found`, "NotFoundError");
     }
 
@@ -230,7 +290,29 @@ export function restoreExerciseEntry(id: string, tx?: TransactionType): Exercise
     debug.info("restoring exercise entry %s", id);
 
     if (block.deletedAt) {
+      const blocks = getAllBlockByQuery({
+        where: {
+          workoutId: block.workoutId,
+          deletedAt: { isNull: true }
+        }
+      }, t);
+
+      for (const { id: blockId, position } of slotIn(blocks, block)) {
+        updateBlockDb(blockId, { position }, t);
+      }
+
       updateBlockDb(block.id, { deletedAt: null }, t);
+    }
+
+    const entries = getAllExerciseEntryByQuery({
+      where: {
+        blockId: block.id,
+        deletedAt: { isNull: true }
+      }
+    }, t);
+
+    for (const { id: entryId, position } of slotIn(entries, entry)) {
+      updateExerciseEntryDb(entryId, { position }, t);
     }
 
     return updateExerciseEntryDb(id, { deletedAt: null }, t);
