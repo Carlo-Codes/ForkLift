@@ -34,20 +34,25 @@ export function slotIn(
 }
 
 // A reorder names every live sibling exactly once, so nothing is lost or
-// duplicated; the result is each id with its new 0-based position.
+// duplicated. The siblings are numbered from 0 in that order; the result is
+// just the rows whose position changes, so the same order writes nothing.
 export function orderOrThrow(
-  siblings: { id: string }[],
+  siblings: { id: string; position: number }[],
   orderedIds: string[]
 ): { id: string; position: number }[] {
   const ids = parseOrThrow(orderedIdsSchema, orderedIds);
-  const current = new Set(siblings.map(s => s.id));
+  const current = new Map(siblings.map(s => [ s.id, s.position ]));
 
   if (ids.length !== current.size || new Set(ids).size !== ids.length || !ids.every(id => current.has(id))) {
     throw new ApiError(400, "The new order must list each item exactly once", "ValidationError");
   }
 
-  return ids.map((id, position) => ({
-    id,
-    position
-  }));
+  return ids.flatMap((id, position) => (current.get(id) === position ?
+    [] :
+    [
+      {
+        id,
+        position
+      }
+    ]));
 }

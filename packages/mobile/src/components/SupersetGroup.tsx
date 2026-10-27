@@ -6,28 +6,27 @@ import type { BlockWithEntries } from "@forklift/core";
 import { AppButton } from "./AppButton";
 import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
+import { DragHandle, DragList } from "./DragList";
 import { errorOn, useEntryList } from "./EntryListContext";
 import { ExerciseEntryRow } from "./ExerciseEntryRow";
-import { MoveButtons } from "./OrderedRow";
 import { Stepper } from "./Stepper";
 import { TickButton } from "./TickButton";
 
 interface SupersetGroupProps {
   block: BlockWithEntries;
   onSetRoundRest: (restSeconds: number) => void;
-  onMoveEntry: (index: number, delta: -1 | 1) => void;
+  // The entry ids in their new order.
+  onReorderEntries: (exerciseEntryIds: string[]) => void;
   onAddEntry: () => void;
-  // Move the whole Superset within the Workout; omitted at the top / bottom.
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
 }
 
-// A Superset in the Plan editor: its entries shown as one bordered group, reordered
-// within it, with the group itself moved like any other Block. The header
-// shows the Round Rest; changing it sets the rest of every entry. In Select
-// mode the header ticks the whole Superset.
+// A Superset in the Plan editor: its entries shown as one bordered group and
+// dragged into a new order within it, while the header's handle drags the
+// whole group like any other Block. The header shows the Round Rest; changing
+// it sets the rest of every entry. In Select mode the header ticks the whole
+// Superset.
 export function SupersetGroup({
-  block, onSetRoundRest, onMoveEntry, onAddEntry, onMoveUp, onMoveDown
+  block, onSetRoundRest, onReorderEntries, onAddEntry
 }: SupersetGroupProps) {
   const { editing, selecting } = useEntryList();
   const entries = block.exerciseEntries;
@@ -56,9 +55,7 @@ export function SupersetGroup({
                   className="flex-1 text-accent">
                   Superset
                 </AppText>
-                <MoveButtons label="superset"
-                  onMoveUp={onMoveUp}
-                  onMoveDown={onMoveDown} />
+                <DragHandle label="Superset" />
               </>
             )}
         </View>
@@ -71,12 +68,11 @@ export function SupersetGroup({
         </View>
         {error && <AppText className="text-danger">{error}</AppText>}
       </View>
-      {entries.map((entry, index) => (
-        <ExerciseEntryRow key={entry.id}
-          entry={entry}
-          onMoveUp={index > 0 ? () => onMoveEntry(index, -1) : undefined}
-          onMoveDown={index < entries.length - 1 ? () => onMoveEntry(index, 1) : undefined} />
-      ))}
+      <DragList data={entries}
+        keyOf={entry => entry.id}
+        enabled={!selecting}
+        onReorder={onReorderEntries}
+        renderItem={entry => <ExerciseEntryRow entry={entry} />} />
       {!selecting && (
         <AppButton className="min-h-touch flex-row items-center gap-2 border-t border-separator px-4"
           onPress={onAddEntry}>

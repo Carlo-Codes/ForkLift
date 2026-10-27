@@ -49,8 +49,10 @@ in order. Terms are as in `GLOSSARY.md`; plan dates are in ADR-0006.
 - **Delete plan** is in the header's ⋯ menu and asks for confirmation.
 - **Workout tabs**: a tab row that scrolls sideways when there are many Workouts.
   - Tap a tab to switch to it.
-  - Drag a tab to reorder it.
-  - Long-press a tab for Rename or Delete (Delete asks for confirmation).
+  - Drag a tab to reorder it. The tab row scrolls sideways, the same way a tab is dragged, so a
+    tab lifts once held still for 300ms; moving sooner scrolls the row.
+  - Long-press a tab for Rename or Delete (Delete asks for confirmation): hold it until it lifts
+    and let go without moving.
   - "+" at the end adds "Day N".
 - Below the tabs is the selected Workout's list of Exercise Entries. The Workout editor screen
   goes; editing it happens here.
@@ -60,7 +62,9 @@ in order. Terms are as in `GLOSSARY.md`; plan dates are in ADR-0006.
 - **Add exercise** opens a searchable picker of the Exercise Library, with **New exercise** at
   the top. The chosen Exercise is added with the default targets (3×10, 90s rest).
 - **Touch and drag** a row to reorder it straight away. Dragging a Superset moves the whole
-  group, and the Exercise Entries inside a Superset can be reordered too.
+  group, and the Exercise Entries inside a Superset can be reordered too. The drag starts from
+  the row's handle (≡) as soon as the finger moves 4pt, so the rest of the row still scrolls the
+  list. Rows can't be dragged in Select mode; a row with its editor open can.
 - **Long-press** a row to open its editor in place: sets, reps, weight and rest steppers, plus
   **Remove**. Tapping anywhere else closes it. A tap without moving does nothing.
 - A Superset shows as a bordered group labelled "Superset". Its header shows the **Round Rest**

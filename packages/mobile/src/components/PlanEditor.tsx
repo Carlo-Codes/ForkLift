@@ -5,7 +5,7 @@ import {
   useCallback, useEffect, useMemo, useRef, useState
 } from "react";
 import {
-  Alert, FlatList, Switch, View
+  Alert, ScrollView, Switch, View
 } from "react-native";
 import type { GestureResponderEvent, TextInputInstance } from "react-native";
 
@@ -22,6 +22,7 @@ import {
   listWorkouts,
   reorderBlocks,
   reorderExerciseEntries,
+  reorderWorkouts,
   restoreExerciseEntries,
   setActivePlan,
   setRoundRest,
@@ -43,12 +44,14 @@ import { AppTextInput } from "./AppTextInput";
 import { BlockItem } from "./BlockItem";
 import { Card } from "./Card";
 import { DateChip } from "./DateChip";
+import {
+  DragList, DragScrollContext, TAP_SLOP
+} from "./DragList";
 import { EmptyState } from "./EmptyState";
 import { EntryListContext } from "./EntryListContext";
 import type {
   EditError, EntryEditing, EntryList
 } from "./EntryListContext";
-import { moveId } from "./OrderedRow";
 import { Screen } from "./Screen";
 import { SelectionBar } from "./SelectionBar";
 import { Snackbar } from "./Snackbar";
@@ -99,9 +102,6 @@ function errorFrom(write: () => void): string | undefined {
     return errorMessage(e);
   }
 }
-
-// How far a touch can move and still be a tap, in points.
-const TAP_SLOP = 10;
 
 // The open Exercise Entry editor closes on a tap anywhere else in the editor
 // (a scroll leaves it open). The editor's own touches, and the long-press
@@ -231,6 +231,10 @@ function PlanSettings({
           deleteWorkout(id);
           onChanged();
         }}
+        onReorder={ids => {
+          reorderWorkouts(plan.id, ids);
+          onChanged();
+        }}
         onAdd={() => onSelect(createNextDayWorkout(plan.id).id)} />
     </>
   );
@@ -255,6 +259,8 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   // The Exercise Entries just removed together, while their Undo shows.
   const [ removed, setRemoved ] = useState<{ removals: ExerciseEntryRemoval[]; message: string }>();
   const tapOutside = useTapOutside(() => setEditingId(undefined));
+  // While a row or tab is dragged, the editor holds still.
+  const [ dragging, setDragging ] = useState(false);
   // Re-read on focus, coming back from the exercise picker, and
   // whenever the Plan is saved or another Workout is selected.
   const refresh = useCallback(() => setState(planId ? loadEditor(planId, workoutId) : undefined), [ planId, workoutId ]);
@@ -390,12 +396,17 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
     );
   }
 
-  const writeThenRefresh = (write: () => void) => () => {
-    write();
-    refresh();
-  };
+  // Saves a drag's new order; one that can't be saved (e.g. the Workout
+  // changed meanwhile) says why and shows the order as it is.
+  const reorder = (write: () => void) => {
+    const message = errorFrom(write);
 
-  const moveBlock = (index: number, delta: -1 | 1) => writeThenRefresh(() => reorderBlocks(workout!.id, moveId(blocks.map(b => b.id), index, delta)));
+    refresh();
+
+    if (message) {
+      Alert.alert("Couldn't move it", message);
+    }
+  };
 
   const undoRemove = (removals: ExerciseEntryRemoval[]) => {
     const message = errorFrom(() => restoreExerciseEntries(removals));
@@ -486,41 +497,48 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
     <Screen {...tapOutside.handlers}>
       {header}
       <EntryListContext value={entryList}>
-        <FlatList
-          data={blocks}
-          keyExtractor={b => b.id}
-          // Room for the selection bar over the last rows.
-          contentContainerClassName={`gap-1 px-4 ${selecting ? "pb-36" : "pb-4"}`}
-          keyboardShouldPersistTaps="handled"
-          ListHeaderComponent={listHeader}
-          ListEmptyComponent={state && (
-            <EmptyState icon="barbell-outline"
-              message={workout ? `No exercises in ${workout.name} yet.` : "No workouts yet. Tap + to add one."} />
-          )}
-          renderItem={({ item, index }) => (
-            <BlockItem block={item}
-              onSetRoundRest={restSeconds => edit({
-                kind: "superset",
-                id: item.id
-              }, () => setRoundRest(item.id, restSeconds))}
-              onMoveEntry={(entryIndex, delta) => writeThenRefresh(() => reorderExerciseEntries(item.id, moveId(item.exerciseEntries.map(e => e.id), entryIndex, delta)))()}
-              onAddToSuperset={() => addExercise(item.id)}
-              onMoveUp={index > 0 ? moveBlock(index, -1) : undefined}
-              onMoveDown={index < blocks.length - 1 ? moveBlock(index, 1) : undefined} />
-          )}
-          ListFooterComponent={workout && !selecting ? (
-            <AppButton variant="secondary"
-              className="mt-3 self-start"
-              onPress={() => addExercise()}>
-              <AppIcon name="add"
-                color="accent"
-                size={20} />
-              <AppText weight="semibold"
-                className="text-accent">
-                Add exercise
-              </AppText>
-            </AppButton>
-          ) : undefined} />
+        <DragScrollContext value={setDragging}>
+          <ScrollView scrollEnabled={!dragging}
+            // Room for the selection bar over the last rows.
+            contentContainerClassName={`px-4 ${selecting ? "pb-36" : "pb-4"}`}
+            keyboardShouldPersistTaps="handled">
+            {listHeader}
+            {blocks.length > 0 ?
+              (
+                <DragList data={blocks}
+                  keyOf={b => b.id}
+                  gap={4}
+                  enabled={!selecting}
+                  onReorder={ids => reorder(() => reorderBlocks(workout!.id, ids))}
+                  renderItem={block => (
+                    <BlockItem block={block}
+                      onSetRoundRest={restSeconds => edit({
+                        kind: "superset",
+                        id: block.id
+                      }, () => setRoundRest(block.id, restSeconds))}
+                      onReorderEntries={ids => reorder(() => reorderExerciseEntries(block.id, ids))}
+                      onAddToSuperset={() => addExercise(block.id)} />
+                  )} />
+              ) :
+              state && (
+                <EmptyState icon="barbell-outline"
+                  message={workout ? `No exercises in ${workout.name} yet.` : "No workouts yet. Tap + to add one."} />
+              )}
+            {workout && !selecting && (
+              <AppButton variant="secondary"
+                className="mt-3 self-start"
+                onPress={() => addExercise()}>
+                <AppIcon name="add"
+                  color="accent"
+                  size={20} />
+                <AppText weight="semibold"
+                  className="text-accent">
+                  Add exercise
+                </AppText>
+              </AppButton>
+            )}
+          </ScrollView>
+        </DragScrollContext>
       </EntryListContext>
       {selecting && (
         <SelectionBar count={tickedIds.length}

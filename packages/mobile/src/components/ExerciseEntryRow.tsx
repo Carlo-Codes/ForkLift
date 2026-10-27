@@ -5,28 +5,27 @@ import type { ExerciseEntryUpdatePayload } from "@forklift/db/client";
 
 import { AppButton } from "./AppButton";
 import { AppText } from "./AppText";
+import { DragHandle } from "./DragList";
 import { errorOn, useEntryList } from "./EntryListContext";
 import type { Entry } from "./EntryListContext";
 import { ListRow, rowSurfaceClass } from "./ListRow";
-import { OrderedRow } from "./OrderedRow";
 import { Stepper } from "./Stepper";
 
 import { formatTargets } from "@/format";
 
 interface ExerciseEntryRowProps {
   entry: Entry;
-  // Omitted at the top / bottom of the list.
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
   first?: boolean;
   last?: boolean;
 }
 
-// An Exercise Entry in the Plan editor. A long-press opens its sets, reps,
-// weight, Weight Step and rest steppers and Remove below it; each change
-// saves straight away. In Select mode a tap ticks it instead.
+// An Exercise Entry in the Plan editor, an item of a DragList: its handle
+// drags it (its Block, or the entry within its Superset). A long-press, on the
+// row or its handle, opens its sets, reps, weight, Weight Step and rest
+// steppers and Remove below it; each change saves straight away. In Select
+// mode a tap ticks it instead, and it has no handle.
 export function ExerciseEntryRow({
-  entry, onMoveUp, onMoveDown, first, last
+  entry, first, last
 }: ExerciseEntryRowProps) {
   const {
     unit, editing, selecting
@@ -50,14 +49,16 @@ export function ExerciseEntryRow({
 
   return (
     <View onTouchStart={open ? editing.onTouchInside : undefined}>
-      <OrderedRow title={entry.exercise.name}
+      <ListRow title={entry.exercise.name}
         subtitle={subtitle}
         onLongPress={() => editing.onEdit(entry)}
         accessibilityHint="Long-press to edit"
-        onMoveUp={onMoveUp}
-        onMoveDown={onMoveDown}
         first={first}
-        last={last && !open} />
+        last={last && !open}
+        accessory={(
+          <DragHandle label={entry.exercise.name}
+            onLongPress={() => editing.onEdit(entry)} />
+        )} />
       {open && (
         <View className={`gap-3 px-4 pb-2 pt-3 ${rowSurfaceClass({ last })}`}>
           <View className="flex-row gap-3">

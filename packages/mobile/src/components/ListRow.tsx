@@ -15,7 +15,7 @@ interface ListRowProps {
   onLongPress?: () => void;
   accessibilityLabel?: string;
   accessibilityHint?: string;
-  // Controls after the title, e.g. reorder buttons.
+  // Controls after the title, e.g. a drag handle.
   accessory?: React.ReactNode;
   // Makes the row a Select mode tick box, ticked or not; onPress toggles it.
   ticked?: boolean;
