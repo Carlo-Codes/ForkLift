@@ -13,17 +13,22 @@ import {
   createNextDayWorkout,
   createSuperset,
   deleteExerciseEntries,
+  DEFAULT_PLAN_WEEKS,
   deleteWorkout,
   getPlan,
   getPlanProgress,
   getSettings,
   listBlocks,
   listWorkouts,
+  MAX_PLAN_WEEKS,
+  planDateRow,
   reorderBlocks,
   reorderExerciseEntries,
   reorderWorkouts,
   restoreExerciseEntries,
   setActivePlan,
+  setPlanStart,
+  setPlanWeeks,
   setRoundRest,
   toCalendarDay,
   ungroupExerciseEntries,
@@ -56,12 +61,13 @@ import type {
 import { Screen } from "./Screen";
 import { SelectionBar } from "./SelectionBar";
 import { Snackbar } from "./Snackbar";
+import { Stepper } from "./Stepper";
 import { useRowSelection } from "./useRowSelection";
 import { WorkoutTabs } from "./WorkoutTabs";
 
 import { confirmDeletePlan } from "@/confirmDeletePlan";
 import { errorMessage } from "@/errorMessage";
-import { formatPlanProgress } from "@/format";
+import { formatCalendarDay, formatPlanProgress } from "@/format";
 import { openRowAfterTap } from "@/openRow";
 import { useThemeColors } from "@/theme";
 
@@ -186,6 +192,53 @@ function TitleInput({
   );
 }
 
+// The Plan's dates as the New plan form picks them: a "Starts [date]" chip and a
+// Weeks stepper, still saved as From and To (ADR-0006). A To that isn't a whole number of
+// weeks after From (set by the AI) shows its weeks rounded up and stays until
+// the lifter changes the start date or weeks. Clearing the start date clears
+// both. A To the AI set without a From shows until a start date replaces it.
+function PlanDates({
+  plan, error, onSetDates
+}: {
+  plan: PlanAttributes;
+  error: string | undefined;
+  onSetDates: (write: () => void) => void;
+}) {
+  const {
+    startDate, weeks, endDate
+  } = planDateRow(plan);
+
+  return (
+    <View className="gap-2">
+      <View className="flex-row flex-wrap items-center gap-2">
+        <DateChip label="Starts"
+          day={startDate}
+          fallback={toCalendarDay(new Date())}
+          placeholder="Set start date"
+          onChange={day => onSetDates(() => setPlanStart(plan.id, day))} />
+        {startDate && weeks === null && (
+          <AppButton variant="link"
+            onPress={() => onSetDates(() => setPlanWeeks(plan.id, DEFAULT_PLAN_WEEKS))}>
+            Set weeks
+          </AppButton>
+        )}
+        {!startDate && endDate && (
+          <AppText className="text-muted">Ends {formatCalendarDay(endDate)}</AppText>
+        )}
+      </View>
+      {weeks !== null && (
+        <Stepper label="Weeks"
+          value={weeks}
+          step={1}
+          min={1}
+          max={Math.max(MAX_PLAN_WEEKS, weeks)}
+          onChange={next => onSetDates(() => setPlanWeeks(plan.id, next))} />
+      )}
+      {error && <AppText className="text-danger">{error}</AppText>}
+    </View>
+  );
+}
+
 // The Plan's dates, Active toggle and Workout tabs, above the selected
 // Workout's Exercise Entries.
 function PlanSettings({
@@ -193,7 +246,7 @@ function PlanSettings({
 }: {
   state: EditorState;
   dateError: string | undefined;
-  onSetDates: (dates: Partial<Pick<PlanAttributes, "startDate" | "endDate">>) => void;
+  onSetDates: (write: () => void) => void;
   onSelect: (workoutId: string | undefined) => void;
   onChanged: () => void;
 }) {
@@ -203,21 +256,11 @@ function PlanSettings({
     plan, workouts, workout
   } = state;
 
-  const today = toCalendarDay(new Date());
-
   return (
     <>
-      <View className="flex-row flex-wrap gap-2">
-        <DateChip label="From"
-          day={plan.startDate ?? null}
-          fallback={plan.endDate ?? today}
-          onChange={startDate => onSetDates({ startDate })} />
-        <DateChip label="To"
-          day={plan.endDate ?? null}
-          fallback={plan.startDate ?? today}
-          onChange={endDate => onSetDates({ endDate })} />
-      </View>
-      {dateError && <AppText className="text-danger">{dateError}</AppText>}
+      <PlanDates plan={plan}
+        error={dateError}
+        onSetDates={onSetDates} />
       <Card className="min-h-touch flex-row items-center gap-3 px-4 py-1">
         <AppText className="flex-1 text-ink">Active Plan</AppText>
         <Switch value={plan.isActive}
@@ -465,8 +508,8 @@ export function PlanEditor({ planId }: { planId: string }) {
       </View>
       <PlanSettings state={state}
         dateError={dateError}
-        onSetDates={dates => {
-          setDateError(errorFrom(() => updatePlan(state.plan.id, dates)));
+        onSetDates={write => {
+          setDateError(errorFrom(write));
           refresh();
         }}
         onSelect={id => {

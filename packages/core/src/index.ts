@@ -12,4 +12,6 @@ export * from "./session/loggedSet/src";
 export * from "./session/sessionIncrease/src";
 export * from "./session/src";
 export { fromCalendarDay, toCalendarDay } from "./utils/calendarDay";
-export { planToDate, planWeeks } from "./utils/planWeeks";
+export {
+  DEFAULT_PLAN_WEEKS, MAX_PLAN_WEEKS, planToDate, planWeeks
+} from "./utils/planWeeks";

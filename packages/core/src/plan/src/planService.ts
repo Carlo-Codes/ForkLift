@@ -12,6 +12,9 @@ import type {
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { toCalendarDay } from "#utils/calendarDay";
+import {
+  DEFAULT_PLAN_WEEKS, MAX_PLAN_WEEKS, planToDate, planWeeks, planWeeksSchema
+} from "#utils/planWeeks";
 import { nextPosition } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
@@ -200,6 +203,68 @@ export function updatePlan(
 
     return [ renamed, redated ].filter(Boolean)
       .join("; ");
+  });
+}
+
+// The Plan editor's date row: a Plan's start date and the weeks it lasts, still
+// stored as From and To (ADR-0006). A To that isn't a whole number of weeks
+// after From (set by the AI, or before the row counted weeks) reads rounded
+// up. weeks is null unless both dates are set; endDate is kept for a Plan the
+// AI gave only a To.
+export interface PlanDateRow {
+  startDate: string | null;
+  weeks: number | null;
+  endDate: string | null;
+}
+
+export function planDateRow({ startDate, endDate }: PlanDates): PlanDateRow {
+  return {
+    startDate: startDate ?? null,
+    weeks: startDate && endDate ? planWeeks(startDate, endDate) : null,
+    endDate: endDate ?? null
+  };
+}
+
+// A new start date keeps the Plan's weeks (or gives it the default length when
+// it has none) and moves To with it; null clears both dates. Saved as a From/To
+// edit, so AI Access sees From and To as ever. The lifter's only: the AI sets
+// From and To.
+export function setPlanStart(id: string, day: string | null, tx?: TransactionType): PlanAttributes {
+  // Checked before To is counted from it.
+  const { startDate } = parseOrThrow(planUpdatePayloadSchema, { startDate: day });
+
+  return inTransaction(tx, t => {
+    if (!startDate) {
+      return updatePlan(id, {
+        startDate: null,
+        endDate: null
+      }, "lifter", t);
+    }
+
+    const weeks = planDateRow(getPlan(id, t)).weeks ?? DEFAULT_PLAN_WEEKS;
+
+    return updatePlan(id, {
+      startDate,
+      endDate: planToDate(startDate, weeks)
+    }, "lifter", t);
+  });
+}
+
+// A new length in weeks moves To; the start date stays. A Plan needs a start
+// date to count weeks from. Weeks go up to MAX_PLAN_WEEKS, or to the Plan's
+// current weeks when the AI made it longer.
+export function setPlanWeeks(id: string, weeks: number, tx?: TransactionType): PlanAttributes {
+  return inTransaction(tx, t => {
+    const plan = getPlan(id, t);
+    const current = planDateRow(plan).weeks ?? 0;
+    const valid = parseOrThrow(planWeeksSchema(Math.max(MAX_PLAN_WEEKS, current)), weeks);
+    const { startDate } = plan;
+
+    if (!startDate) {
+      throw new ApiError(400, "Pick a start date first", "ValidationError");
+    }
+
+    return updatePlan(id, { endDate: planToDate(startDate, valid) }, "lifter", t);
   });
 }
 

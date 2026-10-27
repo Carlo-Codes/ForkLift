@@ -10,7 +10,10 @@ import {
   deletePlan,
   listPlanCards,
   listPlans,
+  planDateRow,
   setActivePlan,
+  setPlanStart,
+  setPlanWeeks,
   updatePlan
 } from "..";
 import { listBlocks } from "#block";
@@ -272,6 +275,148 @@ describe("plans", () => {
       });
 
       expect(getActivePlan()?.id).toBe(ended.id);
+    });
+  });
+
+  describe("start date and weeks", () => {
+    const dated = () => createPlan({
+      name: "PPL",
+      startDate: "2026-10-27",
+      endDate: "2026-12-21"
+    });
+
+    it("reads From and To as a start date and the weeks they cover", () => {
+      expect(planDateRow(dated())).toEqual({
+        startDate: "2026-10-27",
+        weeks: 8,
+        endDate: "2026-12-21"
+      });
+    });
+
+    it("reads a To that isn't a whole number of weeks after From rounded up, and leaves it alone", () => {
+      const { id } = createPlan({
+        name: "PPL",
+        startDate: "2026-10-27",
+        endDate: "2026-11-03"
+      }, "ai");
+
+      expect(planDateRow(getPlan(id)).weeks).toBe(2);
+      expect(getPlan(id).endDate).toBe("2026-11-03");
+    });
+
+    it("has no weeks without both dates", () => {
+      expect(planDateRow(createPlan({ name: "A" })).weeks).toBeNull();
+      expect(planDateRow(createPlan({
+        name: "B",
+        startDate: "2026-10-27"
+      })).weeks).toBeNull();
+    });
+
+    it("moves To with a new start date, keeping the weeks", () => {
+      const { id } = dated();
+
+      expect(setPlanStart(id, "2026-11-02")).toEqual(expect.objectContaining({
+        startDate: "2026-11-02",
+        endDate: "2026-12-27"
+      }));
+    });
+
+    it("keeps the rounded-up weeks of an uneven To when the start date moves", () => {
+      const { id } = createPlan({
+        name: "PPL",
+        startDate: "2026-10-27",
+        endDate: "2026-11-03"
+      });
+
+      expect(setPlanStart(id, "2026-11-02").endDate).toBe("2026-11-15");
+    });
+
+    it("gives a Plan without weeks the New plan form's 8 when its start date is set", () => {
+      for (const dates of [
+        {},
+        { startDate: "2026-10-01" },
+        { endDate: "2026-10-01" }
+      ]) {
+        const { id } = createPlan({
+          name: "PPL",
+          ...dates
+        });
+
+        expect(setPlanStart(id, "2026-10-27")).toEqual(expect.objectContaining({
+          startDate: "2026-10-27",
+          endDate: "2026-12-21"
+        }));
+      }
+    });
+
+    it("moves To with the weeks", () => {
+      const { id } = dated();
+
+      expect(setPlanWeeks(id, 1).endDate).toBe("2026-11-02");
+      expect(setPlanWeeks(id, 52).endDate).toBe("2027-10-25");
+      expect(getPlan(id).startDate).toBe("2026-10-27");
+    });
+
+    it("rejects weeks outside 1 to 52 or not whole, and weeks without a start date", () => {
+      const { id } = dated();
+
+      for (const weeks of [
+        0,
+        53,
+        1.5,
+        Number.NaN
+      ]) {
+        expect(() => setPlanWeeks(id, weeks)).toThrow(validationError);
+      }
+
+      expect(getPlan(id).endDate).toBe("2026-12-21");
+
+      const undated = createPlan({ name: "Undated" });
+
+      expect(() => setPlanWeeks(undated.id, 4)).toThrow(validationError);
+      expect(getPlan(undated.id).endDate).toBeNull();
+    });
+
+    it("lets the lifter shorten a Plan the AI made longer than 52 weeks a week at a time", () => {
+      const { id } = createPlan({
+        name: "PPL",
+        startDate: "2026-10-27",
+        endDate: "2027-12-20"
+      }, "ai");
+
+      expect(planDateRow(getPlan(id)).weeks).toBe(60);
+      expect(() => setPlanWeeks(id, 61)).toThrow(validationError);
+      expect(setPlanWeeks(id, 59).endDate).toBe("2027-12-13");
+      expect(() => setPlanWeeks(id, 60)).toThrow(validationError);
+    });
+
+    it("rejects a start date that isn't a calendar day", () => {
+      const { id } = dated();
+
+      for (const day of [
+        "2026-02-30",
+        "02/11/2026"
+      ]) {
+        expect(() => setPlanStart(id, day)).toThrow(validationError);
+      }
+
+      expect(getPlan(id).startDate).toBe("2026-10-27");
+    });
+
+    it("clears both dates with the start date", () => {
+      const { id } = dated();
+
+      expect(setPlanStart(id, null)).toEqual(expect.objectContaining({
+        startDate: null,
+        endDate: null
+      }));
+    });
+
+    it("reports a missing Plan as not found", () => {
+      const missingId = crypto.randomUUID();
+
+      expect(() => setPlanStart(missingId, "2026-10-27")).toThrow(notFoundError);
+      expect(() => setPlanWeeks(missingId, 4)).toThrow(notFoundError);
     });
   });
 
