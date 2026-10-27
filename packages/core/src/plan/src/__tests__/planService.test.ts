@@ -299,7 +299,14 @@ describe("plans", () => {
           startDate: "2026-11-02",
           endDate: "2026-12-20",
           isActive: false,
-          ended: false,
+          progress: {
+            planWeek: {
+              status: "upcoming",
+              daysUntilStart: 6,
+              totalWeeks: 7
+            },
+            sessionsDone: 0
+          },
           workoutNames: []
         },
         {
@@ -308,13 +315,16 @@ describe("plans", () => {
           startDate: null,
           endDate: null,
           isActive: true,
-          ended: false,
+          progress: {
+            planWeek: null,
+            sessionsDone: 0
+          },
           workoutNames: [ "Pull", "Legs" ]
         }
       ]);
     });
 
-    it("marks a Plan Ended only once its To date has passed, keeping its place", () => {
+    it("shows a Plan Ended only once its To date has passed, keeping its place", () => {
       createPlan({
         name: "Old block",
         endDate: "2026-10-26"
@@ -328,10 +338,10 @@ describe("plans", () => {
         startDate: "2026-01-01"
       });
 
-      expect(listPlanCards("2026-10-27").map(({ name, ended }) => [ name, ended ])).toEqual([
-        [ "Open-ended", false ],
-        [ "Ends today", false ],
-        [ "Old block", true ]
+      expect(listPlanCards("2026-10-27").map(({ name, progress }) => [ name, progress.planWeek?.status ])).toEqual([
+        [ "Open-ended", "running" ],
+        [ "Ends today", undefined ],
+        [ "Old block", "ended" ]
       ]);
     });
 

@@ -1,6 +1,10 @@
 import type { SessionEntrySnapshot, TransactionType } from "@forklift/db/client";
 
-import { getActivePlan, getNextWorkout } from "#plan/planService";
+import { toCalendarDay } from "#utils/calendarDay";
+import type { PlanProgress } from "#plan/planService";
+import {
+  getActivePlan, getNextWorkout, getPlanProgress
+} from "#plan/planService";
 import { getPlanByQuery } from "#plan/planDb";
 import { resumeSession, snapshotWorkout } from "#session/sessionService";
 import { getWorkoutByQuery } from "#workout/workoutDb";
@@ -9,10 +13,18 @@ import { getWorkoutByQuery } from "#workout/workoutDb";
 export type HomeEntry = Pick<SessionEntrySnapshot, "exerciseName" | "targetSets" | "targetReps">;
 
 // What the one card on Home offers: to Resume the Session in progress, to Start
-// the Active Plan's next Workout, or what's missing before either can happen.
+// the Active Plan's next Workout, with how far through that Plan the lifter is,
+// or what's missing before either can happen.
 export type HomeCard =
   | { kind: "resume"; sessionId: string; workoutName: string; planName?: string; entries: HomeEntry[] }
-  | { kind: "next"; workoutId: string; workoutName: string; planName: string; entries: HomeEntry[] }
+  | {
+    kind: "next";
+    workoutId: string;
+    workoutName: string;
+    planName: string;
+    progress: PlanProgress;
+    entries: HomeEntry[];
+  }
   | { kind: "emptyPlan"; planId: string; planName: string }
   | { kind: "noPlan" };
 
@@ -22,7 +34,8 @@ const toHomeEntries = (blocks: SessionEntrySnapshot[][]): HomeEntry[] => blocks.
   targetReps: entry.targetReps
 }));
 
-export function getHomeCard(tx?: TransactionType): HomeCard {
+// today is a YYYY-MM-DD calendar day.
+export function getHomeCard(today = toCalendarDay(new Date()), tx?: TransactionType): HomeCard {
   const inProgress = resumeSession(tx)?.session;
 
   if (inProgress) {
@@ -61,6 +74,7 @@ export function getHomeCard(tx?: TransactionType): HomeCard {
     workoutId: next.id,
     workoutName: next.name,
     planName: plan.name,
+    progress: getPlanProgress(plan.id, today, tx),
     entries: toHomeEntries(snapshotWorkout(next.id, tx))
   };
 }
