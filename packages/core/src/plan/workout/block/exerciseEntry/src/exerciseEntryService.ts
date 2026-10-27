@@ -17,6 +17,7 @@ import type {
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { nextPosition, orderOrThrow } from "#utils/position";
+import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
 import type { Actor } from "#aiChange/aiChangeRecorder";
 import { write } from "#aiChange/aiChangeRecorder";
@@ -24,7 +25,9 @@ import { getExerciseByQuery } from "#exercise/exerciseDb";
 import { getExercise } from "#exercise/exerciseService";
 import { getSettings } from "#setting/settingService";
 import { getWorkoutByQuery } from "#workout/workoutDb";
-import { deleteBlockDb, getBlockByQuery } from "#block/blockDb";
+import {
+  deleteBlockDb, getBlockByQuery, updateBlockDb
+} from "#block/blockDb";
 
 import {
   createExerciseEntryDb,
@@ -114,8 +117,15 @@ function describeChanges(
   return changes.join(", ");
 }
 
+// The Round Rest: the longest rest among a Superset's Exercise Entries, or
+// undefined for none.
+export function roundRest(entries: Pick<ExerciseEntryAttributes, "restSeconds">[]): number | undefined {
+  return entries.length > 0 ? Math.max(...entries.map(e => e.restSeconds)) : undefined;
+}
+
 // Adds an entry at the end of the Block. Targets the lifter leaves out take the
-// defaults, the Weight Step the one for the current unit.
+// defaults, the Weight Step the one for the current unit, and the rest the
+// Block's Round Rest when it already has entries.
 export function createExerciseEntry(
   blockId: string,
   payload: ExerciseEntryCreatePayload,
@@ -136,7 +146,7 @@ export function createExerciseEntry(
       targetSets: DEFAULT_TARGET_SETS,
       targetReps: DEFAULT_TARGET_REPS,
       targetWeight: DEFAULT_TARGET_WEIGHT,
-      restSeconds: DEFAULT_REST_SECONDS,
+      restSeconds: roundRest(block.exerciseEntries) ?? DEFAULT_REST_SECONDS,
       weightStep: DEFAULT_WEIGHT_STEP[ getSettings(t).unit ],
       ...data,
       blockId,
@@ -192,6 +202,39 @@ export function deleteExerciseEntry(id: string, actor: Actor = "lifter", tx?: Tr
 
     return entry;
   }, (entry, t) => `Removed ${exerciseName(entry.exerciseId, t)} from ${workoutNameOf(entry.blockId, t)}`);
+}
+
+// Undo of the lifter removing an entry: it goes back in its place, along with
+// its Block if removing it took the Block too. Only while its Workout is still
+// there. The AI's removals are undone through Changes by AI instead.
+export function restoreExerciseEntry(id: string, tx?: TransactionType): ExerciseEntryAttributes {
+  return inTransaction(tx, t => {
+    const entry = getExerciseEntryByQuery({ where: { id } }, t);
+    const block = entry && getBlockByQuery({ where: { id: entry.blockId } }, t);
+
+    const workout = block && getWorkoutByQuery({
+      where: {
+        id: block.workoutId,
+        deletedAt: { isNull: true }
+      }
+    }, t);
+
+    if (!entry || !block || !workout) {
+      throw new ApiError(404, `Exercise entry ${id} not found`, "NotFoundError");
+    }
+
+    if (!entry.deletedAt) {
+      return entry;
+    }
+
+    debug.info("restoring exercise entry %s", id);
+
+    if (block.deletedAt) {
+      updateBlockDb(block.id, { deletedAt: null }, t);
+    }
+
+    return updateExerciseEntryDb(id, { deletedAt: null }, t);
+  });
 }
 
 // orderedIds lists every live entry in the Block, first to last.

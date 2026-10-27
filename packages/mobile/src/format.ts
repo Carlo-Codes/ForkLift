@@ -77,6 +77,12 @@ export function toNumber(text: string): number {
   return text.trim() === "" ? Number.NaN : Number(text.replace(",", "."));
 }
 
+// A stepper's next value: value moved by delta, kept within min and max.
+// Rounded to 2 decimals so 2.5 kg steps don't drift (0.1 + 0.2).
+export function stepValue(value: number, delta: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round((value + delta) * 100) / 100));
+}
+
 // e.g. "A2 · Superset 1/2": the Exercise Entry and round, then its place in the
 // round.
 export function formatSupersetPosition(setNumber: number, {

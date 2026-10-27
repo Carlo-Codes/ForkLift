@@ -10,6 +10,7 @@ import {
   groupBlocks,
   listBlocks,
   reorderBlocks,
+  setRoundRest,
   ungroupBlock
 } from "..";
 import {
@@ -23,6 +24,8 @@ import {
   deleteExerciseEntry,
   getExerciseEntry,
   reorderExerciseEntries,
+  restoreExerciseEntry,
+  roundRest,
   updateExerciseEntry
 } from "#exerciseEntry";
 
@@ -359,6 +362,103 @@ describe("blocks and exercise entries", () => {
 
     // Down to one entry, the Block is straight sets again.
     expect(listBlocks(workoutId).map(b => b.exerciseEntries.map(e => e.id))).toEqual([ [ squat.id ] ]);
+  });
+
+  describe("Round Rest", () => {
+    const supersetOf = (...rests: number[]) => groupBlocks(workoutId, rests.map((restSeconds, i) => createBlock(workoutId, {
+      exerciseId: i % 2 === 0 ? benchId : rowId,
+      restSeconds
+    }).id));
+
+    it("is the longest rest among a Superset's Exercise Entries", () => {
+      expect(roundRest(supersetOf(60, 120, 90).exerciseEntries)).toBe(120);
+      expect(roundRest([])).toBeUndefined();
+    });
+
+    it("sets the rest of every Exercise Entry in the Superset", () => {
+      const superset = supersetOf(60, 120);
+
+      expect(setRoundRest(superset.id, 75).exerciseEntries.map(e => e.restSeconds)).toEqual([ 75, 75 ]);
+      expect(getBlock(superset.id).exerciseEntries.map(e => e.restSeconds)).toEqual([ 75, 75 ]);
+    });
+
+    it("rejects an impossible rest and keeps the Superset as it was", () => {
+      const superset = supersetOf(60, 120);
+
+      expect(() => setRoundRest(superset.id, -5)).toThrow(validationError);
+      expect(() => setRoundRest(superset.id, 1.5)).toThrow(validationError);
+      expect(getBlock(superset.id).exerciseEntries.map(e => e.restSeconds)).toEqual([ 60, 120 ]);
+    });
+
+    it("refuses a Block that isn't there", () => {
+      const superset = supersetOf(60, 120);
+
+      deleteBlock(superset.id);
+
+      expect(() => setRoundRest(superset.id, 90)).toThrow(notFoundError);
+    });
+
+    it("is the rest an Exercise Entry added to the Superset takes, unless it's given one", () => {
+      const superset = supersetOf(60, 120);
+
+      addExerciseToWorkout({
+        workoutId,
+        blockId: superset.id
+      }, benchId);
+      createExerciseEntry(superset.id, {
+        exerciseId: rowId,
+        restSeconds: 30
+      });
+
+      expect(getBlock(superset.id).exerciseEntries.map(e => e.restSeconds)).toEqual([ 60, 120, 120, 30 ]);
+    });
+  });
+
+  describe("Undo of a removed Exercise Entry", () => {
+    it("puts the entry back in its place in the Superset", () => {
+      const superset = groupBlocks(workoutId, [
+        createBlock(workoutId, { exerciseId: benchId }).id,
+        createBlock(workoutId, { exerciseId: rowId }).id
+      ]);
+      const [ bench ] = superset.exerciseEntries;
+
+      deleteExerciseEntry(bench!.id);
+      restoreExerciseEntry(bench!.id);
+
+      expect(getBlock(superset.id).exerciseEntries.map(e => e.exercise.name)).toEqual([ "Bench Press", "Barbell Row" ]);
+    });
+
+    it("brings back the Block its last entry took with it, in its place", () => {
+      const [ first, , last ] = [ benchId, rowId, benchId ].map(exerciseId => createBlock(workoutId, { exerciseId }));
+      const entry = first!.exerciseEntries[ 0 ]!;
+
+      updateExerciseEntry(entry.id, { targetSets: 5 });
+      deleteExerciseEntry(entry.id);
+
+      expect(listBlocks(workoutId)).toHaveLength(2);
+
+      restoreExerciseEntry(entry.id);
+
+      expect(listBlocks(workoutId).map(b => b.id)).toEqual([ first!.id, expect.any(String), last!.id ]);
+      expect(getExerciseEntry(entry.id).targetSets).toBe(5);
+    });
+
+    it("does nothing for an entry that wasn't removed", () => {
+      const block = createBlock(workoutId, { exerciseId: benchId });
+      const entry = block.exerciseEntries[ 0 ]!;
+
+      expect(restoreExerciseEntry(entry.id).deletedAt).toBeNull();
+      expect(getBlock(block.id).exerciseEntries).toHaveLength(1);
+    });
+
+    it("refuses once the Workout is gone", () => {
+      const entry = createBlock(workoutId, { exerciseId: benchId }).exerciseEntries[ 0 ]!;
+
+      deleteExerciseEntry(entry.id);
+      deleteWorkout(workoutId);
+
+      expect(() => restoreExerciseEntry(entry.id)).toThrow(notFoundError);
+    });
   });
 
   it("deletes Blocks and entries with their Workout or Plan", () => {

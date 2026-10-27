@@ -7,7 +7,9 @@ interface OrderedRowProps {
   title: string;
   subtitle?: string;
   badge?: string;
-  onPress: () => void;
+  onPress?: () => void;
+  onLongPress?: () => void;
+  accessibilityHint?: string;
   // Omitted at the top / bottom of the list.
   onMoveUp?: () => void;
   onMoveDown?: () => void;
@@ -45,13 +47,15 @@ export function MoveButtons({
 // A row in an ordered list (Plans, Workouts, Blocks) with up/down buttons for
 // reordering.
 export function OrderedRow({
-  title, subtitle, badge, onPress, onMoveUp, onMoveDown, first, last
+  title, subtitle, badge, onPress, onLongPress, accessibilityHint, onMoveUp, onMoveDown, first, last
 }: OrderedRowProps) {
   return (
     <ListRow title={title}
       subtitle={subtitle}
       badge={badge}
       onPress={onPress}
+      onLongPress={onLongPress}
+      accessibilityHint={accessibilityHint}
       first={first}
       last={last}
       accessory={(

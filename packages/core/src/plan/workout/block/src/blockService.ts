@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { exerciseEntrySchema } from "@forklift/db/client";
 import type {
   ExerciseCreatePayload, ExerciseEntryCreatePayload, TransactionType
 } from "@forklift/db/client";
@@ -177,6 +178,26 @@ export function groupBlocks(
 
     return getBlock(target!.id, t);
   }, (block, t) => `Made a Superset of ${namesOf(block)} in ${workoutName(workoutId, t)}`);
+}
+
+// Sets the Round Rest: the rest of every Exercise Entry in the Superset.
+export function setRoundRest(
+  id: string,
+  restSeconds: number,
+  actor: Actor = "lifter",
+  tx?: TransactionType
+): BlockWithEntries {
+  const rest = parseOrThrow(exerciseEntrySchema.shape.restSeconds, restSeconds);
+
+  return write(actor, tx, t => {
+    debug.info("setting the round rest of block %s to %ds", id, rest);
+
+    for (const entry of getBlock(id, t).exerciseEntries) {
+      updateExerciseEntryDb(entry.id, { restSeconds: rest }, t);
+    }
+
+    return getBlock(id, t);
+  }, (block, t) => `Set the Round Rest of ${namesOf(block)} in ${workoutName(block.workoutId, t)} to ${rest}s`);
 }
 
 // Splits a Superset into Blocks of straight sets, one per entry, in its place.

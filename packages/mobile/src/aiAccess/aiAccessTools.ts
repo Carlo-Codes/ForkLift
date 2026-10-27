@@ -27,6 +27,7 @@ import {
   reorderExerciseEntries,
   reorderWorkouts,
   searchExercises,
+  setRoundRest,
   ungroupBlock,
   updateExercise,
   updateExerciseEntry,
@@ -465,7 +466,7 @@ export function createAiAccessMcpServer(): McpServer {
   server.registerTool("add_to_superset", {
     title: "Add to Superset",
     description: "Adds an Exercise Entry to the end of a Block, making it a Superset if it was straight " +
-      "sets. Targets left out take the defaults." + UNDO_NOTE,
+      "sets. Targets left out take the defaults, except rest, which takes the Block's Round Rest." + UNDO_NOTE,
     inputSchema: {
       blockId: idOf("Block"),
       exerciseId: idOf("Exercise"),
@@ -485,6 +486,18 @@ export function createAiAccessMcpServer(): McpServer {
     },
     annotations: writes
   }, ({ exerciseEntryId, ...changes }) => answer(() => withUnit(entryView(updateExerciseEntry(exerciseEntryId, changes, "ai")))));
+
+  server.registerTool("set_round_rest", {
+    title: "Set Round Rest",
+    description: "Sets a Superset's Round Rest, the rest after each round, by setting the rest of every " +
+      "Exercise Entry in it." + UNDO_NOTE,
+    inputSchema: {
+      blockId: idOf("Superset's Block"),
+      restSeconds: z.number().int()
+        .describe("Rest after each round, in seconds")
+    },
+    annotations: writes
+  }, ({ blockId, restSeconds }) => answer(() => withUnit(blockView(setRoundRest(blockId, restSeconds, "ai")))));
 
   server.registerTool("delete_exercise_entry", {
     title: "Delete Exercise Entry",

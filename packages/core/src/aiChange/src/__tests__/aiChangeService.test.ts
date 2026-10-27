@@ -6,12 +6,12 @@ import {
   createExercise, deleteExercise, getExercise, searchExercises, updateExercise
 } from "#exercise";
 import {
-  deleteExerciseEntry, getExerciseEntry, updateExerciseEntry
+  createExerciseEntry, deleteExerciseEntry, getExerciseEntry, updateExerciseEntry
 } from "#exerciseEntry";
 import {
   createPlan, deletePlan, getActivePlan, getPlan, listPlans, setActivePlan, updatePlan
 } from "#plan";
-import { createBlock, listBlocks } from "#block";
+import { createBlock, listBlocks, setRoundRest } from "#block";
 import { setUnit } from "#setting";
 import {
   createWorkout, deleteWorkout, getWorkout, listWorkouts, reorderWorkouts, updateWorkout
@@ -231,6 +231,27 @@ describe("Changes by AI", () => {
         targetSets: 3,
         targetWeight: 60
       }));
+    });
+
+    it("records a Round Rest the AI sets, and undoes it entry by entry", () => {
+      const { id: rowId } = createExercise({
+        name: "Barbell Row",
+        muscleGroups: [ "back" ]
+      });
+      const blockId = listBlocks(workoutId)[ 0 ]!.id;
+
+      createExerciseEntry(blockId, {
+        exerciseId: rowId,
+        restSeconds: 60
+      });
+      setRoundRest(blockId, 120, "ai");
+
+      expect(listAiChanges()[ 0 ]!.summary)
+        .toBe("Set the Round Rest of Bench Press + Barbell Row in Workout \"Push\" to 120s");
+
+      undoAiChange(listAiChanges()[ 0 ]!.id);
+
+      expect(listBlocks(workoutId)[ 0 ]!.exerciseEntries.map(e => e.restSeconds)).toEqual([ 90, 60 ]);
     });
 
     it("keeps a target the lifter has changed since, undoing the rest", () => {
