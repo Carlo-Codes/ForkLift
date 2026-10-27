@@ -13,20 +13,20 @@ import {
   DEFAULT_WORKOUT_NAMES,
   createNextDayWorkout,
   createPlanWithDefaultWorkouts,
-  deleteExerciseEntry,
+  createSuperset,
+  deleteExerciseEntries,
   deleteWorkout,
   getPlan,
   getSettings,
-  groupBlocks,
   listBlocks,
   listWorkouts,
   reorderBlocks,
   reorderExerciseEntries,
-  restoreExerciseEntry,
+  restoreExerciseEntries,
   setActivePlan,
   setRoundRest,
   toCalendarDay,
-  ungroupBlock,
+  ungroupExerciseEntries,
   updateExerciseEntry,
   updatePlan,
   updateWorkout
@@ -44,9 +44,13 @@ import { BlockItem } from "./BlockItem";
 import { Card } from "./Card";
 import { DateChip } from "./DateChip";
 import { EmptyState } from "./EmptyState";
-import type { EditError, EntryEditing } from "./ExerciseEntryRow";
+import { EntryListContext } from "./EntryListContext";
+import type {
+  EditError, EntryEditing, EntryList
+} from "./EntryListContext";
 import { moveId } from "./OrderedRow";
 import { Screen } from "./Screen";
+import { SelectionBar } from "./SelectionBar";
 import { Snackbar } from "./Snackbar";
 import { WorkoutTabs } from "./WorkoutTabs";
 
@@ -243,8 +247,10 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   // The Exercise Entry whose editor is open, and the last edit that failed.
   const [ editingId, setEditingId ] = useState<string>();
   const [ editError, setEditError ] = useState<EditError>();
-  // The Exercise Entry just removed, while its Undo shows.
-  const [ removed, setRemoved ] = useState<{ removal: ExerciseEntryRemoval; name: string }>();
+  // The Exercise Entries just removed together, while their Undo shows.
+  const [ removed, setRemoved ] = useState<{ removals: ExerciseEntryRemoval[]; message: string }>();
+  // The ticked Exercise Entries while Select mode is on.
+  const [ ticked, setTicked ] = useState<ReadonlySet<string>>();
   const tapOutside = useTapOutside(() => setEditingId(undefined));
   // Re-read on focus, coming back from the exercise picker, and
   // whenever the Plan is saved or another Workout is selected.
@@ -360,20 +366,17 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
     onChange: (entry, changes) => edit(onEntry(entry), () => updateExerciseEntry(entry.id, changes)),
     // No confirmation: Undo shows instead.
     onRemove: entry => edit(onEntry(entry), () => {
-      const removal = deleteExerciseEntry(entry.id);
-
-      setEditingId(undefined);
-
       setRemoved({
-        removal,
-        name: entry.exercise.name
+        removals: deleteExerciseEntries([ entry.id ]),
+        message: `Removed ${entry.exercise.name}`
       });
+      setEditingId(undefined);
     }),
     onTouchInside: tapOutside.markInside
   };
 
-  const undoRemove = (removal: ExerciseEntryRemoval) => {
-    const message = errorFrom(() => restoreExerciseEntry(removal));
+  const undoRemove = (removals: ExerciseEntryRemoval[]) => {
+    const message = errorFrom(() => restoreExerciseEntries(removals));
 
     setRemoved(undefined);
     refresh();
@@ -382,6 +385,54 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
       Alert.alert("Couldn't undo", message);
     }
   };
+
+  // Select mode. The ticked entries in the Workout's order, leaving out any
+  // gone since they were ticked.
+  const entries = blocks.flatMap(b => b.exerciseEntries);
+  const tickedEntries = ticked ? entries.filter(e => ticked.has(e.id)) : [];
+  const tickedIds = tickedEntries.map(e => e.id);
+
+  const startSelecting = () => {
+    setEditingId(undefined);
+    setTicked(new Set());
+  };
+
+  const selecting: EntryList["selecting"] = ticked && {
+    ticked,
+    onToggle: ids => setTicked(current => {
+      const next = new Set(current);
+      const untick = ids.every(id => next.has(id));
+
+      for (const id of ids) {
+        if (untick) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+      }
+
+      return next;
+    })
+  };
+
+  // Acts on the ticked rows, then leaves Select mode; a write that fails
+  // says why and leaves the rows ticked.
+  const actOnTicked = (write: () => void) => {
+    const message = errorFrom(write);
+
+    if (message) {
+      Alert.alert("Couldn't change the exercises", message);
+    } else {
+      setTicked(undefined);
+    }
+
+    refresh();
+  };
+
+  const removeTicked = () => actOnTicked(() => setRemoved({
+    removals: deleteExerciseEntries(tickedIds),
+    message: tickedEntries.length === 1 ? `Removed ${tickedEntries[ 0 ]!.exercise.name}` : `Removed ${tickedEntries.length} exercises`
+  }));
 
   const addExercise = (blockId?: string) => router.push({
     pathname: "/workouts/add-exercise",
@@ -410,7 +461,10 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
               setDateError(errorFrom(() => updatePlan(state.plan.id, dates)));
               refresh();
             }}
-            onSelect={setWorkoutId}
+            onSelect={id => {
+              setTicked(undefined);
+              setWorkoutId(id);
+            }}
             onChanged={refresh} />
         ) :
         (
@@ -418,59 +472,75 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
             Name your plan to start it with {formatList(DEFAULT_WORKOUT_NAMES)} workouts. Changes save as you go.
           </AppText>
         )}
+      {blocks.length > 0 && (
+        <AppButton variant="link"
+          className="-my-2 self-end"
+          accessibilityLabel={ticked ? "Done selecting" : "Select exercises"}
+          onPress={ticked ? () => setTicked(undefined) : startSelecting}>
+          {ticked ? "Done" : "Select"}
+        </AppButton>
+      )}
     </View>
   );
+
+  const entryList: EntryList | undefined = state && {
+    unit: state.unit,
+    editing,
+    selecting
+  };
 
   return (
     <Screen {...tapOutside.handlers}>
       {header}
-      <FlatList
-        data={blocks}
-        keyExtractor={b => b.id}
-        contentContainerClassName="gap-1 px-4 pb-4"
-        keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={listHeader}
-        ListEmptyComponent={state && (
-          <EmptyState icon="barbell-outline"
-            message={workout ? `No exercises in ${workout.name} yet.` : "No workouts yet. Tap + to add one."} />
-        )}
-        renderItem={({ item, index }) => {
-          const next = blocks[ index + 1 ];
-
-          return (
+      <EntryListContext value={entryList}>
+        <FlatList
+          data={blocks}
+          keyExtractor={b => b.id}
+          // Room for the selection bar over the last rows.
+          contentContainerClassName={`gap-1 px-4 ${ticked ? "pb-36" : "pb-4"}`}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={state && (
+            <EmptyState icon="barbell-outline"
+              message={workout ? `No exercises in ${workout.name} yet.` : "No workouts yet. Tap + to add one."} />
+          )}
+          renderItem={({ item, index }) => (
             <BlockItem block={item}
-              unit={state!.unit}
-              editing={editing}
               onSetRoundRest={restSeconds => edit({
                 kind: "superset",
                 id: item.id
               }, () => setRoundRest(item.id, restSeconds))}
               onMoveEntry={(entryIndex, delta) => writeThenRefresh(() => reorderExerciseEntries(item.id, moveId(item.exerciseEntries.map(e => e.id), entryIndex, delta)))()}
               onAddToSuperset={() => addExercise(item.id)}
-              onUngroup={writeThenRefresh(() => ungroupBlock(item.id))}
-              onSupersetWithNext={next && writeThenRefresh(() => groupBlocks(workout!.id, [ item.id, next.id ]))}
               onMoveUp={index > 0 ? moveBlock(index, -1) : undefined}
-              onMoveDown={next ? moveBlock(index, 1) : undefined} />
-          );
-        }}
-        ListFooterComponent={workout && (
-          <AppButton variant="secondary"
-            className="mt-3 self-start"
-            onPress={() => addExercise()}>
-            <AppIcon name="add"
-              color="accent"
-              size={20} />
-            <AppText weight="semibold"
-              className="text-accent">
-              Add exercise
-            </AppText>
-          </AppButton>
-        )} />
+              onMoveDown={index < blocks.length - 1 ? moveBlock(index, 1) : undefined} />
+          )}
+          ListFooterComponent={workout && !ticked ? (
+            <AppButton variant="secondary"
+              className="mt-3 self-start"
+              onPress={() => addExercise()}>
+              <AppIcon name="add"
+                color="accent"
+                size={20} />
+              <AppText weight="semibold"
+                className="text-accent">
+                Add exercise
+              </AppText>
+            </AppButton>
+          ) : undefined} />
+      </EntryListContext>
+      {ticked && (
+        <SelectionBar count={tickedIds.length}
+          canUngroup={blocks.some(b => b.exerciseEntries.length > 1 && b.exerciseEntries.some(e => ticked.has(e.id)))}
+          onCreateSuperset={() => actOnTicked(() => createSuperset(workout!.id, { exerciseEntryIds: tickedIds }))}
+          onUngroup={() => actOnTicked(() => ungroupExerciseEntries(workout!.id, tickedIds))}
+          onRemove={removeTicked} />
+      )}
       {removed && (
-        <Snackbar key={removed.removal.exerciseEntryId}
-          message={`Removed ${removed.name}`}
+        <Snackbar key={removed.removals[ 0 ]!.exerciseEntryId}
+          message={removed.message}
           actionLabel="Undo"
-          onAction={() => undoRemove(removed.removal)}
+          onAction={() => undoRemove(removed.removals)}
           onHide={() => setRemoved(undefined)} />
       )}
     </Screen>
