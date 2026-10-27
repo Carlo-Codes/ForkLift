@@ -13,7 +13,7 @@ import type {
 import { ApiError, createDebugger } from "@forklift/debug";
 
 import { toCalendarDay } from "#utils/calendarDay";
-import { planToDate } from "#utils/planWeeks";
+import { DEFAULT_PLAN_WEEKS, planToDate, planWeeksSchema } from "#utils/planWeeks";
 import { nextPosition, orderOrThrow } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
 import { parseOrThrow } from "#utils/validation";
@@ -110,15 +110,12 @@ const NEW_PLAN_WORKOUT_NAMES = [
 ] as const;
 
 export const MAX_NEW_PLAN_WORKOUTS = NEW_PLAN_WORKOUT_NAMES.length;
-export const MAX_PLAN_WEEKS = 52;
 
 // What the New plan form asks for: the Plan runs from startDate for weeks,
 // cycling through workoutCount Workouts.
 const newPlanPayloadSchema = planSchema.pick({ name: true }).extend({
   startDate: z.iso.date("Pick a start date"),
-  weeks: z.number().int("Weeks must be a whole number")
-    .min(1, "A plan lasts at least 1 week")
-    .max(MAX_PLAN_WEEKS, `A plan lasts at most ${MAX_PLAN_WEEKS} weeks`),
+  weeks: planWeeksSchema,
   workoutCount: z.number().int("Workouts must be a whole number")
     .min(1, "A plan has at least 1 workout")
     .max(MAX_NEW_PLAN_WORKOUTS, `A new plan has at most ${MAX_NEW_PLAN_WORKOUTS} workouts`)
@@ -131,7 +128,7 @@ export function newPlanDefaults(now = new Date()): NewPlanPayload {
   return {
     name: "",
     startDate: toCalendarDay(now),
-    weeks: 8,
+    weeks: DEFAULT_PLAN_WEEKS,
     workoutCount: 3
   };
 }
