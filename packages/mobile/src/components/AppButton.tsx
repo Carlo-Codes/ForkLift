@@ -11,7 +11,7 @@ const VARIANT_BASE_CLASS = {
   primary: `${SHAPE} bg-accent`,
   // Any other action: a soft fill rather than an outline.
   secondary: `${SHAPE} bg-fill`,
-  // A text-only action, e.g. "Choose a different workout".
+  // A text-only action, e.g. "Choose another".
   link: SHAPE,
   // A text-only action that deletes or removes.
   destructive: SHAPE,
