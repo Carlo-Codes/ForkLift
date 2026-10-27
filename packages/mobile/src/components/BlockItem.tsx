@@ -6,17 +6,15 @@ import type { Unit } from "@forklift/db/client";
 import { AppButton } from "./AppButton";
 import { AppIcon } from "./AppIcon";
 import { AppText } from "./AppText";
-import { OrderedRow } from "./OrderedRow";
+import { ExerciseEntryRow } from "./ExerciseEntryRow";
+import type { EntryEditing } from "./ExerciseEntryRow";
 import { SupersetGroup } from "./SupersetGroup";
-
-import { formatTargets } from "@/format";
-
-type Entry = BlockWithEntries["exerciseEntries"][number];
 
 interface BlockItemProps {
   block: BlockWithEntries;
   unit: Unit;
-  onPressEntry: (entry: Entry) => void;
+  editing: EntryEditing;
+  onSetRoundRest: (restSeconds: number) => void;
   onMoveEntry: (index: number, delta: -1 | 1) => void;
   onAddToSuperset: () => void;
   onUngroup: () => void;
@@ -28,10 +26,10 @@ interface BlockItemProps {
 }
 
 // One Block of the selected Workout in the Plan editor: a single Exercise
-// Entry as a row, or a Superset as a bordered group. Reordering (8/9), inline
-// editing (6/9) and Select mode (7/9) replace the buttons here.
+// Entry as a row, or a Superset as a bordered group. Reordering (8/9) and
+// Select mode (7/9) replace the buttons here.
 export function BlockItem({
-  block, unit, onPressEntry, onMoveEntry, onAddToSuperset, onUngroup, onSupersetWithNext, onMoveUp, onMoveDown
+  block, unit, editing, onSetRoundRest, onMoveEntry, onAddToSuperset, onUngroup, onSupersetWithNext, onMoveUp, onMoveDown
 }: BlockItemProps) {
   const [ entry, ...others ] = block.exerciseEntries;
 
@@ -46,7 +44,8 @@ export function BlockItem({
           <SupersetGroup
             block={block}
             unit={unit}
-            onPressEntry={onPressEntry}
+            editing={editing}
+            onSetRoundRest={onSetRoundRest}
             onMoveEntry={onMoveEntry}
             onAddEntry={onAddToSuperset}
             onUngroup={onUngroup}
@@ -55,15 +54,13 @@ export function BlockItem({
           />
         ) :
         (
-          <OrderedRow
-            title={entry.exercise.name}
-            subtitle={formatTargets(entry, unit)}
-            onPress={() => onPressEntry(entry)}
+          <ExerciseEntryRow entry={entry}
+            unit={unit}
+            editing={editing}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             first
-            last
-          />
+            last />
         )}
       {onSupersetWithNext && (
         <AppButton className="min-h-touch flex-row items-center justify-center gap-1"

@@ -10,7 +10,10 @@ interface ListRowProps {
   badge?: string;
   // Tappable rows show a chevron; omit for a row that only shows information.
   onPress?: () => void;
+  // e.g. opening a row's editor in place; a tap then does nothing.
+  onLongPress?: () => void;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
   // Controls after the title, e.g. reorder buttons.
   accessory?: React.ReactNode;
   // Where the row sits in its group: rows are drawn as one rounded card, with
@@ -33,18 +36,22 @@ export const rowSurfaceClass = ({ first, last }: { first?: boolean; last?: boole
 
 // One row in a list, sitting on a Card's surface.
 export function ListRow({
-  title, subtitle, badge, onPress, accessibilityLabel, accessory, first, last
+  title, subtitle, badge, onPress, onLongPress, accessibilityLabel, accessibilityHint, accessory, first, last
 }: ListRowProps) {
+  const pressable = Boolean(onPress ?? onLongPress);
+
   return (
     <View className={`flex-row items-center ${rowSurfaceClass({
       first,
       last
     })}`}>
       <Pressable className="min-h-touch flex-1 flex-row items-center gap-2 py-3 pl-4 pr-2 active:opacity-60"
-        disabled={!onPress}
-        accessibilityRole={onPress ? "button" : undefined}
+        disabled={!pressable}
+        accessibilityRole={pressable ? "button" : undefined}
         accessibilityLabel={accessibilityLabel}
-        onPress={onPress}>
+        accessibilityHint={accessibilityHint}
+        onPress={onPress}
+        onLongPress={onLongPress}>
         <View className="flex-1 gap-0.5">
           <View className="flex-row items-center gap-2">
             <AppText className="shrink text-base text-ink">{title}</AppText>

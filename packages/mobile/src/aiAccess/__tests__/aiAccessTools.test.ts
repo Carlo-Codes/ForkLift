@@ -95,6 +95,7 @@ describe("AI Access tools", () => {
       "reorder_superset",
       "reorder_workouts",
       "set_plan_dates",
+      "set_round_rest",
       "split_superset",
       "update_exercise",
       "update_exercise_entry"
@@ -132,6 +133,10 @@ describe("AI Access tools", () => {
       exerciseEntryId: block.exerciseEntries[ 0 ]!.id,
       targetWeight: 32.5
     });
+    await call("set_round_rest", {
+      blockId: block.id,
+      restSeconds: 60
+    });
 
     const { json } = await call("get_workout", { workoutId: workout.id });
 
@@ -145,14 +150,19 @@ describe("AI Access tools", () => {
               exerciseName: "Landmine Press",
               targetSets: 4,
               targetReps: 8,
-              targetWeight: 32.5
+              targetWeight: 32.5,
+              restSeconds: 60
             }),
-            expect.objectContaining({ exerciseName: "Cable Fly" })
+            expect.objectContaining({
+              exerciseName: "Cable Fly",
+              restSeconds: 60
+            })
           ]
         }
       ]
     }));
     expect(listAiChanges().map(c => c.summary)).toEqual([
+      "Set the Round Rest of Landmine Press + Cable Fly in Workout \"Push\" to 60s",
       "Changed Landmine Press in Workout \"Push\": weight 30kg → 32.5kg",
       "Added Cable Fly to a Superset with Landmine Press in Workout \"Push\"",
       "Added Landmine Press to Workout \"Push\"",

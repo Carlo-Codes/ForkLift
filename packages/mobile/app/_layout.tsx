@@ -114,8 +114,6 @@ export default function RootLayout() {
           options={planEditorOptions} />
         <Stack.Screen name="workouts/add-exercise"
           options={{ title: "Add Exercise" }} />
-        <Stack.Screen name="entries/[id]"
-          options={{ title: "Targets" }} />
         <Stack.Screen name="sessions/new"
           options={{ title: "Choose Workout" }} />
         {/* Workout Mode: pushed over the tabs, so it fills the screen. */}

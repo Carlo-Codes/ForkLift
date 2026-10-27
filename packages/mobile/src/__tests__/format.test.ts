@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import {
-  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatList, formatPlanDates, formatSessionWhen
+  formatCountdown, formatDate, formatDuration, formatEntrySummary, formatList, formatPlanDates, formatSessionWhen, stepValue
 } from "../format";
 
 describe("formatList", () => {
@@ -112,5 +112,19 @@ describe("formatPlanDates", () => {
       startDate: null,
       endDate: "2026-12-20"
     })).toBe("Until 20 Dec 2026");
+  });
+});
+
+describe("stepValue", () => {
+  it("steps up or down, without the float drift of adding decimals", () => {
+    expect(stepValue(60, 2.5, 0, 10000)).toBe(62.5);
+    expect(stepValue(0.2, 0.1, 0, 10)).toBe(0.3);
+    expect(stepValue(90, -15, 0, 3600)).toBe(75);
+  });
+
+  it("stops at the bounds", () => {
+    expect(stepValue(1, -1, 1, 50)).toBe(1);
+    expect(stepValue(10, -15, 0, 3600)).toBe(0);
+    expect(stepValue(3590, 15, 0, 3600)).toBe(3600);
   });
 });

@@ -7,12 +7,13 @@ import {
 import {
   Alert, FlatList, Switch, View
 } from "react-native";
-import type { TextInputInstance } from "react-native";
+import type { GestureResponderEvent, TextInputInstance } from "react-native";
 
 import {
   DEFAULT_WORKOUT_NAMES,
   createNextDayWorkout,
   createPlanWithDefaultWorkouts,
+  deleteExerciseEntry,
   deleteWorkout,
   getPlan,
   getSettings,
@@ -21,13 +22,16 @@ import {
   listWorkouts,
   reorderBlocks,
   reorderExerciseEntries,
+  restoreExerciseEntry,
   setActivePlan,
+  setRoundRest,
   toCalendarDay,
   ungroupBlock,
+  updateExerciseEntry,
   updatePlan,
   updateWorkout
 } from "@forklift/core";
-import type { BlockWithEntries } from "@forklift/core";
+import type { BlockWithEntries, ExerciseEntryRemoval } from "@forklift/core";
 import type {
   PlanAttributes, Unit, WorkoutAttributes
 } from "@forklift/db/client";
@@ -40,8 +44,10 @@ import { BlockItem } from "./BlockItem";
 import { Card } from "./Card";
 import { DateChip } from "./DateChip";
 import { EmptyState } from "./EmptyState";
+import type { EditError, EntryEditing } from "./ExerciseEntryRow";
 import { moveId } from "./OrderedRow";
 import { Screen } from "./Screen";
+import { Snackbar } from "./Snackbar";
 import { WorkoutTabs } from "./WorkoutTabs";
 
 import { confirmDeletePlan } from "@/confirmDeletePlan";
@@ -87,6 +93,47 @@ function errorFrom(write: () => void): string | undefined {
   } catch (e) {
     return errorMessage(e);
   }
+}
+
+// How far a touch can move and still be a tap, in points.
+const TAP_SLOP = 10;
+
+// The open Exercise Entry editor closes on a tap anywhere else in the editor
+// (a scroll leaves it open). The editor's own touches, and the long-press
+// that opens it, mark themselves as inside before the touch ends here.
+function useTapOutside(onTapOutside: () => void) {
+  const inside = useRef(false);
+
+  const start = useRef({
+    x: 0,
+    y: 0
+  });
+
+  return {
+    markInside: () => {
+      inside.current = true;
+    },
+    handlers: {
+      onTouchStart: ({ nativeEvent }: GestureResponderEvent) => {
+        start.current = {
+          x: nativeEvent.pageX,
+          y: nativeEvent.pageY
+        };
+      },
+      onTouchEnd: ({ nativeEvent }: GestureResponderEvent) => {
+        const moved = Math.hypot(nativeEvent.pageX - start.current.x, nativeEvent.pageY - start.current.y) > TAP_SLOP;
+
+        if (!inside.current && !moved) {
+          onTapOutside();
+        }
+
+        inside.current = false;
+      },
+      onTouchCancel: () => {
+        inside.current = false;
+      }
+    }
+  };
 }
 
 // The Plan's name as a large title edited in place.
@@ -193,7 +240,13 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   const unsavedName = useRef<string>(undefined);
   const [ nameError, setNameError ] = useState<string>();
   const [ dateError, setDateError ] = useState<string>();
-  // Re-read on focus, coming back from the exercise picker or targets, and
+  // The Exercise Entry whose editor is open, and the last edit that failed.
+  const [ editingId, setEditingId ] = useState<string>();
+  const [ editError, setEditError ] = useState<EditError>();
+  // The Exercise Entry just removed, while its Undo shows.
+  const [ removed, setRemoved ] = useState<{ removal: ExerciseEntryRemoval; name: string }>();
+  const tapOutside = useTapOutside(() => setEditingId(undefined));
+  // Re-read on focus, coming back from the exercise picker, and
   // whenever the Plan is saved or another Workout is selected.
   const refresh = useCallback(() => setState(planId ? loadEditor(planId, workoutId) : undefined), [ planId, workoutId ]);
 
@@ -279,6 +332,57 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
 
   const moveBlock = (index: number, delta: -1 | 1) => writeThenRefresh(() => reorderBlocks(workout!.id, moveId(blocks.map(b => b.id), index, delta)));
 
+  // Saves an edit to an Exercise Entry or Superset, showing why it didn't
+  // save on it.
+  const edit = (on: Omit<EditError, "message">, write: () => void) => {
+    const message = errorFrom(write);
+
+    setEditError(message === undefined ? undefined : {
+      ...on,
+      message
+    });
+    refresh();
+  };
+
+  const onEntry = (entry: { id: string }) => ({
+    kind: "entry",
+    id: entry.id
+  }) as const;
+
+  const editing: EntryEditing = {
+    editingId,
+    error: editError,
+    onEdit: entry => {
+      tapOutside.markInside();
+      setEditError(undefined);
+      setEditingId(entry.id);
+    },
+    onChange: (entry, changes) => edit(onEntry(entry), () => updateExerciseEntry(entry.id, changes)),
+    // No confirmation: Undo shows instead.
+    onRemove: entry => edit(onEntry(entry), () => {
+      const removal = deleteExerciseEntry(entry.id);
+
+      setEditingId(undefined);
+
+      setRemoved({
+        removal,
+        name: entry.exercise.name
+      });
+    }),
+    onTouchInside: tapOutside.markInside
+  };
+
+  const undoRemove = (removal: ExerciseEntryRemoval) => {
+    const message = errorFrom(() => restoreExerciseEntry(removal));
+
+    setRemoved(undefined);
+    refresh();
+
+    if (message) {
+      Alert.alert("Couldn't undo", message);
+    }
+  };
+
   const addExercise = (blockId?: string) => router.push({
     pathname: "/workouts/add-exercise",
     params: {
@@ -318,7 +422,7 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
   );
 
   return (
-    <Screen>
+    <Screen {...tapOutside.handlers}>
       {header}
       <FlatList
         data={blocks}
@@ -336,10 +440,11 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
           return (
             <BlockItem block={item}
               unit={state!.unit}
-              onPressEntry={entry => router.push({
-                pathname: "/entries/[id]",
-                params: { id: entry.id }
-              })}
+              editing={editing}
+              onSetRoundRest={restSeconds => edit({
+                kind: "superset",
+                id: item.id
+              }, () => setRoundRest(item.id, restSeconds))}
               onMoveEntry={(entryIndex, delta) => writeThenRefresh(() => reorderExerciseEntries(item.id, moveId(item.exerciseEntries.map(e => e.id), entryIndex, delta)))()}
               onAddToSuperset={() => addExercise(item.id)}
               onUngroup={writeThenRefresh(() => ungroupBlock(item.id))}
@@ -361,6 +466,13 @@ export function PlanEditor({ planId: openedPlanId }: { planId?: string }) {
             </AppText>
           </AppButton>
         )} />
+      {removed && (
+        <Snackbar key={removed.removal.exerciseEntryId}
+          message={`Removed ${removed.name}`}
+          actionLabel="Undo"
+          onAction={() => undoRemove(removed.removal)}
+          onHide={() => setRemoved(undefined)} />
+      )}
     </Screen>
   );
 }
