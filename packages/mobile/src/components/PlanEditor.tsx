@@ -418,23 +418,23 @@ export function PlanEditor({ planId }: { planId: string }) {
   });
 
   // The calendar button shows for every saved Plan, as the progress summary
-  // is hidden while there's nothing to report; not in Select mode.
+  // is hidden while there's nothing to report. Neither header action shows in
+  // Select mode.
   const header = (
     <Stack.Screen options={{
-      headerRight: state ?
+      headerRight: state && !selection.selecting ?
         () => (
           <View className="flex-row items-center">
-            {!selection.selecting && (
-              <AppButton className="min-h-touch min-w-touch items-center justify-center"
-                accessibilityRole="button"
-                accessibilityLabel="Plan calendar"
-                onPress={openCalendar}>
-                <AppIcon name="calendar-outline"
-                  color="accent"
-                  size={24} />
-              </AppButton>
-            )}
             <AppButton className="min-h-touch min-w-touch items-center justify-center"
+              accessibilityRole="button"
+              accessibilityLabel="Plan calendar"
+              onPress={openCalendar}>
+              <AppIcon name="calendar-outline"
+                color="accent"
+                size={24} />
+            </AppButton>
+            <AppButton className="min-h-touch min-w-touch items-center justify-center"
+              accessibilityRole="button"
               accessibilityLabel="Plan options"
               onPress={() => Alert.alert(state.plan.name, undefined, [
                 {
