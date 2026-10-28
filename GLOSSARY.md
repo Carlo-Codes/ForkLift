@@ -7,8 +7,8 @@ account and no tracking.
 
 **Plan**:
 A named collection of Workouts that the lifter cycles through in order (e.g. "Push / Pull / Legs"),
-with optional From and To dates, chosen in the app as a start date and a length in weeks. The dates
-are informational: they don't choose the Active Plan.
+with optional From and To dates, chosen in the app as a start date and a length in weeks, at most
+52 weeks. The dates are informational: they don't choose the Active Plan.
 _Avoid_: Program, routine, split
 
 **Plan Week**:

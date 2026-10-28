@@ -16,6 +16,7 @@ import {
   setPlanWeeks,
   updatePlan
 } from "..";
+import { updatePlanDb } from "#plan/planDb";
 import { listBlocks } from "#block";
 import {
   createPlanWithWorkouts, createWorkout, deleteWorkout, listWorkouts, newPlanDefaults, newPlanWorkoutNames
@@ -255,6 +256,86 @@ describe("plans", () => {
       }));
     });
 
+    describe("at most 52 weeks long", () => {
+      // 2026-10-27 to 2027-10-25 is exactly 52 weeks; a day more starts a 53rd.
+      const fiftyTwoWeeks = {
+        startDate: "2026-10-27",
+        endDate: "2027-10-25"
+      };
+
+      for (const actor of [ "lifter", "ai" ] as const) {
+        it(`creates a Plan of exactly 52 weeks but none longer, as the ${actor}`, () => {
+          expect(createPlan({
+            name: "Year",
+            ...fiftyTwoWeeks
+          }, actor).endDate).toBe("2027-10-25");
+          expect(() => createPlan({
+            name: "Too long",
+            startDate: "2026-10-27",
+            endDate: "2027-10-26"
+          }, actor)).toThrow(validationError);
+          expect(listPlans().map(p => p.name)).toEqual([ "Year" ]);
+        });
+
+        it(`rejects an edit that makes a Plan longer than 52 weeks, as the ${actor}`, () => {
+          const { id } = createPlan({
+            name: "PPL",
+            startDate: "2026-10-27",
+            endDate: "2026-12-21"
+          });
+
+          expect(() => updatePlan(id, { endDate: "2027-10-26" }, actor)).toThrow(validationError);
+          expect(() => updatePlan(id, {
+            startDate: "2026-01-01",
+            endDate: "2027-10-25"
+          }, actor)).toThrow(validationError);
+          expect(getPlan(id)).toEqual(expect.objectContaining({
+            startDate: "2026-10-27",
+            endDate: "2026-12-21"
+          }));
+          expect(updatePlan(id, { endDate: "2027-10-25" }, actor).endDate).toBe("2027-10-25");
+        });
+      }
+
+      it("says what the limit is and the latest To date", () => {
+        expect(() => createPlan({
+          name: "Too long",
+          startDate: "2026-10-27",
+          endDate: "2028-01-01"
+        }, "ai")).toThrow(/at most 52 weeks.*2027-10-25/);
+      });
+
+      it("rejects a 53-week Plan from the New plan form", () => {
+        expect(() => createPlanWithWorkouts({
+          ...newPlanDefaults(),
+          name: "Too long",
+          weeks: 53
+        })).toThrow(validationError);
+        expect(createPlanWithWorkouts({
+          ...newPlanDefaults(),
+          name: "Year",
+          startDate: "2026-10-27",
+          weeks: 52
+        }).endDate).toBe("2027-10-25");
+      });
+
+      it("lets a Plan already longer than 52 weeks be renamed, and its dates set only to 52 weeks or fewer", () => {
+        const { id } = createPlan({
+          name: "PPL",
+          ...fiftyTwoWeeks
+        });
+
+        // Saved before the cap reached every write.
+        updatePlanDb(id, { endDate: "2027-12-20" });
+
+        expect(updatePlan(id, { name: "Long PPL" }, "ai").name).toBe("Long PPL");
+        expect(() => updatePlan(id, { endDate: "2027-12-13" })).toThrow(validationError);
+        expect(() => updatePlan(id, { startDate: "2026-11-03" }, "ai")).toThrow(validationError);
+        expect(getPlan(id).endDate).toBe("2027-12-20");
+        expect(updatePlan(id, { startDate: "2026-12-22" }, "ai").startDate).toBe("2026-12-22");
+      });
+    });
+
     it("doesn't change which Plan is Active", () => {
       const current = createPlan({ name: "Current" });
       const ended = createPlan({
@@ -270,8 +351,8 @@ describe("plans", () => {
       setActivePlan(ended.id);
       updatePlan(upcoming.id, { startDate: "2000-01-01" });
       updatePlan(current.id, {
-        startDate: "2000-01-01",
-        endDate: "2099-01-01"
+        startDate: "2026-01-01",
+        endDate: "2026-12-30"
       });
 
       expect(getActivePlan()?.id).toBe(ended.id);
@@ -377,17 +458,16 @@ describe("plans", () => {
       expect(getPlan(undated.id).endDate).toBeNull();
     });
 
-    it("lets the lifter shorten a Plan the AI made longer than 52 weeks a week at a time", () => {
-      const { id } = createPlan({
-        name: "PPL",
-        startDate: "2026-10-27",
-        endDate: "2027-12-20"
-      }, "ai");
+    it("shows a Plan already longer than 52 weeks as it is, and takes only a length of 52 or fewer", () => {
+      const { id } = dated();
+
+      // Saved before the cap reached every write.
+      updatePlanDb(id, { endDate: "2027-12-20" });
 
       expect(planDateRow(getPlan(id)).weeks).toBe(60);
-      expect(() => setPlanWeeks(id, 61)).toThrow(validationError);
-      expect(setPlanWeeks(id, 59).endDate).toBe("2027-12-13");
-      expect(() => setPlanWeeks(id, 60)).toThrow(validationError);
+      expect(() => setPlanWeeks(id, 59)).toThrow(validationError);
+      expect(getPlan(id).endDate).toBe("2027-12-20");
+      expect(setPlanWeeks(id, 52).endDate).toBe("2027-10-25");
     });
 
     it("rejects a start date that isn't a calendar day", () => {

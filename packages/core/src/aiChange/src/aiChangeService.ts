@@ -4,6 +4,8 @@ import type {
 } from "@forklift/db/client";
 import { ApiError, createDebugger } from "@forklift/debug";
 
+import { isWithinMaxPlanWeeks } from "#utils/planWeeks";
+import type { PlanDates } from "#utils/planWeeks";
 import { inTransaction } from "#utils/transaction";
 import {
   deleteExerciseDb, getExerciseByQuery, updateExerciseDb
@@ -128,11 +130,14 @@ export function undoAiChange(id: string, tx?: TransactionType): AiChangeAttribut
         .filter(([ column ]) => isRecordedValue(now[ column ], after[ column ])));
 
       // Putting back one Plan date beside one the lifter has changed since
-      // could leave To before From, so the lifter's dates are kept whole.
-      if (table === "plan" && !isPlanDateOrder({
+      // could leave To before From, or the Plan longer than MAX_PLAN_WEEKS, so
+      // the lifter's dates are kept whole.
+      const dates = {
         ...now,
         ...unchanged
-      })) {
+      } as PlanDates;
+
+      if (table === "plan" && (!isPlanDateOrder(dates) || !isWithinMaxPlanWeeks(dates))) {
         delete unchanged.startDate;
         delete unchanged.endDate;
       }

@@ -5,19 +5,18 @@
 
 import { z } from "zod";
 
+import { ApiError } from "@forklift/debug";
+
+// No Plan is longer, whoever sets its dates (ADR-0006).
 export const MAX_PLAN_WEEKS = 52;
 // The length a Plan starts with: the New plan form's, and a Plan given a start
 // date in the Plan editor without one.
 export const DEFAULT_PLAN_WEEKS = 8;
 
-// A Plan's length as the lifter picks it, at most maxWeeks: MAX_PLAN_WEEKS, or
-// the longer length the AI gave a Plan, so the lifter can shorten it a week at
-// a time.
-export function planWeeksSchema(maxWeeks = MAX_PLAN_WEEKS) {
-  return z.number().int("Weeks must be a whole number")
-    .min(1, "A plan lasts at least 1 week")
-    .max(maxWeeks, `A plan lasts at most ${maxWeeks} weeks`);
-}
+// A Plan's length as the lifter picks it.
+export const planWeeksSchema = z.number().int("Weeks must be a whole number")
+  .min(1, "A plan lasts at least 1 week")
+  .max(MAX_PLAN_WEEKS, `A plan lasts at most ${MAX_PLAN_WEEKS} weeks`);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const dayNumber = (day: string) => Date.parse(`${day}T00:00:00Z`) / DAY_MS;
@@ -45,4 +44,31 @@ export function planWeeks(startDate: string, endDate: string): number {
 export function addDays(day: string, days: number): string {
   return new Date((dayNumber(day) + days) * DAY_MS).toISOString()
     .slice(0, 10);
+}
+
+export interface PlanDates {
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+// Whether From to To spans MAX_PLAN_WEEKS or fewer, counted as planWeeks
+// counts them, or either date is unset.
+export function isWithinMaxPlanWeeks({ startDate, endDate }: PlanDates): boolean {
+  return !startDate || !endDate || planWeeks(startDate, endDate) <= MAX_PLAN_WEEKS;
+}
+
+// Throws a ValidationError for a Plan longer than MAX_PLAN_WEEKS, naming the
+// latest To so the AI can correct its edit.
+export function checkPlanLength({ startDate, endDate }: PlanDates): void {
+  if (startDate && !isWithinMaxPlanWeeks({
+    startDate,
+    endDate
+  })) {
+    throw new ApiError(
+      400,
+      `A plan lasts at most ${MAX_PLAN_WEEKS} weeks, so its To date can be ` +
+        `${planToDate(startDate, MAX_PLAN_WEEKS)} at the latest`,
+      "ValidationError"
+    );
+  }
 }

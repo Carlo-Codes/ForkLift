@@ -23,6 +23,7 @@ import {
   listPlans,
   listSessionHistory,
   listWorkouts,
+  MAX_PLAN_WEEKS,
   reorderBlocks,
   reorderExerciseEntries,
   reorderWorkouts,
@@ -104,7 +105,8 @@ const idOf = (thing: string) => z.uuid().describe(`The ${thing}'s id`);
 const orderOf = (things: string) => z.array(z.uuid()).describe(`Every one of the ${things}' ids, once each, first to last`);
 const done = { done: true };
 
-// A Plan's From and To dates (ADR-0006); core checks the days and their order.
+// A Plan's From and To dates (ADR-0006); core checks the days, their order
+// and the Plan's length.
 const planDate = (which: string) => z.string().nullable()
   .optional()
   .describe(`The Plan's ${which} date, a calendar day as YYYY-MM-DD; null for none. ` +
@@ -112,7 +114,7 @@ const planDate = (which: string) => z.string().nullable()
 
 const planDates = {
   startDate: planDate("From"),
-  endDate: planDate("To (on or after From)")
+  endDate: planDate(`To (on or after From; a Plan lasts at most ${MAX_PLAN_WEEKS} weeks)`)
 };
 
 // A date range on when Sessions started; core checks the dates.

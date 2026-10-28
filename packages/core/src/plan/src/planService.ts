@@ -13,7 +13,7 @@ import { ApiError, createDebugger } from "@forklift/debug";
 
 import { toCalendarDay } from "#utils/calendarDay";
 import {
-  DEFAULT_PLAN_WEEKS, MAX_PLAN_WEEKS, planToDate, planWeeks, planWeeksSchema
+  DEFAULT_PLAN_WEEKS, checkPlanLength, planToDate, planWeeks, planWeeksSchema
 } from "#utils/planWeeks";
 import { nextPosition } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
@@ -158,6 +158,8 @@ export function createPlan(
 ): PlanAttributes {
   const data = parseOrThrow(planCreatePayloadSchema, payload);
 
+  checkPlanLength(data);
+
   return write(actor, tx, t => {
     debug.info("creating plan %s", data.name);
 
@@ -185,13 +187,20 @@ export function updatePlan(
   return write(actor, tx, t => {
     was = getPlan(id, t);
 
-    // A date left out of the edit keeps its saved value, so the order is
-    // checked against what the Plan will hold.
-    if (!isPlanDateOrder({
+    // A date left out of the edit keeps its saved value, so the order and
+    // length are checked against what the Plan will hold. A Plan saved longer
+    // than MAX_PLAN_WEEKS before the cap can still be renamed.
+    const dates = {
       ...was,
       ...data
-    })) {
+    };
+
+    if (!isPlanDateOrder(dates)) {
       throw new ApiError(400, PLAN_DATE_ORDER_MESSAGE, "ValidationError");
+    }
+
+    if (data.startDate !== undefined || data.endDate !== undefined) {
+      checkPlanLength(dates);
     }
 
     debug.info("updating plan %s", id);
@@ -251,14 +260,12 @@ export function setPlanStart(id: string, day: string | null, tx?: TransactionTyp
 }
 
 // A new length in weeks moves To; the start date stays. A Plan needs a start
-// date to count weeks from. Weeks go up to MAX_PLAN_WEEKS, or to the Plan's
-// current weeks when the AI made it longer.
+// date to count weeks from.
 export function setPlanWeeks(id: string, weeks: number, tx?: TransactionType): PlanAttributes {
+  const valid = parseOrThrow(planWeeksSchema, weeks);
+
   return inTransaction(tx, t => {
-    const plan = getPlan(id, t);
-    const current = planDateRow(plan).weeks ?? 0;
-    const valid = parseOrThrow(planWeeksSchema(Math.max(MAX_PLAN_WEEKS, current)), weeks);
-    const { startDate } = plan;
+    const { startDate } = getPlan(id, t);
 
     if (!startDate) {
       throw new ApiError(400, "Pick a start date first", "ValidationError");
