@@ -239,6 +239,39 @@ describe("AI Access tools", () => {
       expect(listPlans()[ 0 ]!.endDate).toBeNull();
       expect(listAiChanges()).toEqual([]);
     });
+
+    it("answers a Plan longer than 52 weeks with the limit, creating or changing nothing", async () => {
+      const created = await call("create_plan", {
+        name: "Too long",
+        startDate: "2026-10-27",
+        endDate: "2027-10-26"
+      });
+
+      expect(created.isError).toBe(true);
+      expect(created.text).toBe("A plan lasts at most 52 weeks, so its To date can be 2027-10-25 at the latest");
+      expect(listPlans()).toEqual([]);
+
+      const { id: planId } = createPlan({
+        name: "PPL",
+        startDate: "2026-10-27"
+      });
+      const set = await call("set_plan_dates", {
+        planId,
+        endDate: "2028-01-01"
+      });
+
+      expect(set.isError).toBe(true);
+      expect(set.text).toMatch(/at most 52 weeks/);
+      expect(listPlans()[ 0 ]!.endDate).toBeNull();
+      expect(listAiChanges()).toEqual([]);
+
+      await call("set_plan_dates", {
+        planId,
+        endDate: "2027-10-25"
+      });
+
+      expect(listPlans()[ 0 ]!.endDate).toBe("2027-10-25");
+    });
   });
 
   describe("with a Plan and a finished Session", () => {

@@ -117,7 +117,7 @@ export const MAX_NEW_PLAN_WORKOUTS = NEW_PLAN_WORKOUT_NAMES.length;
 // cycling through workoutCount Workouts.
 const newPlanPayloadSchema = planSchema.pick({ name: true }).extend({
   startDate: z.iso.date("Pick a start date"),
-  weeks: planWeeksSchema(),
+  weeks: planWeeksSchema,
   workoutCount: z.number().int("Workouts must be a whole number")
     .min(1, "A plan has at least 1 workout")
     .max(MAX_NEW_PLAN_WORKOUTS, `A new plan has at most ${MAX_NEW_PLAN_WORKOUTS} workouts`)

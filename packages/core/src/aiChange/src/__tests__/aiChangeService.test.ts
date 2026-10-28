@@ -117,6 +117,23 @@ describe("Changes by AI", () => {
       }));
     });
 
+    it("keeps the dates whole rather than undo them to more than 52 weeks", () => {
+      const { id } = createPlan({
+        name: "PPL",
+        startDate: "2026-10-27",
+        endDate: "2026-12-21"
+      });
+
+      updatePlan(id, { startDate: "2026-11-03" }, "ai");
+      updatePlan(id, { endDate: "2027-11-01" });
+      undoAiChange(listAiChanges()[ 0 ]!.id);
+
+      expect(getPlan(id)).toEqual(expect.objectContaining({
+        startDate: "2026-11-03",
+        endDate: "2027-11-01"
+      }));
+    });
+
     it("keeps the dates whole rather than undo To to before a From the lifter moved", () => {
       const { id } = createPlan({
         name: "PPL",

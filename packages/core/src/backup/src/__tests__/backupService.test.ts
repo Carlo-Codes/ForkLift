@@ -197,6 +197,22 @@ describe("backup", () => {
     ]);
   });
 
+  it("restores a Plan longer than 52 weeks unchanged, as saved before the cap", () => {
+    seed();
+    const backup = JSON.parse(exportBackup()) as Backup;
+
+    backup.tables.plan![ 0 ]!.endDate = "2028-01-02";
+
+    newPhone();
+    importBackup(JSON.stringify(backup));
+
+    expect(listPlans()[ 0 ]).toEqual(expect.objectContaining({
+      startDate: "2026-11-02",
+      endDate: "2028-01-02"
+    }));
+    expect(withoutExportTime(exportBackup())).toEqual(withoutExportTime(JSON.stringify(backup)));
+  });
+
   describe("a file it won't restore", () => {
     let backup: string;
     let before: object;

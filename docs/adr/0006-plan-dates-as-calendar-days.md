@@ -22,3 +22,13 @@ and To: To is From + weeks × 7 − 1 days. A To set otherwise (by the AI, or be
 reads as the weeks it covers, rounded up. Weeks count from From as Plan Weeks, so the app can show
 how far through a Plan the lifter is ("Week 3 of 6") and a Plan Calendar of its Sessions. Progress
 is shown only; it still doesn't choose or end the Active Plan.
+
+A Plan lasts at most 52 weeks, whoever sets its dates: the lifter or the AI, creating it or
+editing it. `core` checks every From/To write, counting weeks as above (a part week rounds up), and
+rejects a longer range with a `ValidationError` that names the latest To allowed. A year is long
+enough for any training block, and one limit keeps the AI from making a Plan the lifter couldn't.
+A Plan saved longer before the limit still reads as its real weeks and can still be renamed, but
+any change to its dates must bring it to 52 weeks or fewer; moving its start date saves it as
+exactly 52 weeks. When undoing a Change by AI would put a Plan's dates back over the limit (or To
+before From), undo leaves both dates as they are now and restores the Plan's other fields. Backups
+import as they are.

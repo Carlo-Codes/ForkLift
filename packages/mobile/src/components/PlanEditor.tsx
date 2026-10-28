@@ -242,7 +242,7 @@ function PlanDates({
           value={weeks}
           step={1}
           min={1}
-          max={Math.max(MAX_PLAN_WEEKS, weeks)}
+          max={MAX_PLAN_WEEKS}
           onChange={next => onSetDates(() => setPlanWeeks(plan.id, next))} />
       )}
       {error && <AppText className="text-danger">{error}</AppText>}
