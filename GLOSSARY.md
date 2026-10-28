@@ -79,8 +79,9 @@ _Avoid_: Gym mode, active view, player
 
 **Changeover**:
 The rest after the last set of an Exercise Entry, or the last round of a Superset, when the next
-set is in the next Block. It lasts the finished entry's rest time (the Round Rest for a Superset),
-and Workout Mode shows the next exercise first, with a small countdown.
+set is in a different Block (usually the next one, or a later one when a whole Block is skipped).
+It lasts the finished entry's rest time (the Round Rest for a Superset), and Workout Mode shows
+the next exercise first, with a small countdown.
 _Avoid_: Transition, setup rest
 
 **Increase Next Time**:

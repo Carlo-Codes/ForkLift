@@ -153,7 +153,7 @@ export function DragList<T>({
   };
 
   const {
-    from, to, offset, token, rest: sharedRest
+    from, to, offset, token, sizes: sharedSizes, rest: sharedRest
   } = shared;
 
   // What the end of a drag does on the UI thread. Each acts only while its
@@ -169,11 +169,13 @@ export function DragList<T>({
         offset.set(0);
       }
     },
-    // The list shows a drop's order: its rest offsets take over from the
-    // drag. Nothing moves, as each transform stays where it is.
-    land: (next: RestOffsets, current: number) => {
+    // The list shows a drop's order: its items' sizes in that order and its
+    // rest offsets take over from the drag, all in one go. Nothing moves, as
+    // each transform stays where it is.
+    land: (next: RestOffsets, nextSizes: number[], current: number) => {
       "worklet";
 
+      sharedSizes.set(nextSizes);
       sharedRest.set(next);
 
       if (token.get() === current) {
@@ -205,6 +207,7 @@ export function DragList<T>({
     to,
     offset,
     token,
+    sharedSizes,
     sharedRest
   ]);
 
@@ -228,15 +231,13 @@ export function DragList<T>({
     if (landed) {
       setRest(drop.rest);
       sizes.current = moveItem(sizes.current, drop.from, drop.to);
-      shared.sizes.set([ ...sizes.current ]);
-      scheduleOnUI(ui.land, drop.rest, drop.token);
+      scheduleOnUI(ui.land, drop.rest, [ ...sizes.current ], drop.token);
     } else {
       scheduleOnUI(ui.goBack, drop.token);
     }
   }, [
     drop,
     landed,
-    shared.sizes,
     ui
   ]);
 

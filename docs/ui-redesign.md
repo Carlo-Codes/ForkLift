@@ -108,8 +108,8 @@ in order. Terms are as in `GLOSSARY.md`; plan dates are in ADR-0006.
 4. **Plans list**: cards, pinned Create button, newest-first order, long-press actions.
 5. **Unified Plan editor**: title, dates, Active toggle, Workout tabs (Push/Pull/Legs by
    default), Add exercise picker. This replaces the Workout editor.
-6. **Inline exercise editing**: long-press to open a row's editor, Round Rest on the Superset
-   header, Remove with Undo.
+6. **Inline exercise editing**: tap a row to open its editor, hold it to drag, Round Rest on the
+   Superset header, Remove with Undo.
 7. **Select mode**: Create Superset across rows that aren't neighbours, Ungroup, Remove several
    at once.
 8. **Drag to reorder**: Exercise Entries, Supersets and Workout tabs.

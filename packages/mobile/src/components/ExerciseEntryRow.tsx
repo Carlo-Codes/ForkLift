@@ -24,7 +24,8 @@ interface ExerciseEntryRowProps {
 // An Exercise Entry in the Plan editor, an item of a DragList. A tap opens its
 // sets, reps, weight, Weight Step and rest steppers and Remove below it (and
 // closes them again); each change saves straight away. Held, it lifts to drag
-// (its Block, or the entry within its Superset); its handle is only a hint.
+// (its Block, or the entry within its Superset); its handle is part of the
+// row, so a tap on it is a tap on the row.
 // In Select mode a tap ticks it instead, and it has no handle.
 export function ExerciseEntryRow({
   entry, first, last

@@ -41,7 +41,7 @@ function RenameField({ initial, onDone }: { initial: string; onDone: (name: stri
 
   return (
     <AppTextInput ref={ref}
-      className="min-w-24"
+      className="min-w-[96px]"
       value={name}
       onChangeText={setName}
       selectTextOnFocus
