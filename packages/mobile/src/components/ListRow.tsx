@@ -12,14 +12,13 @@ interface ListRowProps {
   badge?: string;
   // Tappable rows show a chevron; omit for a row that only shows information.
   onPress?: () => void;
-  // e.g. opening a row's editor in place; a tap then does nothing.
-  onLongPress?: () => void;
   accessibilityLabel?: string;
   accessibilityHint?: string;
   // e.g. moving a dragged row up and down, for screen readers.
   accessibilityActions?: AccessibilityActionInfo[];
   onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
-  // Controls after the title, e.g. a drag handle.
+  // Drawn after the title, e.g. a drag handle. Part of the row: a tap on it
+  // is a tap on the row (except in Select mode).
   accessory?: React.ReactNode;
   // Makes the row a Select mode tick box, ticked or not; onPress toggles it.
   ticked?: boolean;
@@ -45,9 +44,9 @@ const PRESSABLE_CLASS = "flex-1 py-3 pl-4 pr-2";
 
 // One row in a list, sitting on a Card's surface.
 export function ListRow({
-  title, subtitle, badge, onPress, onLongPress, accessibilityLabel, accessibilityHint, accessibilityActions, onAccessibilityAction, accessory, ticked, first, last
+  title, subtitle, badge, onPress, accessibilityLabel, accessibilityHint, accessibilityActions, onAccessibilityAction, accessory, ticked, first, last
 }: ListRowProps) {
-  const pressable = Boolean(onPress ?? onLongPress);
+  const pressable = Boolean(onPress);
 
   const text = (
     <View className="flex-1 gap-0.5">
@@ -66,21 +65,23 @@ export function ListRow({
     })}`}>
       {ticked === undefined ?
         (
-          <Pressable className={`min-h-touch flex-row items-center gap-2 active:opacity-60 ${PRESSABLE_CLASS}`}
+          <Pressable className="min-h-touch flex-1 flex-row items-center active:opacity-60"
             disabled={!pressable}
             accessibilityRole={pressable ? "button" : undefined}
             accessibilityLabel={accessibilityLabel}
             accessibilityHint={accessibilityHint}
             accessibilityActions={accessibilityActions}
             onAccessibilityAction={onAccessibilityAction}
-            onPress={onPress}
-            onLongPress={onLongPress}>
-            {text}
-            {onPress && !accessory && (
-              <AppIcon name="chevron-forward"
-                color="faint"
-                size={18} />
-            )}
+            onPress={onPress}>
+            <View className={`flex-row items-center gap-2 ${PRESSABLE_CLASS}`}>
+              {text}
+              {onPress && !accessory && (
+                <AppIcon name="chevron-forward"
+                  color="faint"
+                  size={18} />
+              )}
+            </View>
+            {accessory}
           </Pressable>
         ) :
         (
@@ -91,7 +92,7 @@ export function ListRow({
             {text}
           </TickButton>
         )}
-      {accessory}
+      {ticked !== undefined && accessory}
     </View>
   );
 }

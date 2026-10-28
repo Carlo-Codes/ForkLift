@@ -196,7 +196,8 @@ function TitleInput({
 // Weeks stepper, still saved as From and To (ADR-0006). A To that isn't a whole number of
 // weeks after From (set by the AI) shows its weeks rounded up and stays until
 // the lifter changes the start date or weeks. Clearing the start date clears
-// both. A To the AI set without a From shows until a start date replaces it.
+// both. A To the AI set without a From shows, with a "×" to clear it, until a
+// start date replaces it.
 function PlanDates({
   plan, error, onSetDates
 }: {
@@ -223,7 +224,17 @@ function PlanDates({
           </AppButton>
         )}
         {!startDate && endDate && (
-          <AppText className="text-muted">Ends {formatCalendarDay(endDate)}</AppText>
+          <View className="flex-row items-center">
+            <AppText className="text-muted">Ends {formatCalendarDay(endDate)}</AppText>
+            <AppButton className="min-h-touch min-w-touch items-center justify-center"
+              accessibilityRole="button"
+              accessibilityLabel="Clear end date"
+              onPress={() => onSetDates(() => updatePlan(plan.id, { endDate: null }))}>
+              <AppIcon name="close"
+                color="muted"
+                size={18} />
+            </AppButton>
+          </View>
         )}
       </View>
       {weeks !== null && (
@@ -407,23 +418,23 @@ export function PlanEditor({ planId }: { planId: string }) {
   });
 
   // The calendar button shows for every saved Plan, as the progress summary
-  // is hidden while there's nothing to report; not in Select mode.
+  // is hidden while there's nothing to report. Neither header action shows in
+  // Select mode.
   const header = (
     <Stack.Screen options={{
-      headerRight: state ?
+      headerRight: state && !selection.selecting ?
         () => (
           <View className="flex-row items-center">
-            {!selection.selecting && (
-              <AppButton className="min-h-touch min-w-touch items-center justify-center"
-                accessibilityRole="button"
-                accessibilityLabel="Plan calendar"
-                onPress={openCalendar}>
-                <AppIcon name="calendar-outline"
-                  color="accent"
-                  size={24} />
-              </AppButton>
-            )}
             <AppButton className="min-h-touch min-w-touch items-center justify-center"
+              accessibilityRole="button"
+              accessibilityLabel="Plan calendar"
+              onPress={openCalendar}>
+              <AppIcon name="calendar-outline"
+                color="accent"
+                size={24} />
+            </AppButton>
+            <AppButton className="min-h-touch min-w-touch items-center justify-center"
+              accessibilityRole="button"
               accessibilityLabel="Plan options"
               onPress={() => Alert.alert(state.plan.name, undefined, [
                 {
