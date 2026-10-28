@@ -13,7 +13,7 @@ import { ApiError, createDebugger } from "@forklift/debug";
 
 import { toCalendarDay } from "#utils/calendarDay";
 import {
-  DEFAULT_PLAN_WEEKS, checkPlanLength, planToDate, planWeeks, planWeeksSchema
+  DEFAULT_PLAN_WEEKS, MAX_PLAN_WEEKS, checkPlanLength, planToDate, planWeeks, planWeeksSchema
 } from "#utils/planWeeks";
 import { nextPosition } from "#utils/position";
 import { inTransaction } from "#utils/transaction";
@@ -235,7 +235,8 @@ export function planDateRow({ startDate, endDate }: PlanDates): PlanDateRow {
 }
 
 // A new start date keeps the Plan's weeks (or gives it the default length when
-// it has none) and moves To with it; null clears both dates. Saved as a From/To
+// it has none), capped at MAX_PLAN_WEEKS for a Plan saved longer before the
+// cap, and moves To with it; null clears both dates. Saved as a From/To
 // edit, so AI Access sees From and To as ever. The lifter's only: the AI sets
 // From and To.
 export function setPlanStart(id: string, day: string | null, tx?: TransactionType): PlanAttributes {
@@ -250,7 +251,7 @@ export function setPlanStart(id: string, day: string | null, tx?: TransactionTyp
       }, "lifter", t);
     }
 
-    const weeks = planDateRow(getPlan(id, t)).weeks ?? DEFAULT_PLAN_WEEKS;
+    const weeks = Math.min(planDateRow(getPlan(id, t)).weeks ?? DEFAULT_PLAN_WEEKS, MAX_PLAN_WEEKS);
 
     return updatePlan(id, {
       startDate,

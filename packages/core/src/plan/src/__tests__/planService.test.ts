@@ -197,6 +197,23 @@ describe("plans", () => {
       }).startDate).toBeNull();
     });
 
+    it("clears the To of a Plan with only a To, leaving it undated", () => {
+      const { id } = createPlan({
+        name: "PPL",
+        endDate: "2026-11-02"
+      }, "ai");
+
+      expect(updatePlan(id, { endDate: null })).toEqual(expect.objectContaining({
+        startDate: null,
+        endDate: null
+      }));
+      expect(planDateRow(getPlan(id))).toEqual({
+        startDate: null,
+        weeks: null,
+        endDate: null
+      });
+    });
+
     it("rejects a To date before the From date and adds nothing", () => {
       expect(() => createPlan({
         name: "PPL",
@@ -468,6 +485,19 @@ describe("plans", () => {
       expect(() => setPlanWeeks(id, 59)).toThrow(validationError);
       expect(getPlan(id).endDate).toBe("2027-12-20");
       expect(setPlanWeeks(id, 52).endDate).toBe("2027-10-25");
+    });
+
+    it("saves a Plan already longer than 52 weeks as exactly 52 when its start date moves", () => {
+      const { id } = dated();
+
+      // Saved before the cap reached every write.
+      updatePlanDb(id, { endDate: "2027-12-20" });
+
+      expect(setPlanStart(id, "2026-11-02")).toEqual(expect.objectContaining({
+        startDate: "2026-11-02",
+        endDate: "2027-10-31"
+      }));
+      expect(planDateRow(getPlan(id)).weeks).toBe(52);
     });
 
     it("rejects a start date that isn't a calendar day", () => {
