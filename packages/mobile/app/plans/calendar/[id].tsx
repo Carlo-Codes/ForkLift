@@ -2,7 +2,7 @@ import {
   router, useFocusEffect, useLocalSearchParams
 } from "expo-router";
 import { useCallback, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { ScrollView } from "react-native";
 
 import {
   getPlan, getPlanCalendar, toCalendarDay
@@ -13,10 +13,9 @@ import type {
 
 import { AppText } from "@/components/AppText";
 import { EmptyState } from "@/components/EmptyState";
-import { ListRow, rowPosition } from "@/components/ListRow";
 import { PlanCalendarGrid } from "@/components/PlanCalendarGrid";
 import { Screen } from "@/components/Screen";
-import { formatDate } from "@/format";
+import { SessionPickerSheet } from "@/components/SessionPickerSheet";
 
 interface CalendarState {
   planName: string;
@@ -45,11 +44,11 @@ const openSession = (session: PlanCalendarSession) => router.push({
 });
 
 // A Plan's finished Sessions day by day. Tapping a day opens its Session, or,
-// for a day with several, lists them to pick from under the grid.
+// for a day with several, lists them to pick from in a bottom sheet.
 export default function PlanCalendarScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ state, setState ] = useState(() => loadCalendar(id));
-  // The day with several Sessions whose list shows.
+  // The day with several Sessions whose sheet is open.
   const [ picking, setPicking ] = useState<PlanCalendarDay>();
 
   useFocusEffect(useCallback(() => {
@@ -70,7 +69,7 @@ export default function PlanCalendarScreen() {
     if (day.sessions.length === 1) {
       openSession(day.sessions[ 0 ]!);
     } else {
-      setPicking(current => (current?.day === day.day ? undefined : day));
+      setPicking(day);
     }
   };
 
@@ -89,27 +88,13 @@ export default function PlanCalendarScreen() {
             <EmptyState icon="calendar-outline"
               message="Finished workouts of this plan show up here." />
           )}
-        {picking && (
-          <View className="gap-2">
-            <AppText weight="semibold"
-              className="text-ink">
-              {formatDate(picking.sessions[ 0 ]!.startedAt)}
-            </AppText>
-            <View>
-              {picking.sessions.map((session, i) => (
-                <ListRow key={session.id}
-                  title={session.workoutName}
-                  subtitle={session.startedAt.toLocaleTimeString(undefined, {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  })}
-                  onPress={() => openSession(session)}
-                  {...rowPosition(i, picking.sessions.length)} />
-              ))}
-            </View>
-          </View>
-        )}
       </ScrollView>
+      <SessionPickerSheet day={picking}
+        onPick={session => {
+          setPicking(undefined);
+          openSession(session);
+        }}
+        onClose={() => setPicking(undefined)} />
     </Screen>
   );
 }
