@@ -4,6 +4,7 @@ import { toCalendarDay } from "#utils/calendarDay";
 import { addDays, daysBetween } from "#utils/planWeeks";
 
 import { getPlan, listFinishedPlanSessions } from "./planService";
+import { getPlanWeek } from "./planWeek";
 
 // A finished Session as a Plan Calendar day shows it.
 export interface PlanCalendarSession {
@@ -51,15 +52,19 @@ const latest = (...days: (string | undefined)[]) => days.filter(d => d !== undef
 
 // The Plan Calendar of a Plan, as at today (a YYYY-MM-DD calendar day). Weeks
 // start on the weekday of the Plan's From date and run from From to To,
-// stretched to take in any Session before or after them. With no To date they
-// run to today; with no From date they start on the Monday of the first
-// Session's week, and with no Sessions either there's nothing to show.
+// stretched to take in any Session before or after them. With no To date the
+// Active Plan runs to today's week, and any other Plan to its last finished
+// Session's week (or From's week, with none), so a Plan last trained long ago
+// doesn't run on to today. With no From date weeks start on the Monday of the
+// first Session's week, and with no Sessions either there's nothing to show.
 export function getPlanCalendar(
   planId: string,
   today = toCalendarDay(new Date()),
   tx?: TransactionType
 ): PlanCalendar {
-  const { startDate, endDate } = getPlan(planId, tx);
+  const {
+    startDate, endDate, isActive
+  } = getPlan(planId, tx);
 
   const sessions = listFinishedPlanSessions(planId, tx).reverse()
     .map(({ session, workout }) => ({
@@ -78,26 +83,46 @@ export function getPlanCalendar(
     return { weeks: [] };
   }
 
+  // Sessions oldest first, so each day's list stays in order.
+  const sessionsByDay = new Map<string, PlanCalendarSession[]>();
+
+  for (const { day, session } of sessions) {
+    const daySessions = sessionsByDay.get(day);
+
+    if (daySessions) {
+      daySessions.push(session);
+    } else {
+      sessionsByDay.set(day, [ session ]);
+    }
+  }
+
   const from = earliest(startDate ?? undefined, firstSession)!;
-  const to = latest(endDate ?? today, sessions.at(-1)?.day, from)!;
+  const to = latest(endDate ?? (isActive ? today : undefined), sessions.at(-1)?.day, from)!;
   // Whole weeks back from the anchor, so a Session before From gets its row.
   const firstRow = addDays(anchor, -7 * Math.max(0, Math.ceil(daysBetween(from, anchor) / 7)));
   const rows = Math.floor(daysBetween(firstRow, to) / 7) + 1;
   const inPlan = (day: string) => (!startDate || day >= startDate) && (!endDate || day <= endDate);
+
+  // Week N of a row in the Plan; To is left out, as inPlan already checks it.
+  const planWeekOf = (rowStart: string) => {
+    const week = inPlan(rowStart) ? getPlanWeek({ startDate }, rowStart) : null;
+
+    return week?.status === "running" ? week.week : null;
+  };
 
   return {
     weeks: Array.from({ length: rows }, (_, row) => {
       const rowStart = addDays(firstRow, row * 7);
 
       return {
-        planWeek: startDate && inPlan(rowStart) ? (daysBetween(startDate, rowStart) / 7) + 1 : null,
+        planWeek: planWeekOf(rowStart),
         days: Array.from({ length: 7 }, (__, i) => {
           const day = addDays(rowStart, i);
 
           return {
             day,
             inPlan: inPlan(day),
-            sessions: sessions.filter(s => s.day === day).map(s => s.session)
+            sessions: sessionsByDay.get(day) ?? []
           };
         })
       };
