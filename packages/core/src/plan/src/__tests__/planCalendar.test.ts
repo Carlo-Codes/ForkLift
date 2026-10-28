@@ -168,6 +168,22 @@ describe("getPlanCalendar", () => {
     expect(sketch(getPlanCalendar(plan.id, "2026-11-17"))).toEqual([ "1: 2024-01-03, 2024-01-04, 2024-01-05, 2024-01-06, 2024-01-07, 2024-01-08, 2024-01-09" ]);
   });
 
+  it("ends any other Plan with no To date and only Sessions before From at its From date's week", () => {
+    const plan = createPlan({
+      name: "Old",
+      startDate: "2026-11-04"
+    });
+    const push = addWorkout(plan.id, "Push");
+
+    finishAt(push.id, at("2026-10-26"));
+
+    expect(sketch(getPlanCalendar(plan.id, "2026-12-01"))).toEqual([
+      "-: 2026-10-21*, 2026-10-22*, 2026-10-23*, 2026-10-24*, 2026-10-25*, 2026-10-26* Push, 2026-10-27*",
+      "-: 2026-10-28*, 2026-10-29*, 2026-10-30*, 2026-10-31*, 2026-11-01*, 2026-11-02*, 2026-11-03*",
+      "1: 2026-11-04, 2026-11-05, 2026-11-06, 2026-11-07, 2026-11-08, 2026-11-09, 2026-11-10"
+    ]);
+  });
+
   it("keeps a Plan with a To date running to To, whether it's Active or not", () => {
     const plan = createPlan({
       name: "Block",

@@ -97,7 +97,8 @@ export function getPlanCalendar(
   }
 
   const from = earliest(startDate ?? undefined, firstSession)!;
-  const to = latest(endDate ?? (isActive ? today : undefined), sessions.at(-1)?.day, from)!;
+  // Never before From's week (the anchor), even if every Session is before From.
+  const to = latest(endDate ?? (isActive ? today : undefined), sessions.at(-1)?.day, anchor)!;
   // Whole weeks back from the anchor, so a Session before From gets its row.
   const firstRow = addDays(anchor, -7 * Math.max(0, Math.ceil(daysBetween(from, anchor) / 7)));
   const rows = Math.floor(daysBetween(firstRow, to) / 7) + 1;

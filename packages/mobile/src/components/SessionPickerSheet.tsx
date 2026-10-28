@@ -2,18 +2,21 @@ import { useState } from "react";
 import {
   Modal, Pressable, View
 } from "react-native";
+import Animated, { SlideInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { PlanCalendarDay, PlanCalendarSession } from "@forklift/core";
 
+import { AppButton } from "./AppButton";
 import { AppText } from "./AppText";
 import { ListRow, rowPosition } from "./ListRow";
 
 import { formatDate } from "@/format";
 
 // A Plan Calendar day's Sessions to pick from, in a sheet over the bottom of the
-// screen so it shows wherever the calendar is scrolled. Tapping outside it, or
-// Back on Android, closes it.
+// screen so it shows wherever the calendar is scrolled. Tapping outside it, its
+// Close button, Back on Android or the VoiceOver escape gesture closes it. The
+// dim backdrop fades in while only the sheet slides up.
 export function SessionPickerSheet({
   day, onPick, onClose
 }: {
@@ -35,7 +38,7 @@ export function SessionPickerSheet({
   return (
     <Modal visible={day !== undefined}
       transparent
-      animationType="slide"
+      animationType="fade"
       statusBarTranslucent
       navigationBarTranslucent
       onRequestClose={onClose}>
@@ -44,9 +47,13 @@ export function SessionPickerSheet({
           accessibilityRole="button"
           accessibilityLabel="Close workout list"
           onPress={onClose} />
-        <View className="gap-2 rounded-t-2xl bg-background px-4 pt-4"
+        {/* The Modal already keeps screen-reader focus off the screen behind,
+            so the sheet isn't accessibilityViewIsModal: that would hide the
+            backdrop's close button from VoiceOver. */}
+        <Animated.View entering={SlideInDown}
+          className="gap-2 rounded-t-2xl bg-background px-4 pt-4"
           style={{ paddingBottom: insets.bottom + 16 }}
-          accessibilityViewIsModal>
+          onAccessibilityEscape={onClose}>
           {sessions[ 0 ] && (
             <AppText weight="semibold"
               className="text-ink">
@@ -65,7 +72,13 @@ export function SessionPickerSheet({
                 {...rowPosition(i, sessions.length)} />
             ))}
           </View>
-        </View>
+          <AppButton variant="link"
+            accessibilityRole="button"
+            accessibilityLabel="Close workout list"
+            onPress={onClose}>
+            Close
+          </AppButton>
+        </Animated.View>
       </View>
     </Modal>
   );
