@@ -401,27 +401,46 @@ export function PlanEditor({ planId }: { planId: string }) {
     unsavedName.current = undefined;
   };
 
+  const openCalendar = () => router.push({
+    pathname: "/plans/calendar/[id]",
+    params: { id: planId }
+  });
+
+  // The calendar button shows for every saved Plan, as the progress summary
+  // is hidden while there's nothing to report; not in Select mode.
   const header = (
     <Stack.Screen options={{
       headerRight: state ?
         () => (
-          <AppButton className="min-h-touch min-w-touch items-center justify-center"
-            accessibilityLabel="Plan options"
-            onPress={() => Alert.alert(state.plan.name, undefined, [
-              {
-                text: "Delete plan",
-                style: "destructive",
-                onPress: () => confirmDeletePlan(state.plan, () => router.back())
-              },
-              {
-                text: "Cancel",
-                style: "cancel"
-              }
-            ])}>
-            <AppIcon name="ellipsis-horizontal-circle"
-              color="accent"
-              size={26} />
-          </AppButton>
+          <View className="flex-row items-center">
+            {!selection.selecting && (
+              <AppButton className="min-h-touch min-w-touch items-center justify-center"
+                accessibilityRole="button"
+                accessibilityLabel="Plan calendar"
+                onPress={openCalendar}>
+                <AppIcon name="calendar-outline"
+                  color="accent"
+                  size={24} />
+              </AppButton>
+            )}
+            <AppButton className="min-h-touch min-w-touch items-center justify-center"
+              accessibilityLabel="Plan options"
+              onPress={() => Alert.alert(state.plan.name, undefined, [
+                {
+                  text: "Delete plan",
+                  style: "destructive",
+                  onPress: () => confirmDeletePlan(state.plan, () => router.back())
+                },
+                {
+                  text: "Cancel",
+                  style: "cancel"
+                }
+              ])}>
+              <AppIcon name="ellipsis-horizontal-circle"
+                color="accent"
+                size={26} />
+            </AppButton>
+          </View>
         ) :
         undefined
     }} />
@@ -492,10 +511,7 @@ export function PlanEditor({ planId }: { planId: string }) {
           <AppButton className="min-h-touch flex-row items-center gap-2 self-start"
             accessibilityRole="link"
             accessibilityHint="Show the plan calendar"
-            onPress={() => router.push({
-              pathname: "/plans/calendar/[id]",
-              params: { id: planId }
-            })}>
+            onPress={openCalendar}>
             <AppIcon name="calendar-outline"
               color="accent"
               size={18} />
